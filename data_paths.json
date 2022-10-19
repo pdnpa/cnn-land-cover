@@ -1,0 +1,14 @@
+{
+  "tplas":
+    {"paths": {
+      "image_path": "/home/tplas/data/gis/most recent APGB 12.5cm aerial/117383_20221005/12.5cm Aerial Photo/117383-1_RGB_1_Shape/",
+      "lc_80s_path": "/home/tplas/data/gis/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp"
+              }
+    },
+  "thijs": 
+    {"paths": {
+      "image_path": "/home/thijs/Google Drive/peak district/data/most recent APGB 12.5cm aerial/117383_20221005/12.5cm Aerial Photo/117383-1_RGB_1_Shape/",
+      "lc_80s_path": "/home/thijs/Google Drive/peak district/data/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp"
+              }
+    }
+}
