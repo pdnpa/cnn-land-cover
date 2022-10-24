@@ -8,6 +8,7 @@ from tqdm import tqdm
 import shapely as shp
 import pandas as pd
 import geopandas as gpd
+from geocube.api.core import make_geocube
 import gdal, osr
 import loadpaths
 
@@ -48,11 +49,9 @@ def load_coords_from_geotiff(tiff_file_path):
     square_coords = shp.geometry.Polygon(zip([x_left, x_right, x_right, x_left], [y_bottom, y_bottom, y_top, y_top]))
     df_tile = gpd.GeoDataFrame(crs=f'epsg:{raster_epsg}', geometry=[square_coords])
     df_tile = df_tile.assign(name=tiff_file_path.split('/')[-1].rstrip('.tif'))  # could assign index with index=[0] 
-    return df_tile
-
+    
     # # print(x_left, x_right, y_bottom, y_top)
-    # # supposing x and y are your pixel coordinate this 
-    # # is how to get the coordinate in space.
+    # # supposing x and y are your pixel coordinate this is how to get the coordinate in space:
     # pix_x = 1000
     # pix_y= 4000
     # posX = px_width * pix_x + x_rot * pix_y + x_left
@@ -62,11 +61,16 @@ def load_coords_from_geotiff(tiff_file_path):
     # posY += px_height / 2.0
     # # print(posX, posY)
 
+    return df_tile
+
 def load_geo_tiff(tiff_file_path, datatype='np', verbose=0):
     ## image
     im = load_tiff(tiff_file_path=tiff_file_path, datatype=datatype, verbose=verbose)
 
     # coords 
+    df_tile = load_coords_from_geotiff(tiff_file_path=tiff_file_path)
+
+    return im, df_tile
 
 def load_pols(pol_path):
     df_pols = gpd.read_file(pol_path)
@@ -110,3 +114,23 @@ def get_pols_for_tiles(df_pols, df_tiles):
         dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(LC_N_80=list_class_id, LC_D_80=list_class_name)  # put all new intersections back into a dataframe        # df_relevant_pols
 
     return dict_pols
+
+def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
+                                resolution=(0.125, -0.125),
+                                save_raster=False, filename='mask.tif',
+                                plot_raster=False):
+
+    ## Convert shape to raster:
+    cube = make_geocube(df_shp, measurements=[col_name],
+                    # like=ex_tile)  # use resolution of example tiff
+                    resolution=resolution)
+
+    if save_raster:
+        filepath = filename
+        cube[col_name].rio.to_raster(filepath)
+        print(f'Saved to {filepath}')
+
+    if plot_raster:
+        cube[col_name].plot()
+
+    return cube 
