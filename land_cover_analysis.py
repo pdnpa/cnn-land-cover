@@ -16,6 +16,7 @@ import loadpaths
 path_dict = loadpaths.loadpaths()
 
 def assert_epsg(epsg, project_epsg=27700):
+    '''Check epsg against reference (project) epsg'''
     if type(epsg) != int:
         epsg = int(epsg)
     assert epsg == project_epsg, f'EPSG {epsg} is not project EPSG ({project_epsg})'
@@ -37,11 +38,13 @@ def load_tiff(tiff_file_path, datatype='np', verbose=0):
     return im 
 
 def get_all_tifs_from_dir(dirpath):
+    '''Return list of tifs from dir path'''
     assert type(dirpath) == str
     list_tifs = [os.path.join(dirpath, x) for x in os.listdir(dirpath) if x[-4:] == '.tif']
     return list_tifs 
 
 def load_coords_from_geotiff(tiff_file_path):
+    '''Create rectangular polygon based on coords of geotiff file'''
     ## from https://stackoverflow.com/questions/50191648/gis-geotiff-gdal-python-how-to-get-coordinates-from-pixel and https://gis.stackexchange.com/questions/126467/determining-if-shapefile-and-raster-overlap-in-python-using-ogr-gdal
     raster = gdal.Open(tiff_file_path)
     raster_epsg = int(osr.SpatialReference(raster.GetProjection()).GetAttrValue('AUTHORITY', 1))
@@ -69,8 +72,8 @@ def load_coords_from_geotiff(tiff_file_path):
     return square_coords, name_tile, raster_epsg
 
 def create_df_with_tiff_coords(tiff_paths, verbose=0):
-
-    if type(tiff_paths) == str:
+    '''Create df with image tile polygons of all tifs in tiff_paths list'''
+    if type(tiff_paths) == str:  # if only one path given as str, turn into list for compatibility
         tiff_paths = [tiff_paths] 
 
     if verbose > 0:
@@ -104,6 +107,7 @@ def create_df_with_tiff_coords(tiff_paths, verbose=0):
 #     return im, df_tile
 
 def load_pols(pol_path):
+    '''Load shape file'''
     df_pols = gpd.read_file(pol_path)
     assert_epsg(df_pols.crs.to_epsg())
     return df_pols 
@@ -125,7 +129,7 @@ def load_landcover(pol_path, col_class_ind='LC_N_80', col_class_names='LC_D_80')
 
 def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'], 
                                     col_class_ind='LC_N_80', col_class_names='LC_D_80'):
-
+    '''Get mapping between LC class inds and names'''
     _, dict_ind_to_name = load_landcover(pol_path=pol_path, col_class_ind=col_class_ind, 
                                          col_class_names=col_class_names)
 
@@ -134,7 +138,7 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
     return dict_ind_to_name, dict_name_to_ind
 
 def get_pols_for_tiles(df_pols, df_tiles):
-    '''Assuming a df for tiles currently.. Could just use Polygon geometry instead'''
+    '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.'''
 
     n_tiles = len(df_tiles)
     dict_pols = {}
@@ -163,6 +167,8 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                                 maskdir=None, plot_raster=False,
                                 verbose=0):
     '''
+    Turn gdf of shape file polygon into a raster file. Possibly store & plot.
+
     interpolation:
         - None: nothing done with missing data (turned into 0)
         - 'nearest': using label of nearest pixels (takes bit of extra time)
@@ -188,7 +194,6 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     assert (unique_labels == new_unique_labels).all(), f'Old labels: {unique_labels}, new labels: {new_unique_labels}, comaprison: {(unique_labels == new_unique_labels)}'  # unique labels are sorted by default so this works as sanity check
     if verbose > 0:
         print(f'New cube data size is {cube.nbytes / 1e6} MB')
-
 
     if save_raster:
         assert type(filename) == str, 'filename must be string'
