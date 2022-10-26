@@ -1,6 +1,7 @@
 import os, sys, copy
 import numpy as np
 from numpy.core.multiarray import square
+from numpy.testing import print_assert_equal
 import rasterio
 import xarray as xr
 import rioxarray as rxr
@@ -12,6 +13,7 @@ import geopandas as gpd
 from geocube.api.core import make_geocube
 import gdal, osr
 import loadpaths
+from patchify import patchify 
 
 path_dict = loadpaths.loadpaths()
 
@@ -210,3 +212,73 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
         cube[col_name].plot()
 
     return cube 
+
+def create_image_mask_patches(image, mask, patch_size=500):
+    assert type(image) == xr.DataArray, 'expecting image to be a xr.DataArray'
+    assert image.ndim == 3, 'expecting band by x by y dimensions'
+    assert patch_size < len(image.x) and patch_size < len(image.y)
+    assert len(image.x) == len(image.y)
+
+    assert type(mask) == np.ndarray 
+    assert mask.shape == (1, len(image.x), len(image.y))
+    mask = np.squeeze(mask)  # get rid of extra dim 
+
+    n_exp_patches = int(np.floor(len(image.x) / patch_size))
+
+    ## Create patches of patch_size x patch_size (x n_bands)
+    patches_img = patchify(image.to_numpy(), (3, patch_size, patch_size), step=patch_size)
+    patches_mask = patchify(mask, (patch_size, patch_size), step=patch_size)
+    assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)
+    assert patches_mask.shape == (n_exp_patches, n_exp_patches, patch_size, patch_size)
+    assert type(patches_img) == np.ndarray and type(patches_mask) == np.ndarray
+
+    ## Reshape to get array of patches:
+    patches_img = np.reshape(np.squeeze(patches_img), (n_exp_patches ** 2, 3, patch_size, patch_size), order='C')
+    patches_mask = np.reshape(patches_mask, (n_exp_patches ** 2, patch_size, patch_size), order='C')
+
+    assert patches_img.shape[0] == patches_mask.shape[0]
+    return patches_img, patches_mask
+
+def create_all_patches_from_dir(dir_im=path_dict['image_path'], 
+                                dir_mask=path_dict['mask_path'], 
+                                mask_fn_suffix='_lc_80s_mask.tif',
+                                augment_data=False,
+                                patch_size=500):
+    im_paths = get_all_tifs_from_dir(dir_im)
+    mask_paths = get_all_tifs_from_dir(dir_mask)
+    # assert len(im_paths) == len(mask_paths), 'different number of masks and images'
+    assert type(mask_fn_suffix) == str 
+    for ii, image_fn in enumerate(im_paths):
+        ## Find mask that matches image:
+        im_name = image_fn.split('/')[-1].rstrip('.tif')
+        mask_name = im_name + mask_fn_suffix
+        mask_fn = os.path.join(dir_mask, mask_name)
+        assert mask_fn in mask_paths, f'Mask for {im_name} not found in {dir_mask} under name of {mask_fn}'
+        
+        image_tile = load_tiff(tiff_file_path=image_fn, datatype='da')
+        mask_tif = load_tiff(tiff_file_path=mask_fn, datatype='np')
+
+        patches_img, patches_mask = create_image_mask_patches(image=image_tile, mask=mask_tif, 
+                                                              patch_size=patch_size)
+        n_patches = patches_mask.shape[0]
+        if ii == 0:  # first iteration, create object:
+            all_patches_img = patches_img 
+            all_patches_mask = patches_mask
+        else:
+            all_patches_img = np.concatenate((all_patches_img, patches_img), axis=0)
+            all_patches_mask = np.concatenate((all_patches_mask, patches_mask), axis=0)
+
+    if augment_data:
+        all_patches_img, all_patches_mask = augment_patches(all_patches_img=all_patches_img, 
+                                                            all_patches_mask=all_patches_mask)
+
+    return all_patches_img, all_patches_mask
+
+def augment_patches(all_patches_img, all_patches_mask):
+    ## Rotate
+    pass
+    ## Mirror 
+    pass
+    return all_patches_img, all_patches_mask
+
+    
