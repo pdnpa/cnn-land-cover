@@ -134,7 +134,7 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
     '''Get mapping between LC class inds and names'''
     _, dict_ind_to_name = load_landcover(pol_path=pol_path, col_class_ind=col_class_ind, 
                                          col_class_names=col_class_names)
-
+    dict_ind_to_name[0] = 'NO CLASS'
     dict_name_to_ind = {v: k for k, v in dict_ind_to_name.items()}
 
     return dict_ind_to_name, dict_name_to_ind
@@ -214,6 +214,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     return cube 
 
 def create_image_mask_patches(image, mask, patch_size=500):
+    '''Given a loaded image (as DataArray) and mask (as np array), create patches (ie sub images/masks)'''
     assert type(image) == xr.DataArray, 'expecting image to be a xr.DataArray'
     assert image.ndim == 3, 'expecting band by x by y dimensions'
     assert patch_size < len(image.x) and patch_size < len(image.y)
@@ -244,12 +245,13 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
                                 mask_fn_suffix='_lc_80s_mask.tif',
                                 augment_data=False,
                                 patch_size=500):
+    '''Create patches from all images & masks in given dirs.'''
     im_paths = get_all_tifs_from_dir(dir_im)
     mask_paths = get_all_tifs_from_dir(dir_mask)
     # assert len(im_paths) == len(mask_paths), 'different number of masks and images'
     assert type(mask_fn_suffix) == str 
     for ii, image_fn in enumerate(im_paths):
-        ## Find mask that matches image:
+        ## Find mask that matches image by filename:
         im_name = image_fn.split('/')[-1].rstrip('.tif')
         mask_name = im_name + mask_fn_suffix
         mask_fn = os.path.join(dir_mask, mask_name)
@@ -275,10 +277,16 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
     return all_patches_img, all_patches_mask
 
 def augment_patches(all_patches_img, all_patches_mask):
+    '''Augment patches by rotating etc'''
+    ## Assert data sizes:
+    pass
     ## Rotate
     pass
     ## Mirror 
     pass
     return all_patches_img, all_patches_mask
 
-    
+def get_distr_classes_from_patches(patches_mask):
+    '''Count for each class label the number of occurences'''
+    class_inds, frequency = np.unique(patches_mask, return_counts=True)
+    return (class_inds, frequency)
