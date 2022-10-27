@@ -5,7 +5,7 @@ from numpy.testing import print_assert_equal
 import rasterio
 import xarray as xr
 import rioxarray as rxr
-import sklearn.cluster
+import sklearn.cluster, sklearn.model_selection
 from tqdm import tqdm
 import shapely as shp
 import pandas as pd
@@ -243,7 +243,6 @@ def create_image_mask_patches(image, mask, patch_size=500):
 def create_all_patches_from_dir(dir_im=path_dict['image_path'], 
                                 dir_mask=path_dict['mask_path'], 
                                 mask_fn_suffix='_lc_80s_mask.tif',
-                                augment_data=False,
                                 patch_size=500):
     '''Create patches from all images & masks in given dirs.'''
     im_paths = get_all_tifs_from_dir(dir_im)
@@ -270,10 +269,6 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
             all_patches_img = np.concatenate((all_patches_img, patches_img), axis=0)
             all_patches_mask = np.concatenate((all_patches_mask, patches_mask), axis=0)
 
-    if augment_data:
-        all_patches_img, all_patches_mask = augment_patches(all_patches_img=all_patches_img, 
-                                                            all_patches_mask=all_patches_mask)
-
     return all_patches_img, all_patches_mask
 
 def augment_patches(all_patches_img, all_patches_mask):
@@ -290,3 +285,23 @@ def get_distr_classes_from_patches(patches_mask):
     '''Count for each class label the number of occurences'''
     class_inds, frequency = np.unique(patches_mask, return_counts=True)
     return (class_inds, frequency)
+
+def split_patches_in_train_test(all_patches_img, all_patches_mask, 
+                                fraction_test=0.2, split_method='random',
+                                augment_data=False):
+    assert type(all_patches_img) == np.ndarray and type(all_patches_mask) == np.ndarray
+    assert all_patches_img.ndim == 4 and all_patches_mask.ndim == 3
+    assert all_patches_img[:, 0, :, :].shape == all_patches_mask.shape 
+
+    if split_method == 'random':
+        im_train, im_test, mask_train, mask_test = sklearn.model_selection.train_test_split(all_patches_img, all_patches_mask,
+                                                                                        test_size=fraction_test)
+    else:
+        assert False, f'Split method {split_method} not implemented'
+
+    if augment_data:  # augment the train/test sets separately so augmented images are always in the same set 
+        im_train, mask_train = augment_patches(all_patches_img=im_train, all_patches_mask=mask_train)
+        im_test, mask_test = augment_patches(all_patches_img=im_test, all_patches_mask=mask_test)
+
+    return im_train, im_test, mask_train, mask_test
+    
