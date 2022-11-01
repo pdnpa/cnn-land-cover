@@ -14,6 +14,11 @@ from geocube.api.core import make_geocube
 import gdal, osr
 import loadpaths
 from patchify import patchify 
+import torch, torchvision
+from torch import nn
+import torch.nn.functional as F
+from torch.utils.data import TensorDataset, DataLoader
+import segmentation_models_pytorch as smp
 
 path_dict = loadpaths.loadpaths()
 
@@ -272,7 +277,8 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
     return all_patches_img, all_patches_mask
 
 def augment_patches(all_patches_img, all_patches_mask):
-    '''Augment patches by rotating etc'''
+    '''Augment patches by rotating etc.
+    See existing torch functions (eg https://www.kaggle.com/code/haphamtv/pytorch-smp-unet/notebook)'''
     ## Assert data sizes:
     pass
     ## Rotate
@@ -280,6 +286,73 @@ def augment_patches(all_patches_img, all_patches_mask):
     ## Mirror 
     pass
     return all_patches_img, all_patches_mask
+
+# def change_data_to_tensor(x_train, y_train, x_test, y_test):
+#     '''Change data to torch tensor type. Could be tidier with args'''
+#     x_train, y_train, x_test, y_test = map(
+#         torch.tensor, (x_train, y_train, x_test, y_test))  # create tensors
+#     x_train, y_train, x_test, y_test = x_train.int(), y_train.int(), x_test.int(), y_test.int()  # need to be float type (instead of 'double', which is somewhat silly)
+#     return x_train, y_train, x_test, y_test
+
+def change_data_to_tensor(*args, tensor_dtype='int'):
+    '''Change data to torch tensor type.'''
+    assert tensor_dtype in ['int', 'float'], f'tensor dtype {tensor_dtype} not recognised'
+    print('WARNING: data not yet normalised!!')
+    new_ds = []
+    for ds in args:
+        ds = torch.tensor(ds)
+        if tensor_dtype == 'int':
+            # ds = ds.int()
+            ds = ds.type(torch.LongTensor)
+        elif tensor_dtype == 'float':
+            ds = ds.float()
+        new_ds.append(ds)
+    return tuple(new_ds)
+
+def apply_zscore_preprocess_images(im_ds, f_preprocess, verbose=0):
+    '''Apply preprocessing function to image data set.
+    Assuming a torch preprocessing function here that essentially z-scores and only works on RGB tensor of shape (3,)'''
+    assert type(im_ds) == torch.Tensor, 'expected tensor here'
+    assert im_ds.ndim == 4 and im_ds.shape[1] == 3, 'unexpected shape'
+
+    dtype = im_ds.dtype
+
+    rgb_means = f_preprocess.keywords['mean']
+    rgb_std = f_preprocess.keywords['std']
+
+    rgb_means = torch.tensor(np.array(rgb_means)[None, :, None, None])  # get into right dimensions
+    rgb_std = torch.tensor(np.array(rgb_std)[None, :, None, None])  # get into right dimensions
+
+    ## Change to consistent dtype:
+    rgb_means = rgb_means.type(dtype)
+    rgb_std = rgb_std.type(dtype)
+
+    if verbose > 0:
+        print('Changing range')
+    if (im_ds > 1).any():
+        im_ds = im_ds / 255 
+
+    if verbose > 0:
+        print('Z scoring data')
+    im_ds = (im_ds - rgb_means) / rgb_std
+
+    assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
+    return im_ds
+
+def create_data_loaders(x_train, x_test, y_train, y_test, batch_size=100):
+    '''Create torch data loaders'''
+    train_ds = TensorDataset(x_train, y_train)
+    train_dl = DataLoader(train_ds, batch_size=batch_size)  # could specify num_workers?? 
+
+    test_ds = TensorDataset(x_test, y_test)
+    test_dl = DataLoader(test_ds, batch_size=batch_size)
+
+    return train_dl, test_dl
+
+def print_info_ds(ds):
+    dtype = ds.dtype 
+    shape = ds.shape 
+    print(f'{dtype} of shape {shape}')
 
 def get_distr_classes_from_patches(patches_mask):
     '''Count for each class label the number of occurences'''
@@ -289,6 +362,7 @@ def get_distr_classes_from_patches(patches_mask):
 def split_patches_in_train_test(all_patches_img, all_patches_mask, 
                                 fraction_test=0.2, split_method='random',
                                 augment_data=False):
+    '''Split image and mask patches into a train and test set'''
     assert type(all_patches_img) == np.ndarray and type(all_patches_mask) == np.ndarray
     assert all_patches_img.ndim == 4 and all_patches_mask.ndim == 3
     assert all_patches_img[:, 0, :, :].shape == all_patches_mask.shape 
@@ -305,3 +379,10 @@ def split_patches_in_train_test(all_patches_img, all_patches_mask,
 
     return im_train, im_test, mask_train, mask_test
     
+def check_torch_ready(verbose=1):
+    '''Check if pytorch, cuda, gpu, etc are ready to be used'''
+    assert torch.cuda.is_available()
+    if verbose > 0:  # possibly also insert assert versions
+        print(f'Pytorch version is {torch.__version__}')
+        print(f'Torchvision version is {torchvision.__version__}')
+        print(f'Segmentation-models-pytorch version is {smp.__version__}')

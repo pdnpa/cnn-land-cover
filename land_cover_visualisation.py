@@ -162,14 +162,13 @@ def plot_lc_from_gdf_dict(df_pols_tiles, tile_name='SK0066',
     return ax
         
 def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_mask, ax=None):
-
+    '''Get & plot distribution of LC classes for both train and test patches (pixel wise). '''
     ## Get counts: (can take some time)
     class_ind_train, freq_train = lca.get_distr_classes_from_patches(patches_mask=train_patches_mask)
     class_ind_test, freq_test = lca.get_distr_classes_from_patches(patches_mask=test_patches_mask)
 
-    # print(class_ind_train, class_ind_test)
-    # print(freq_train, freq_test)
-    for c_train in class_ind_train:
+    ## In case one data set contains classes the other doesn't, add 0-count to the other:
+    for c_train in class_ind_train:  
         if c_train in class_ind_test:
             continue 
         else:
@@ -182,7 +181,7 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
         else:
             class_ind_train = np.concatenate((class_ind_train, [c_test]), axis=0)
             freq_train = np.concatenate((freq_train, [0]), axis=0)
-
+    ## Sort again by class ind:
     arg_train = np.argsort(class_ind_train)
     arg_test = np.argsort(class_ind_test)
     class_ind_test = class_ind_test[arg_test]
@@ -190,19 +189,19 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
     class_ind_train = class_ind_train[arg_train]
     freq_train = freq_train[arg_train]
 
-    # print(class_ind_train, class_ind_test)
-    # print(freq_train, freq_test)
+    ## Get inds, names and density:
     assert (class_ind_train == class_ind_test).all(), 'there is a unique class in either one of the splits => build in a way to accomodate this by adding a 0 count'
     inds_classes = class_ind_test  # assuming they are equal given the assert bove
     names_classes = [dict_ind_to_name[x] for x in inds_classes]
+    n_classes = len(inds_classes)
 
-    if ax is None:
-        ax = plt.subplot(111)
-    
     bar_locs = np.arange(len(inds_classes))
     dens_train = freq_train / freq_train.sum() 
     dens_test = freq_test / freq_test.sum()
 
+    ## Plot bar hist of density:
+    if ax is None:
+        ax = plt.subplot(111)
     ax.bar(x=bar_locs - 0.2, height=dens_train, 
            width=0.4, label='Train')
     ax.bar(x=bar_locs + 0.2, height=dens_test, 
@@ -216,5 +215,6 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
     ax.set_title('Distribution of LC classes in train and test set', fontdict={'weight': 'bold'})
     despine(ax)
 
+    return (class_ind_train, freq_train), (class_ind_test, freq_test), (names_classes, n_classes)
 
 
