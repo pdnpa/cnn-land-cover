@@ -215,6 +215,6 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
     ax.set_title('Distribution of LC classes in train and test set', fontdict={'weight': 'bold'})
     despine(ax)
 
-    return (class_ind_train, freq_train), (class_ind_test, freq_test), (names_classes, n_classes)
+    return (class_ind_train, freq_train), (class_ind_test, freq_test), (inds_classes, names_classes, n_classes)
 
 

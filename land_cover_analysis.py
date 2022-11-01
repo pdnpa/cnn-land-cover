@@ -379,10 +379,15 @@ def split_patches_in_train_test(all_patches_img, all_patches_mask,
 
     return im_train, im_test, mask_train, mask_test
     
-def check_torch_ready(verbose=1):
+def check_torch_ready(verbose=1, check_gpu=True, assert_versions=False):
     '''Check if pytorch, cuda, gpu, etc are ready to be used'''
-    assert torch.cuda.is_available()
+    if check_gpu:
+        assert torch.cuda.is_available()
     if verbose > 0:  # possibly also insert assert versions
-        print(f'Pytorch version is {torch.__version__}')
+        print(f'Pytorch version is {torch.__version__}') 
         print(f'Torchvision version is {torchvision.__version__}')
         print(f'Segmentation-models-pytorch version is {smp.__version__}')
+    if assert_versions:
+        assert torch.__version__ == '1.12.1+cu102'
+        assert torchvision.__version__ == '0.13.1+cu102'
+        assert smp.__version__ == '0.3.0'
