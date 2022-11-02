@@ -162,7 +162,7 @@ def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax
     if plot_colorbar:
         if cax is None:
             divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
+            cax = divider.append_axes("right", size="3%", pad=0.04)
         plt.colorbar(im_plot, format=formatter, ticks=cbar_ticks, cax=cax)
     naked(ax)
 
