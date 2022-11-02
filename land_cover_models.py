@@ -32,8 +32,8 @@ class LandCoverUNet(pl.LightningModule):
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet'):
         super().__init__()
 
-        # lca.check_torch_ready()
-        # self.save_hyperparameters()
+        self.save_hyperparameters()
+        
         # pl.seed_everything(7)
 
         ## Use SMP Unet as base model. This PL class essentially just wraps around that:
@@ -48,11 +48,11 @@ class LandCoverUNet(pl.LightningModule):
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
 
         ## Define loss used for training:
-        self.loss = self.dummy_loss
-        # self.loss = nn.BCEWithLogitsLoss()
-
+        # self.loss = self.dummy_loss
+        self.loss = nn.CrossEntropyLoss(reduction='mean')  # reduction: 'none' (returns full-sized tensor), 'mean', 'sum'. Can also insert class weights and ignore indices
         # self.seg_val_metric = pl.metrics.Accuracy()
 
+        # self.log(prog_bar=True)
     def dummy_loss(self, y, output):
         '''Dummy function for loss'''
         assert y.shape == output.shape, f'y has shape {y.shape} but output has shape {output.shape}'
@@ -60,12 +60,13 @@ class LandCoverUNet(pl.LightningModule):
 
     def forward(self, x):
         '''By default, the predict_step() method runs the forward() method. In order to customize this behaviour, simply override the predict_step() method.'''
+        assert type(x) == torch.Tensor, f'This is type {type(x)} with len {len(x)}. Type and shape of first {type(x[0])}, {x[0].shape} and 2nd: {type(x[1])}, {x[1].shape}'
         return self.base(x)
     
     def training_step(self, batch, batch_idx):
         x, y = batch
         output = self.base(x)
-        loss = self.loss(y, output)
+        loss = self.loss(output, y)
         self.log('train_loss', loss, on_epoch=True)
         # return {"loss": loss}
         return loss
@@ -78,12 +79,30 @@ class LandCoverUNet(pl.LightningModule):
     #     '''Only adjust if you need outputs of different training steps'''
     #     torch.stack([x["loss"] for x in outputs]).mean()
 
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        output = self.base(x)
+        loss = self.loss(output, y)
+
+        self.log('test_loss', loss)
+    
     def validation_step(self, batch, batch_idx):
         x, y = batch
         output = self.base(x)
-        loss = self.loss(y, output)
+        loss = self.loss(output, y)
 
         self.log('val_loss', loss, on_epoch=True)
+
+    def predict_step(self, batch, batch_idx):
+        '''Takes batches of (images, masks), like training etc. Then call forward and only give output.
+        Output will be tensor of output masks.
+        
+        When calling this function with a DataLoader (trainer.predict(LCU, test_dl), then the output will be
+        a list of batches'''
+        x, y = batch
+        output = self.base(x)
+        
+        return output
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)  # momentum=0.9

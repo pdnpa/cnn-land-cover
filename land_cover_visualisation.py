@@ -1,9 +1,10 @@
-import os, sys
+import os, sys, copy
 import random, json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors 
 import matplotlib.patches as mpatches
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from cycler import cycler
 import seaborn as sns
 import rasterio, rasterio.plot
@@ -11,6 +12,7 @@ import xarray as xr
 import rioxarray as rxr
 import pandas as pd
 import geopandas as gpd
+import torch
 import land_cover_analysis as lca
 
 ## Set default settings.
@@ -36,6 +38,16 @@ with open('lc_colour_mapping.json', 'r') as f:
 
 dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts()
 lc_colour_mapping_names = {dict_ind_to_name[k]: v for k, v in lc_colour_mapping_inds.items() if k in dict_ind_to_name.keys()}
+
+def create_lc_cmap(lc_class_name_list, unique_labels_array):
+    '''Create custom colormap of LC classes, based on list of names given.'''
+    lc_colours_list = [lc_colour_mapping_names[xx] for xx in lc_class_name_list]  # get list of colours based on class names
+    lc_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('LC classes', colors=lc_colours_list, 
+                                                                  N=len(lc_colours_list))  # create qualitative cmap of colour lists
+    formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
+    ticks = np.arange(len(lc_colours_list))
+
+    return lc_cmap, formatter, ticks 
 
 def generate_list_random_colours(n):
     list_colours =  ["#%06x" % random.randint(0, 0xFFFFFF) for _ in range(n)]
@@ -132,6 +144,106 @@ def plot_image_simple(im, ax=None, name_file=None):
     else:
         name_tile = name_file.split('/')[-1].rstrip('.tif')
         ax.set_title(name_tile)
+
+def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax=None, 
+                         plot_colorbar=True, cax=None):
+    '''Plot LC as raster. Give lc_class_name_list and unique_labels_array to create 
+    color legend of classes'''
+    if ax is None:
+        ax = plt.subplot(111)
+
+    # unique_labels = np.unique(im).astype('int')
+    # present_class_names = [lc_class_name_list[lab] for lab in unique_labels]
+    # lc_cmap, formatter, cbar_ticks = create_lc_cmap(lc_class_name_list=present_class_names)
+    lc_cmap, formatter, cbar_ticks = create_lc_cmap(lc_class_name_list=lc_class_name_list, 
+                                                    unique_labels_array=unique_labels_array)  # get cbar specifics for LC classes
+
+    im_plot = ax.imshow(im, cmap=lc_cmap, vmin=- 0.5, vmax=len(lc_class_name_list) - 0.5)  # set min and max to absolute number of classes. Hence this ONLY works with adjacent classes.
+    if plot_colorbar:
+        if cax is None:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(im_plot, format=formatter, ticks=cbar_ticks, cax=cax)
+    naked(ax)
+
+def plot_image_mask_pred(image, mask, pred, lc_class_name_list=[], unique_labels_array=None, 
+                         ax_list=None, plot_colorbar=True, cax=None):
+    '''Plot image/mask/prediction next to each other & cbar if given'''
+    ## check that ax_list is of correct format:
+    create_new_ax = True
+    if ax_list is not None:
+        if (type(ax_list) == list or type(ax_list) == np.ndarray) and (len(ax_list) == 3 or len(ax_list) == 4):
+            create_new_ax = False 
+        else:
+            print(f'ax_list is type {type(ax_list)} of len {len(ax_list)}')
+
+    if create_new_ax:
+        fig, ax_list = plt.subplot(1, 3, figsize=(6, 20))
+
+    ## Use specific functions for each:
+    plot_image_simple(im=image, ax=ax_list[0])
+    plot_landcover_image(im=mask, ax=ax_list[1], lc_class_name_list=lc_class_name_list, 
+                         unique_labels_array=unique_labels_array, plot_colorbar=False)
+    plot_landcover_image(im=pred, ax=ax_list[2], lc_class_name_list=lc_class_name_list, 
+                        unique_labels_array=unique_labels_array, 
+                        plot_colorbar=plot_colorbar, cax=cax)
+    
+    return ax_list 
+
+def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
+                                  lc_class_name_list=[], unique_labels_array=None,):
+    '''Plot rows of image/mask/prediction + legend.'''
+    assert type(ind_list) == list
+    ind_list = np.sort(np.array(ind_list))
+    assert all_ims.ndim == 4 and all_masks.ndim == 3, 'images and masks dont have expected shape'
+    assert all_preds.ndim == 3, 'predicted masks dont have expected shape. Maybe they are not yet argmaxed?'
+    assert all_ims.shape[0] == all_masks.shape[0] and all_ims.shape[0] == all_preds.shape[0]
+    assert all_ims.shape[-2:] == all_masks.shape[-2:] and all_ims.shape[-2:] == all_preds.shape[-2:]
+
+    ## Select images to be plotted:
+    ims_plot = all_ims[ind_list, :, :, :]
+    masks_plot = all_masks[ind_list, :, :]
+    preds_plot = all_preds[ind_list, :, :]
+    assert ims_plot.ndim == 4 and masks_plot.ndim == 3 and preds_plot.ndim == 3
+    if preprocessing_fun is None:
+        print('WARNING: no preprocessing (eg z-scoring) can be undone because no preprocessing function passed on')
+    else:
+        ## undo preprocessing of image so the true RGB image is shown again:
+        ims_plot = lca.undo_zscore_single_image(im_ds=ims_plot, f_preprocess=preprocessing_fun)
+
+    if type(ims_plot) == torch.Tensor:
+        ims_plot = ims_plot.detach().numpy()
+    if type(masks_plot) == torch.Tensor:
+        masks_plot = masks_plot.detach().numpy()
+    if type(preds_plot) == torch.Tensor:
+        preds_plot = preds_plot.detach().numpy()
+
+    ## Create figure and ax handles:
+    n_pics = len(ind_list)
+    fig = plt.figure(constrained_layout=False, figsize=(7, n_pics * 2))
+    gs_ims = fig.add_gridspec(ncols=3, nrows=n_pics, bottom=0.02, top=0.95, 
+                              left=0.02, right=0.8, wspace=0.15, hspace=0.15)
+    figsize = fig.get_size_inches()
+    ideal_legend_height_inch = len(lc_class_name_list) * 0.4
+    ideal_legend_height_fraction = ideal_legend_height_inch / figsize[1]
+    legend_height = np.minimum(ideal_legend_height_fraction + 0.02, 0.95)
+    gs_cbar = fig.add_gridspec(ncols=1, nrows=1, top=legend_height, bottom=0.02, 
+                               left=0.82, right=0.835)
+    ax_ims = {}
+    ax_cbar = fig.add_subplot(gs_cbar[0])
+
+    ## Plot using specific function, for each row:
+    for i_ind in range(n_pics):
+        ax_ims[i_ind] = [fig.add_subplot(gs_ims[i_ind, xx]) for xx in range(3)]
+        plot_image_mask_pred(image=ims_plot[i_ind, :, :, :], mask=masks_plot[i_ind, :, :],
+                             pred=preds_plot[i_ind, :, :], ax_list=ax_ims[i_ind],
+                             lc_class_name_list=lc_class_name_list, unique_labels_array=unique_labels_array,
+                             plot_colorbar=(i_ind == 0), cax=ax_cbar)
+
+        if i_ind == 0:
+            ax_ims[i_ind][0].set_title('Image')
+            ax_ims[i_ind][1].set_title('Land cover 80s')
+            ax_ims[i_ind][2].set_title('Model prediction')
 
 def plot_lc_from_gdf_dict(df_pols_tiles, tile_name='SK0066', 
                           col_name='LC_D_80', ax=None, leg_box=(-.1, 1.05)):

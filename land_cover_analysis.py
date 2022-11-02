@@ -339,6 +339,49 @@ def apply_zscore_preprocess_images(im_ds, f_preprocess, verbose=0):
     assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
     return im_ds
 
+def undo_zscore_single_image(im_ds, f_preprocess):
+    '''Undo the z scoring of f_preprocess'''
+    dtype = im_ds.dtype
+
+    rgb_means = f_preprocess.keywords['mean']
+    rgb_std = f_preprocess.keywords['std']
+
+    rgb_means = torch.tensor(np.array(rgb_means)[None, :, None, None])  # get into right dimensions
+    rgb_std = torch.tensor(np.array(rgb_std)[None, :, None, None])  # get into right dimensions
+
+    ## Change to consistent dtype:
+    rgb_means = rgb_means.type(dtype)
+    rgb_std = rgb_std.type(dtype)
+
+    im_ds = im_ds * rgb_std + rgb_means  # not multiplying with 255 because image plotting function from rasterio doesnt like that
+    
+    assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
+    return im_ds
+
+def change_labels_to_consecutive_numbers(mask_patches, unique_labels_array=None):
+    '''Map labels to consecutive numbers (eg [0, 2, 5] to [0, 1, 2])'''
+    assert type(mask_patches) == np.ndarray, 'expected np array here'
+
+    if unique_labels_array is None:
+        ## Warning: this might take some time to compute if there are many patches
+        unique_labels_array = np.unique(mask_patches)
+
+    else:
+        assert type(unique_labels_array) == np.array 
+
+    mapping_label_to_new_dict = {label: ind for ind, label in enumerate(unique_labels_array)}
+
+    dict_ind_to_name, dict_name_to_ind =  get_lc_mapping_inds_names_dicts()
+    class_name_list = [dict_ind_to_name[label] for label in unique_labels_array]
+
+    new_mask = np.zeros_like(mask_patches)  # takes up more RAM (instead of reassigning mask_patches.. But want to make sure there are no errors when changing labels). Although maybe it's okay because with labels >= 0 you're always changing down so no chance of getting doubles I think.
+    for ind, label in enumerate(unique_labels_array):
+        new_mask[mask_patches == label] = mapping_label_to_new_dict[label]
+
+    # print(type(new_mask), np.shape(new_mask))
+    print('WARNING: changing the labels messes with the associated label names later on')
+    return new_mask, (unique_labels_array, mapping_label_to_new_dict, class_name_list)
+
 def create_data_loaders(x_train, x_test, y_train, y_test, batch_size=100):
     '''Create torch data loaders'''
     train_ds = TensorDataset(x_train, y_train)
@@ -350,6 +393,7 @@ def create_data_loaders(x_train, x_test, y_train, y_test, batch_size=100):
     return train_dl, test_dl
 
 def print_info_ds(ds):
+    '''Print basic info of data set'''
     dtype = ds.dtype 
     shape = ds.shape 
     print(f'{dtype} of shape {shape}')
@@ -391,3 +435,24 @@ def check_torch_ready(verbose=1, check_gpu=True, assert_versions=False):
         assert torch.__version__ == '1.12.1+cu102'
         assert torchvision.__version__ == '0.13.1+cu102'
         assert smp.__version__ == '0.3.0'
+
+def change_tensor_to_max_class_prediction(pred, expected_square_size=512):
+    '''CNN typically outputs a prediction for each class. This function finds the max/most likely
+    predicted class and gets rid of dimenion.'''
+
+    assert type(pred) == torch.Tensor, 'expected tensor'
+    assert pred.ndim == 4, 'expected 4D (batch x class x width x height'
+    assert pred.shape[2] == pred.shape[3] and pred.shape[2] == expected_square_size
+    ## assuming dim 0 is batch size and dim 1 is class size. 
+
+    pred = torch.argmax(pred, dim=1)
+
+    return pred 
+
+def concat_list_of_batches(batches):
+    '''Concatenate list of batch of output masks etc'''
+    assert type(batches) == list 
+    for b in batches:
+        assert type(b) == torch.Tensor 
+
+    return torch.cat(batches, dim=0)
