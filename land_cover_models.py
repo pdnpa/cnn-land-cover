@@ -29,11 +29,12 @@ class LandCoverUNet(pl.LightningModule):
     ## I think it's best to use the Lightning Module. See here:
     ## https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html
     ## https://colab.research.google.com/drive/1eRgcdQvNWzcEed2eTj8paDnnQ0qplXAh?usp=sharing#scrollTo=V7ELesz1kVQo
-    def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet'):
+    def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
+                 lr=1e-3):
         super().__init__()
 
         self.save_hyperparameters()
-        
+        self.lr = lr
         # pl.seed_everything(7)
 
         ## Use SMP Unet as base model. This PL class essentially just wraps around that:
@@ -49,7 +50,7 @@ class LandCoverUNet(pl.LightningModule):
 
         ## Define loss used for training:
         # self.loss = self.dummy_loss
-        self.loss = nn.CrossEntropyLoss(reduction='mean')  # reduction: 'none' (returns full-sized tensor), 'mean', 'sum'. Can also insert class weights and ignore indices
+        self.loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)  # reduction: 'none' (returns full-sized tensor), 'mean', 'sum'. Can also insert class weights and ignore indices
         # self.seg_val_metric = pl.metrics.Accuracy()
 
         # self.log(prog_bar=True)
@@ -105,5 +106,5 @@ class LandCoverUNet(pl.LightningModule):
         return output
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)  # momentum=0.9
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)  # momentum=0.9
         return optimizer

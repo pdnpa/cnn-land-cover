@@ -191,7 +191,8 @@ def plot_image_mask_pred(image, mask, pred, lc_class_name_list=[], unique_labels
     return ax_list 
 
 def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
-                                  lc_class_name_list=[], unique_labels_array=None,):
+                                  lc_class_name_list=[], unique_labels_array=None, save_fig=False, 
+                                  filename_prefix='example_predictions'):
     '''Plot rows of image/mask/prediction + legend.'''
     assert type(ind_list) == list
     ind_list = np.sort(np.array(ind_list))
@@ -245,6 +246,12 @@ def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_f
             ax_ims[i_ind][1].set_title('Land cover 80s')
             ax_ims[i_ind][2].set_title('Model prediction')
 
+    if save_fig:
+        str_list_inds = '-'.join([str(x) for x in ind_list])
+        filename = f'figures/lc_predictions/{filename_prefix}_{str_list_inds}.png'
+        plt.savefig(filename, dpi=200, bbox_inches='tight')
+
+
 def plot_lc_from_gdf_dict(df_pols_tiles, tile_name='SK0066', 
                           col_name='LC_D_80', ax=None, leg_box=(-.1, 1.05)):
     '''Plot LC polygons'''
@@ -273,7 +280,7 @@ def plot_lc_from_gdf_dict(df_pols_tiles, tile_name='SK0066',
     ax.set_title(f'Land cover of tile {tile_name}')
     return ax
         
-def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_mask, ax=None):
+def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_mask, ax=None, names_classes=None):
     '''Get & plot distribution of LC classes for both train and test patches (pixel wise). '''
     ## Get counts: (can take some time)
     class_ind_train, freq_train = lca.get_distr_classes_from_patches(patches_mask=train_patches_mask)
@@ -304,7 +311,8 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
     ## Get inds, names and density:
     assert (class_ind_train == class_ind_test).all(), 'there is a unique class in either one of the splits => build in a way to accomodate this by adding a 0 count'
     inds_classes = class_ind_test  # assuming they are equal given the assert bove
-    names_classes = [dict_ind_to_name[x] for x in inds_classes]
+    if names_classes is None:
+        names_classes = [dict_ind_to_name[x] for x in inds_classes]
     n_classes = len(inds_classes)
 
     bar_locs = np.arange(len(inds_classes))
