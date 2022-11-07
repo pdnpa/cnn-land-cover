@@ -337,4 +337,29 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
 
     return (class_ind_train, freq_train), (class_ind_test, freq_test), (inds_classes, names_classes, n_classes)
 
+def plot_distr_classes_from_shape(df_lc, ax=None):
 
+    if ax is None:
+        ax = plt.subplot(111)
+
+    class_label_col = 'LC_D_80'
+    unique_classes = df_lc[class_label_col].unique() 
+    area_classes = np.zeros(len(unique_classes))
+
+    for i_c, c_n in enumerate(unique_classes):
+        tmp_df = df_lc[df_lc[class_label_col] == c_n]
+        area_classes[i_c] = tmp_df['AREA'].sum()
+
+    sort_classes = np.argsort(area_classes)
+    area_classes = area_classes[sort_classes]
+    unique_classes = unique_classes[sort_classes]
+
+    area_classes = area_classes / np.sum(area_classes)
+
+    bar_locs = np.arange(len(unique_classes))
+    ax.bar(x=bar_locs, width=0.8, height=area_classes, facecolor='k')
+    ax.set_xticks(bar_locs)
+    ax.set_xticklabels(unique_classes, rotation=90)
+    ax.set_ylabel('Area (fraction)')
+    despine(ax)
+    return ax, (area_classes, unique_classes)
