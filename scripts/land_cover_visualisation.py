@@ -1,5 +1,6 @@
 import os, sys, copy
 import random, json
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors 
@@ -33,11 +34,14 @@ color_dict_stand[10] = '#994F00'
 color_dict_stand[11] = '#4B0092'
 
 ## Retrieve LC class specific colour mappings:
-with open('lc_colour_mapping.json', 'r') as f:
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+with open(os.path.join(Path(__location__).parent, 'content/lc_colour_mapping.json'), 'r') as f:
     lc_colour_mapping_inds = json.load(f, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})  # mapping from class ind to colour hex
 
 dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts()
 lc_colour_mapping_names = {dict_ind_to_name[k]: v for k, v in lc_colour_mapping_inds.items() if k in dict_ind_to_name.keys()}
+
+fig_folder = os.path.join(Path(__location__).parent, 'figures/')
 
 def create_lc_cmap(lc_class_name_list, unique_labels_array):
     '''Create custom colormap of LC classes, based on list of names given.'''
@@ -248,7 +252,7 @@ def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_f
 
     if save_fig:
         str_list_inds = '-'.join([str(x) for x in ind_list])
-        filename = f'figures/lc_predictions/{filename_prefix}_{str_list_inds}.png'
+        filename = os.path.join(fig_folder, f'lc_predictions/{filename_prefix}_{str_list_inds}.png')
         plt.savefig(filename, dpi=200, bbox_inches='tight')
 
 
