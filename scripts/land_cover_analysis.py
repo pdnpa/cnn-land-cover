@@ -56,6 +56,17 @@ def get_all_tifs_from_dir(dirpath):
     list_tifs = [os.path.join(dirpath, x) for x in os.listdir(dirpath) if x[-4:] == '.tif']
     return list_tifs 
 
+def get_all_tifs_from_subdirs(dirpath):
+    '''Get all tiffs from all subdirs of dir'''
+    list_tiffs = []
+    list_subdirs = [x for x in os.listdir(dirpath) if os.path.isdir(os.path.join(dirpath, x))]
+    for sd in list_subdirs:
+        list_tiff_subdir = get_all_tifs_from_dir(os.path.join(dirpath, sd))
+        list_tiffs.append(list_tiff_subdir)
+
+    list_tiffs = sum(list_tiffs, [])
+    return list_tiffs
+
 def load_coords_from_geotiff(tiff_file_path):
     '''Create rectangular polygon based on coords of geotiff file'''
     ## from https://stackoverflow.com/questions/50191648/gis-geotiff-gdal-python-how-to-get-coordinates-from-pixel and https://gis.stackexchange.com/questions/126467/determining-if-shapefile-and-raster-overlap-in-python-using-ogr-gdal
