@@ -1,4 +1,4 @@
-import os, sys, copy
+import os, sys, copy, datetime
 import numpy as np
 from numpy.core.multiarray import square
 from numpy.testing import print_assert_equal
@@ -21,6 +21,12 @@ from torch.utils.data import TensorDataset, DataLoader
 import segmentation_models_pytorch as smp
 
 path_dict = loadpaths.loadpaths()
+
+
+def create_timestamp():
+    dt = datetime.datetime.now()
+    timestamp = str(dt.date()) + '-' + str(dt.hour).zfill(2) + str(dt.minute).zfill(2)
+    return timestamp
 
 def assert_epsg(epsg, project_epsg=27700):
     '''Check epsg against reference (project) epsg'''
@@ -166,6 +172,27 @@ def get_pols_for_tiles(df_pols, df_tiles):
         dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(LC_N_80=list_class_id, LC_D_80=list_class_name)  # put all new intersections back into a dataframe        # df_relevant_pols
 
     return dict_pols
+
+def select_tiles_from_list(list_tile_names=[], shp_all_tiles_path=None, save_new_shp=False, 
+                           new_shp_filename=None):
+    '''Select tiles by name from shape file, make new shape file'''
+    if shp_all_tiles_path is None:
+        shp_all_tiles_path = path_dict['landscape_character_grid_path']
+    
+    df_all_tiles = load_pols(shp_all_tiles_path)
+    assert np.isin(list_tile_names, df_all_tiles['PLAN_NO']).all(), f'Not all tiles are in DF: {np.array(list_tile_names)[~np.isin(list_tile_names, df_all_tiles["PLAN_NO"])]}'
+    inds_tiles = np.isin(df_all_tiles['PLAN_NO'], list_tile_names)
+    df_selection = df_all_tiles[inds_tiles]
+
+    if save_new_shp:
+        if new_shp_filename is None:
+            timestamp = create_timestamp()
+            new_shp_filename = f'selection_tiles_{timestamp}.shp'
+        elif new_shp_filename[-4:] != '.shp':
+            new_shp_filename = new_shp_filename + '.shp'
+        df_selection.to_file(new_shp_filename)        
+
+    return df_selection
 
 def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                                 resolution=(-0.125, 0.125),
