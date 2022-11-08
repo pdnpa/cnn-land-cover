@@ -161,15 +161,15 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
 
     return dict_ind_to_name, dict_name_to_ind
 
-def get_pols_for_tiles(df_pols, df_tiles):
+def get_pols_for_tiles(df_pols, df_tiles, col_name='name'):
     '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.'''
 
     n_tiles = len(df_tiles)
     dict_pols = {}
-    for i_tile in range(n_tiles):  # loop through tiles, process individually:
+    for i_tile in tqdm(range(n_tiles)):  # loop through tiles, process individually:
         tile = df_tiles.iloc[i_tile]
         pol_tile = tile['geometry']  # polygon of tile 
-        name_tile = tile['name']
+        name_tile = tile[col_name]
 
         df_relevant_pols = df_pols[df_pols.geometry.overlaps(pol_tile)]  # find polygons that overlap with tile
         list_pols = []
@@ -184,13 +184,58 @@ def get_pols_for_tiles(df_pols, df_tiles):
 
     return dict_pols
 
-def select_tiles_from_list(list_tile_names=[], shp_all_tiles_path=None, save_new_shp=False, 
-                           new_shp_filename=None):
-    '''Select tiles by name from shape file, make new shape file'''
+def get_area_per_class_df(gdf, col_class_name='LC_D_80', total_area=1e6):
+    '''Given a geo df (ie shape file), calculate total area per class present'''
+    dict_area = {}
+    no_class_name = 'NO CLASS'  # name for area without labels
+
+    if len(gdf) == 0:  # no LC labels available at all, everything is no-class:
+        dict_area[no_class_name] = 1
+        
+    else:
+        present_classes = gdf[col_class_name].unique()
+        for cl in present_classes:
+            tmp_df = gdf[gdf[col_class_name] == cl]  # group potentially multiple polygons with same label
+            dict_area[cl] = tmp_df['geometry'].area.sum() / total_area
+        dict_area[no_class_name] = 1 - gdf['geometry'].area.sum() / total_area  # remainder is no-class
+
+    return dict_area
+
+def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[], filter_no_class=True):
+    assert type(dict_dfs) == dict 
+    assert type(all_class_names) == list 
+    if 'NO CLASS' not in all_class_names:
+        all_class_names.append('NO CLASS')
+    n_tiles = len(dict_dfs)
+    n_classes = len(all_class_names)
+
+    dict_area_all = {cl: np.zeros(n_tiles) for cl in all_class_names}
+    tile_names = list(dict_dfs.keys())
+    for i_tile, tilename in tqdm(enumerate(tile_names)):
+        dict_classes_tile = get_area_per_class_df(gdf=dict_dfs[tilename])
+        for cl_name, area in dict_classes_tile.items():
+            dict_area_all[cl_name][i_tile] = area 
+
+    df_distr = pd.DataFrame({**{'tile_name': tile_names}, **dict_area_all})
+    assert np.isclose(df_distr.sum(axis=1, numeric_only=True), 1, atol=1e-8).all(), 'Area fraction does not sum to 1'
+    
+    if filter_no_class:
+        print(f'{len(df_distr)} tiles analysed')
+        df_distr = df_distr[df_distr['NO CLASS'] < 1]
+        print(f'{len(df_distr)} tiles kept after no-class filter')
+    return df_distr
+
+def get_shp_all_tiles(shp_all_tiles_path=None):
     if shp_all_tiles_path is None:
         shp_all_tiles_path = path_dict['landscape_character_grid_path']
     
     df_all_tiles = load_pols(shp_all_tiles_path)
+    return df_all_tiles
+
+def select_tiles_from_list(list_tile_names=[], shp_all_tiles_path=None, save_new_shp=False, 
+                           new_shp_filename=None):
+    '''Select tiles by name from shape file, make new shape file'''
+    df_all_tiles = get_shp_all_tiles(shp_all_tiles_path=shp_all_tiles_path)
     assert np.isin(list_tile_names, df_all_tiles['PLAN_NO']).all(), f'Not all tiles are in DF: {np.array(list_tile_names)[~np.isin(list_tile_names, df_all_tiles["PLAN_NO"])]}'
     inds_tiles = np.isin(df_all_tiles['PLAN_NO'], list_tile_names)
     df_selection = df_all_tiles[inds_tiles]
@@ -286,9 +331,12 @@ def create_image_mask_patches(image, mask, patch_size=500):
 def create_all_patches_from_dir(dir_im=path_dict['image_path'], 
                                 dir_mask=path_dict['mask_path'], 
                                 mask_fn_suffix='_lc_80s_mask.tif',
-                                patch_size=500):
+                                patch_size=512, search_subdir_im=False):
     '''Create patches from all images & masks in given dirs.'''
-    im_paths = get_all_tifs_from_dir(dir_im)
+    if search_subdir_im:
+        im_paths = get_all_tifs_from_subdirs(dir_im)
+    else:
+        im_paths = get_all_tifs_from_dir(dir_im)
     mask_paths = get_all_tifs_from_dir(dir_mask)
     # assert len(im_paths) == len(mask_paths), 'different number of masks and images'
     assert type(mask_fn_suffix) == str 

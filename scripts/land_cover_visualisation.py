@@ -352,7 +352,7 @@ def plot_distr_classes_from_shape(df_lc, ax=None):
 
     for i_c, c_n in enumerate(unique_classes):
         tmp_df = df_lc[df_lc[class_label_col] == c_n]
-        area_classes[i_c] = tmp_df['AREA'].sum()
+        area_classes[i_c] = tmp_df['geometry'].area.sum()
 
     sort_classes = np.argsort(area_classes)
     area_classes = area_classes[sort_classes]
