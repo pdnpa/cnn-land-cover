@@ -225,6 +225,36 @@ def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[], filter_no_
         print(f'{len(df_distr)} tiles kept after no-class filter')
     return df_distr
 
+def sample_tiles_by_class_distr_from_df(df_all_tiles_distr, n_samples=100, 
+                                        iterations=1000, verbose=1):
+
+    n_tiles = len(df_all_tiles_distr)
+    # class_distr_mat = df_all_tiles_distr.select_dtypes(include=np.number).to_numpy() 
+    class_distr = df_all_tiles_distr.sum(axis=0, numeric_only=True)
+    class_distr = class_distr / class_distr.sum()
+    
+    for it in range(iterations):
+        random_inds = np.random.choice(a=n_tiles, size=n_samples, replace=False)
+        df_select = df_all_tiles_distr.iloc[random_inds]
+        distr_select = df_select.sum(axis=0, numeric_only=True) / n_samples  # normalise to 1 
+
+        # loss = np.sum(np.power(distr_select - class_distr, 2))
+        loss = np.sum(np.abs(distr_select - class_distr))
+        if it == 0:
+            prev_loss = loss 
+            best_selection = random_inds
+
+        else:
+            if loss < prev_loss:
+                best_selection = random_inds 
+                prev_loss = loss 
+                if verbose > 0:
+                    print(f'At it {it} new loss of {prev_loss}')
+    
+    return best_selection, df_all_tiles_distr.iloc[best_selection]
+
+
+
 def get_shp_all_tiles(shp_all_tiles_path=None):
     if shp_all_tiles_path is None:
         shp_all_tiles_path = path_dict['landscape_character_grid_path']
