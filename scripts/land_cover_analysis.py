@@ -201,7 +201,8 @@ def get_area_per_class_df(gdf, col_class_name='LC_D_80', total_area=1e6):
 
     return dict_area
 
-def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[], filter_no_class=True):
+def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[], 
+                                        filter_no_class=True, no_class_threshold=1):
     assert type(dict_dfs) == dict 
     assert type(all_class_names) == list 
     if 'NO CLASS' not in all_class_names:
@@ -221,7 +222,7 @@ def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[], filter_no_
     
     if filter_no_class:
         print(f'{len(df_distr)} tiles analysed')
-        df_distr = df_distr[df_distr['NO CLASS'] < 1]
+        df_distr = df_distr[df_distr['NO CLASS'] < no_class_threshold]
         print(f'{len(df_distr)} tiles kept after no-class filter')
     return df_distr
 
