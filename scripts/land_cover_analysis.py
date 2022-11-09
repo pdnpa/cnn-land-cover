@@ -197,7 +197,14 @@ def get_area_per_class_df(gdf, col_class_name='LC_D_80', total_area=1e6):
         for cl in present_classes:
             tmp_df = gdf[gdf[col_class_name] == cl]  # group potentially multiple polygons with same label
             dict_area[cl] = tmp_df['geometry'].area.sum() / total_area
-        dict_area[no_class_name] = 1 - gdf['geometry'].area.sum() / total_area  # remainder is no-class
+        total_area_polygons = gdf['geometry'].area.sum()
+        if total_area_polygons < total_area:
+            dict_area[no_class_name] = 1 - total_area_polygons / total_area  # remainder is no-class
+        elif total_area_polygons > total_area:  # I think because of float error or so, it is sometimes marginally larger
+            assert (total_area_polygons / total_area) < (1 + 1e-5), (total_area_polygons / total_area)
+            for cl in present_classes:
+                dict_area[cl] = dict_area[cl] / (total_area_polygons / total_area)
+            dict_area[no_class_name] = 0
 
     return dict_area
 
@@ -219,7 +226,7 @@ def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[],
 
     df_distr = pd.DataFrame({**{'tile_name': tile_names}, **dict_area_all})
     assert np.isclose(df_distr.sum(axis=1, numeric_only=True), 1, atol=1e-8).all(), 'Area fraction does not sum to 1'
-    
+    assert df_distr['NO CLASS'].min() >= 0, 'negative remainder found'
     if filter_no_class:
         print(f'{len(df_distr)} tiles analysed')
         df_distr = df_distr[df_distr['NO CLASS'] < no_class_threshold]
