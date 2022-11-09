@@ -105,6 +105,8 @@ def equal_xy_lims(ax, start_zero=False):
         ax.set_xlim([min_inner_lim, max_outer_lim])
         ax.set_ylim([min_inner_lim, max_outer_lim])
 
+    return min_inner_lim, max_outer_lim
+
 def equal_lims_two_axs(ax1, ax2):
     '''Set limits of two ax elements equal'''
     xlim_1 = ax1.get_xlim()
@@ -367,3 +369,48 @@ def plot_distr_classes_from_shape(df_lc, ax=None):
     ax.set_ylabel('Area (fraction)')
     despine(ax)
     return ax, (area_classes, unique_classes)
+
+def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr', 
+                                     label_2='Sample LC distr', ax=None, plot_legend=True,
+                                     save_fig=False, filename=None):
+
+    if ax is None:
+        ax = plt.subplot(111)
+    assert (df_1.columns == df_2.columns).all()
+    lc_names = list(df_1.select_dtypes(np.number).columns)
+    distr_1 = df_1.sum(0, numeric_only=True) / len(df_1)
+    distr_2 = df_2.sum(0, numeric_only=True) / len(df_2)
+    assert len(distr_1) == len(distr_2) and len(distr_1) == len(lc_names)
+
+    ax.plot([1e-4, 1], [1e-4, 1], c='k', alpha=0.4, zorder=-1)
+
+    if plot_legend:
+        i_col = 0
+        marker_list = ['o', '>', 'x', '.', '*']
+        i_mark = 0
+        n_colors = len(color_dict_stand)
+        for i_cl in range(len(lc_names)):
+            ax.scatter(distr_1[i_cl], distr_2[i_cl], label=lc_names[i_cl], alpha=1,
+                        color=color_dict_stand[i_col], marker=marker_list[i_mark])
+            i_col += 1
+            if i_col == n_colors:
+                i_col = 0
+                i_mark += 1
+            
+    else:
+        ax.plot(distr_1, distr_2, '.')
+
+    ax.set_xlabel('True (PD) LC distr')
+    ax.set_ylabel('Sample LC distr')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    minl, maxl = equal_xy_lims(ax)
+    ax.set_title('LC distribution of PD vs sample')
+    if plot_legend:
+        ax.legend(bbox_to_anchor=(1, 1))
+    despine(ax)
+
+    if save_fig:
+        if filename is None:
+            filename = 'content/evaluation_sample_50tiles/distr_eval_sample.pdf'
+        plt.savefig(filename, bbox_inches='tight')
