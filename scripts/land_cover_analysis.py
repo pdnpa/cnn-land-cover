@@ -210,6 +210,7 @@ def get_area_per_class_df(gdf, col_class_name='LC_D_80', total_area=1e6):
 
 def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[], 
                                         filter_no_class=True, no_class_threshold=1):
+    '''Creat DF with LC class distribution per tile (row) per class (column)'''
     assert type(dict_dfs) == dict 
     assert type(all_class_names) == list 
     if 'NO CLASS' not in all_class_names:
@@ -219,15 +220,15 @@ def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[],
 
     dict_area_all = {cl: np.zeros(n_tiles) for cl in all_class_names}
     tile_names = list(dict_dfs.keys())
-    for i_tile, tilename in tqdm(enumerate(tile_names)):
+    for i_tile, tilename in tqdm(enumerate(tile_names)):  # get area per class per tile
         dict_classes_tile = get_area_per_class_df(gdf=dict_dfs[tilename])
         for cl_name, area in dict_classes_tile.items():
             dict_area_all[cl_name][i_tile] = area 
 
-    df_distr = pd.DataFrame({**{'tile_name': tile_names}, **dict_area_all})
+    df_distr = pd.DataFrame({**{'tile_name': tile_names}, **dict_area_all})  # put in DF
     assert np.isclose(df_distr.sum(axis=1, numeric_only=True), 1, atol=1e-8).all(), 'Area fraction does not sum to 1'
     assert df_distr['NO CLASS'].min() >= 0, 'negative remainder found'
-    if filter_no_class:
+    if filter_no_class:  # optionally, filter tiles that have too much NO CLASS area
         print(f'{len(df_distr)} tiles analysed')
         df_distr = df_distr[df_distr['NO CLASS'] < no_class_threshold]
         print(f'{len(df_distr)} tiles kept after no-class filter')
@@ -260,8 +261,6 @@ def sample_tiles_by_class_distr_from_df(df_all_tiles_distr, n_samples=100,
                     print(f'At it {it} new loss of {prev_loss}')
     
     return best_selection, df_all_tiles_distr.iloc[best_selection]
-
-
 
 def get_shp_all_tiles(shp_all_tiles_path=None):
     if shp_all_tiles_path is None:
@@ -390,7 +389,6 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
 
         patches_img, patches_mask = create_image_mask_patches(image=image_tile, mask=mask_tif, 
                                                               patch_size=patch_size)
-        n_patches = patches_mask.shape[0]
         if ii == 0:  # first iteration, create object:
             all_patches_img = patches_img 
             all_patches_mask = patches_mask
@@ -399,6 +397,43 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
             all_patches_mask = np.concatenate((all_patches_mask, patches_mask), axis=0)
 
     return all_patches_img, all_patches_mask
+
+def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
+                                       mask_fn_suffix='_lc_80s_mask.tif', patch_size=512,
+                                       dir_im_patches='', dir_mask_patches='', save_files=False):
+    '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
+    assert mask_fn_suffix[-4:] == '.tif'
+    print(f'WARNING: this will save approximately {len(list_tiff_files) / 5 * 1.3}GB of data')
+
+    for i_tile, tilepath in tqdm(enumerate(list_tiff_files)):
+        tile_name = tilepath.split('/')[-1].rstrip('.tif')
+        maskpath = list_mask_files[np.where(np.array([x.split('/')[-1] for x in list_mask_files]) == tile_name + mask_fn_suffix)[0][0]]
+ 
+        assert tile_name in tilepath and tile_name in maskpath
+ 
+        image_tile = load_tiff(tiff_file_path=tilepath, datatype='da')
+        mask_tif = load_tiff(tiff_file_path=maskpath, datatype='np')
+        patches_img, patches_mask = create_image_mask_patches(image=image_tile, mask=mask_tif, 
+                                                              patch_size=patch_size)
+        n_patches = patches_mask.shape[0]
+        assert n_patches < 1000, 'if more than 1e3 patches, change zfill in lines below '
+        for i_patch in range(n_patches):
+            patch_name = tile_name + f'_patch{str(i_patch).zfill(3)}'
+            
+            im_patch_name = patch_name + '.npy'
+            mask_patch_name = patch_name + mask_fn_suffix.rstrip('.tif') + '.npy'
+
+            im_patch_path = os.path.join(dir_im_patches, im_patch_name)
+            mask_patch_path = os.path.join(dir_mask_patches, mask_patch_name)
+            
+            if save_files:
+                np.save(im_patch_path, patches_img[i_patch, :, :, :])
+                np.save(mask_patch_path, patches_mask[i_patch, :, :])
+
+            if i_tile == 0 and i_patch == 0:
+                assert type(patches_img[i_patch]) == np.ndarray
+                assert type(patches_mask[i_patch]) == np.ndarray
+                assert patches_img[i_patch].shape[1:] == patches_mask[i_patch].shape
 
 def augment_patches(all_patches_img, all_patches_mask):
     '''Augment patches by rotating etc.
@@ -410,13 +445,6 @@ def augment_patches(all_patches_img, all_patches_mask):
     ## Mirror 
     pass
     return all_patches_img, all_patches_mask
-
-# def change_data_to_tensor(x_train, y_train, x_test, y_test):
-#     '''Change data to torch tensor type. Could be tidier with args'''
-#     x_train, y_train, x_test, y_test = map(
-#         torch.tensor, (x_train, y_train, x_test, y_test))  # create tensors
-#     x_train, y_train, x_test, y_test = x_train.int(), y_train.int(), x_test.int(), y_test.int()  # need to be float type (instead of 'double', which is somewhat silly)
-#     return x_train, y_train, x_test, y_test
 
 def change_data_to_tensor(*args, tensor_dtype='int'):
     '''Change data to torch tensor type.'''

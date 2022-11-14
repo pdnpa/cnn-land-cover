@@ -344,7 +344,7 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
     return (class_ind_train, freq_train), (class_ind_test, freq_test), (inds_classes, names_classes, n_classes)
 
 def plot_distr_classes_from_shape(df_lc, ax=None):
-
+    '''Bar plot of distr of LC classes from DF'''
     if ax is None:
         ax = plt.subplot(111)
 
@@ -373,7 +373,7 @@ def plot_distr_classes_from_shape(df_lc, ax=None):
 def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr', 
                                      label_2='Sample LC distr', ax=None, plot_legend=True,
                                      save_fig=False, filename=None):
-
+    '''Scatter plot of distr of LC classes of two DFs'''
     if ax is None:
         ax = plt.subplot(111)
     assert (df_1.columns == df_2.columns).all()
