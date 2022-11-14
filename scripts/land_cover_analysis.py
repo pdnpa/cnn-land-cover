@@ -491,6 +491,33 @@ def apply_zscore_preprocess_images(im_ds, f_preprocess, verbose=0):
     assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
     return im_ds
 
+def apply_zscore_preprocess_single_image(im, f_preprocess):
+    '''Apply preprocessing function to a single image.
+    Assuming a torch preprocessing function here that essentially z-scores and only works on RGB tensor of shape (3,)'''
+    assert type(im) == torch.Tensor, 'expected tensor here'
+    assert im.ndim == 3 and im.shape[0] == 3, 'unexpected shape'
+
+    dtype = im.dtype
+
+    if f_preprocess is not None:
+        rgb_means = f_preprocess.keywords['mean']
+        rgb_std = f_preprocess.keywords['std']
+
+        rgb_means = torch.tensor(np.array(rgb_means)[:, None, None])  # get into right dimensions
+        rgb_std = torch.tensor(np.array(rgb_std)[:, None, None])  # get into right dimensions
+
+        ## Change to consistent dtype:
+        rgb_means = rgb_means.type(dtype)
+        rgb_std = rgb_std.type(dtype)
+
+        if (im > 1).any():
+            im = im / 255 
+
+        im = (im - rgb_means) / rgb_std
+
+    assert im.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im.dtype}'
+    return im
+
 def undo_zscore_single_image(im_ds, f_preprocess):
     '''Undo the z scoring of f_preprocess'''
     dtype = im_ds.dtype

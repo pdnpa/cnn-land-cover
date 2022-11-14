@@ -25,6 +25,90 @@ import land_cover_analysis as lca
 
 path_dict = loadpaths.loadpaths()
 
+class DataLoaderPatches(torch.utils.data.Dataset):
+    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', 
+                 preprocessing_func=None, unique_labels_arr=None):
+        super(DataLoaderPatches, self).__init__()
+        self.im_dir = im_dir
+        self.mask_dir = mask_dir
+        self.mask_suffix = mask_suffix
+        self.preprocessing_func = preprocessing_func
+
+        if self.preprocessing_func is not None:  # prep preprocess transformation
+            rgb_means = self.preprocessing_func.keywords['mean']
+            rgb_std = self.preprocessing_func.keywords['std']
+
+            rgb_means = torch.tensor(np.array(rgb_means)[:, None, None])  # get into right dimensions
+            rgb_std = torch.tensor(np.array(rgb_std)[:, None, None])  # get into right dimensions
+
+            dtype = torch.float32
+
+            ## Change to consistent dtype:
+            self.rgb_means = rgb_means.type(dtype)
+            self.rgb_std = rgb_std.type(dtype)
+
+            self.preprocess_image = self.zscore_image 
+        else:
+            print('WARNING: no normalisation will be applied when loading images')
+            self.preprocess_image = self.pass_image
+
+        ## create data frame or something of all files 
+        self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir)]
+        self.list_patch_names = [x.split('/')[-1].rstrip('.npy') for x in self.list_im_npys]
+        self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
+
+        self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
+                                        'im_filepath': self.list_im_npys, 
+                                        'mask_filepath': self.list_mask_npys})
+
+        ## Prep the transformation of class inds:
+        dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
+        if unique_labels_arr == None:  # if no array given, presume full array:
+            self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 
+        else:
+            self.unique_labels_arr = np.unique(unique_labels_arr)
+        self.mapping_label_to_new_dict = {label: ind for ind, label in enumerate(self.unique_labels_arr)}
+        self.class_name_list = [dict_ind_to_name[label] for label in self.unique_labels_arr]
+        
+    def __getitem__(self, index):
+        '''Function that gets data items by index'''
+        patch_row = self.df_patches.iloc[index]
+        im = np.load(patch_row['im_filepath'])
+        mask = np.load(patch_row['mask_filepath'])
+        im = torch.tensor(im).float()
+        im = self.preprocess_image(im)
+        mask = torch.tensor(mask).type(torch.LongTensor)
+        mask = self.remap_labels(mask)
+        return im, mask 
+
+    def __repr__(self):
+        return f'DataLoaderPatches class'
+
+    def __len__(self):
+        return len(self.df_patches)
+    
+    def zscore_image(self, im):
+        '''Apply preprocessing function to a single image. 
+        Adapted from lca.apply_zscore_preprocess_images() but more specific/faster.
+        
+        What would be much faster, would be to store the data already pre-processed, but
+        what function to use depends on the Network.'''
+        im = im / 255 
+        im = (im - self.rgb_means) / self.rgb_std
+        return im
+ 
+    def pass_image(self, im):
+        return im
+
+    def remap_labels(self, mask):
+        '''Remapping labels to consecutive labels. Is quite slow, so would be better to store mask as 
+        remapped already.. But can depend on how much data is used; although for the entire data set
+        it is known of course. '''
+        new_mask = np.zeros_like(mask)  # takes up more RAM (instead of reassigning mask_patches.. But want to make sure there are no errors when changing labels). Although maybe it's okay because with labels >= 0 you're always changing down so no chance of getting doubles I think.
+        for label in self.unique_labels_arr:
+            new_mask[mask == label] = self.mapping_label_to_new_dict[label]
+        return new_mask
+
 class LandCoverUNet(pl.LightningModule):
     ## I think it's best to use the Lightning Module. See here:
     ## https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html
@@ -108,3 +192,4 @@ class LandCoverUNet(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)  # momentum=0.9
         return optimizer
+
