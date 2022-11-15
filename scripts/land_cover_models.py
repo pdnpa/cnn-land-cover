@@ -14,7 +14,7 @@ import pandas as pd
 # from geocube.api.core import make_geocube
 # import gdal, osr
 import loadpaths
-# from patchify import patchify 
+import patchify 
 import torch, torchvision
 from torch import nn
 import torch.nn.functional as F
@@ -25,10 +25,11 @@ import land_cover_analysis as lca
 
 path_dict = loadpaths.loadpaths()
 
-class DataLoaderPatches(torch.utils.data.Dataset):
+class DataSetPatches(torch.utils.data.Dataset):
     def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', 
-                 preprocessing_func=None, unique_labels_arr=None):
-        super(DataLoaderPatches, self).__init__()
+                 preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
+                 subsample_patches=False, frac_subsample=1):
+        super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
         self.mask_dir = mask_dir
         self.mask_suffix = mask_suffix
@@ -60,7 +61,20 @@ class DataLoaderPatches(torch.utils.data.Dataset):
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys})
+        if shuffle_order_patches:
+            print('Patches ordered randomly')
+            self.df_patches = self.df_patches.sample(frac=1, replace=False)
+        else:
+            print('Patches sorted by tile/patch order')
+            self.df_patches = self.df_patches.sort_values('patch_name')
+        self.df_patches = self.df_patches.reset_index(drop=True)
 
+        if subsample_patches:
+            assert frac_subsample <= 1 and frac_subsample > 0
+            n_subsample = int(len(self.df_patches) * frac_subsample)
+            print(f'Subsampling {n_subsample} patches')
+            self.df_patches = self.df_patches[:n_subsample]
+            
         ## Prep the transformation of class inds:
         dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
         if unique_labels_arr == None:  # if no array given, presume full array:
@@ -69,16 +83,17 @@ class DataLoaderPatches(torch.utils.data.Dataset):
             self.unique_labels_arr = np.unique(unique_labels_arr)
         self.mapping_label_to_new_dict = {label: ind for ind, label in enumerate(self.unique_labels_arr)}
         self.class_name_list = [dict_ind_to_name[label] for label in self.unique_labels_arr]
+        self.n_classes = len(self.class_name_list)
         
     def __getitem__(self, index):
         '''Function that gets data items by index'''
         patch_row = self.df_patches.iloc[index]
-        im = np.load(patch_row['im_filepath'])
-        mask = np.load(patch_row['mask_filepath'])
-        im = torch.tensor(im).float()
-        im = self.preprocess_image(im)
-        mask = torch.tensor(mask).type(torch.LongTensor)
-        mask = self.remap_labels(mask)
+        im = np.load(patch_row['im_filepath'])  #0.25ms
+        mask = np.load(patch_row['mask_filepath'])  #0.25ms
+        im = torch.tensor(im).float()  # 0.1ms
+        im = self.preprocess_image(im)  # 0.25 ms
+        mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
+        mask = self.remap_labels(mask)  # 2.5ms
         return im, mask 
 
     def __repr__(self):
@@ -109,6 +124,45 @@ class DataLoaderPatches(torch.utils.data.Dataset):
             new_mask[mask == label] = self.mapping_label_to_new_dict[label]
         return new_mask
 
+def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
+                            batch_size=10):
+    ## Get list of all image tiles to predict
+    list_tiff_tiles = lca.get_all_tifs_from_dir(dir_im)
+
+    ## Loop across tiles:
+    for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
+
+        ## Load tile
+        im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
+
+        ## Create patches
+        ## TODO: cut off im_tile here so exactly factorized by patch_size. 
+        ## Cut off top & right side. Patch mirrored matrix and just do first row? 
+
+        patches_im, _ = lca.create_image_mask_patches(image=im_tile, mask=None, patch_size=patch_size)
+        patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float')
+        patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im, f_preprocess=model.preprocessing_func)
+
+        ## Create DL with patches (just use standard DL as in notebook)
+        predict_ds = TensorDataset(patches_im)
+        predict_dl = DataLoader(predict_ds, batch_size=batch_size)
+
+        ## Predict from DL
+        pred_masks = trainer.predict(model, predict_dl)
+        pred_masks = lca.concat_list_of_batches(pred_masks)
+        pred_masks = lca.change_tensor_to_max_class_prediction(pred=pred_masks)
+        ## set dtype to something appropriate (uint8?) 
+
+        ## [Handle edges, by patching from the other side; or using next tile]
+
+
+        ## Reconstruct full tile
+        assert pred_masks.shape == patches_im.shape 
+        reconstructed_tile_mask = patchify.unpatchify(pred_masks, im_tile.shape) # won't work if im_tile has a remainder
+
+        ## Save
+
+
 class LandCoverUNet(pl.LightningModule):
     ## I think it's best to use the Lightning Module. See here:
     ## https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html
@@ -138,6 +192,10 @@ class LandCoverUNet(pl.LightningModule):
         # self.seg_val_metric = pl.metrics.Accuracy()
 
         # self.log(prog_bar=True)
+
+    def __repr__(self):
+        return f'LandCoverUNet class'
+
     def dummy_loss(self, y, output):
         '''Dummy function for loss'''
         assert y.shape == output.shape, f'y has shape {y.shape} but output has shape {output.shape}'

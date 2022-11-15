@@ -13,7 +13,7 @@ import geopandas as gpd
 from geocube.api.core import make_geocube
 import gdal, osr
 import loadpaths
-from patchify import patchify 
+import patchify 
 import torch, torchvision
 from torch import nn
 import torch.nn.functional as F
@@ -338,31 +338,39 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
 
     return cube 
 
-def create_image_mask_patches(image, mask, patch_size=500):
+def create_image_mask_patches(image, mask=None, patch_size=512):
     '''Given a loaded image (as DataArray) and mask (as np array), create patches (ie sub images/masks)'''
     assert type(image) == xr.DataArray, 'expecting image to be a xr.DataArray'
     assert image.ndim == 3, 'expecting band by x by y dimensions'
     assert patch_size < len(image.x) and patch_size < len(image.y)
     assert len(image.x) == len(image.y)
 
-    assert type(mask) == np.ndarray 
-    assert mask.shape == (1, len(image.x), len(image.y))
-    mask = np.squeeze(mask)  # get rid of extra dim 
+    if mask is not None:
+        assert type(mask) == np.ndarray 
+        assert mask.shape == (1, len(image.x), len(image.y))
+        mask = np.squeeze(mask)  # get rid of extra dim 
 
     n_exp_patches = int(np.floor(len(image.x) / patch_size))
 
     ## Create patches of patch_size x patch_size (x n_bands)
-    patches_img = patchify(image.to_numpy(), (3, patch_size, patch_size), step=patch_size)
-    patches_mask = patchify(mask, (patch_size, patch_size), step=patch_size)
+    patches_img = patchify.patchify(image.to_numpy(), (3, patch_size, patch_size), step=patch_size)
     assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)
-    assert patches_mask.shape == (n_exp_patches, n_exp_patches, patch_size, patch_size)
-    assert type(patches_img) == np.ndarray and type(patches_mask) == np.ndarray
+    assert type(patches_img) == np.ndarray 
+    
+    if mask is not None:
+        patches_mask = patchify.patchify(mask, (patch_size, patch_size), step=patch_size)
+        assert patches_mask.shape == (n_exp_patches, n_exp_patches, patch_size, patch_size)
+        assert type(patches_mask) == np.ndarray
+    else:
+        patches_mask = None
 
     ## Reshape to get array of patches:
     patches_img = np.reshape(np.squeeze(patches_img), (n_exp_patches ** 2, 3, patch_size, patch_size), order='C')
-    patches_mask = np.reshape(patches_mask, (n_exp_patches ** 2, patch_size, patch_size), order='C')
+    if mask is not None:
+        patches_mask = np.reshape(patches_mask, (n_exp_patches ** 2, patch_size, patch_size), order='C')
 
-    assert patches_img.shape[0] == patches_mask.shape[0]
+        assert patches_img.shape[0] == patches_mask.shape[0]
+    
     return patches_img, patches_mask
 
 def create_all_patches_from_dir(dir_im=path_dict['image_path'], 
@@ -537,20 +545,31 @@ def undo_zscore_single_image(im_ds, f_preprocess):
     assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
     return im_ds
 
-def change_labels_to_consecutive_numbers(mask_patches, unique_labels_array=None):
+def change_labels_to_consecutive_numbers(mask_patches, unique_labels_array=None, 
+                                         use_all_pd_classes=False, verbose=0):
     '''Map labels to consecutive numbers (eg [0, 2, 5] to [0, 1, 2])'''
     assert type(mask_patches) == np.ndarray, 'expected np array here'
 
-    if unique_labels_array is None:
-        ## Warning: this might take some time to compute if there are many patches
-        unique_labels_array = np.unique(mask_patches)
+    if use_all_pd_classes is False:
+        if unique_labels_array is None:
+            if verbose > 0:
+                print('Using classes of provided masks for relabelling')
+            ## Warning: this might take some time to compute if there are many patches
+            unique_labels_array = np.unique(mask_patches)
+        else:
+            if verbose > 0:
+                print('Using provided unique labels for relabelling')
+            assert type(unique_labels_array) == np.array 
 
-    else:
-        assert type(unique_labels_array) == np.array 
-
-    mapping_label_to_new_dict = {label: ind for ind, label in enumerate(unique_labels_array)}
+        mapping_label_to_new_dict = {label: ind for ind, label in enumerate(unique_labels_array)}
 
     dict_ind_to_name, dict_name_to_ind =  get_lc_mapping_inds_names_dicts()
+
+    if use_all_pd_classes:
+        if verbose > 0:
+            print('Using all PD classes for relabelling')
+        unique_labels_array = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too
+        mapping_label_to_new_dict = {label: ind for ind, label in enumerate(unique_labels_array)}
     class_name_list = [dict_ind_to_name[label] for label in unique_labels_array]
 
     new_mask = np.zeros_like(mask_patches)  # takes up more RAM (instead of reassigning mask_patches.. But want to make sure there are no errors when changing labels). Although maybe it's okay because with labels >= 0 you're always changing down so no chance of getting doubles I think.
