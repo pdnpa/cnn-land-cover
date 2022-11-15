@@ -8,6 +8,8 @@ import numpy as np
 # import rioxarray as rxr
 import sklearn.model_selection
 from tqdm import tqdm
+import datetime
+import pickle
 # import shapely as shp
 import pandas as pd
 # import geopandas as gpd
@@ -193,6 +195,12 @@ class LandCoverUNet(pl.LightningModule):
 
         # self.log(prog_bar=True)
 
+        self.filename = None
+        self.filepath = None
+
+        ## Add info dict with some info: epochs, PL version, .. 
+
+
     def __repr__(self):
         return f'LandCoverUNet class'
 
@@ -251,3 +259,18 @@ class LandCoverUNet(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)  # momentum=0.9
         return optimizer
 
+    def save_model(self, folder='', verbose=1):
+        '''Save model'''
+        timestamp = lca.create_timestamp()
+        self.filename = f'LCU_{timestamp}.data'
+        self.filepath = os.path.join(folder, self.filename)
+
+        file_handle = open(self.filepath, 'wb')
+        pickle.dump(self, file_handle)
+        if verbose > 0:
+            print(f'LCU model saved as {self.filename} at {self.filepath}')
+
+def load_model(folder='', filename=''):
+    with open(os.path.join(folder, filename), 'rb') as f:
+        LCU = pickle.load(f)
+    return LCU 
