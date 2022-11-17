@@ -6,7 +6,7 @@ import numpy as np
 # import rasterio
 # import xarray as xr
 # import rioxarray as rxr
-import sklearn.model_selection
+# import sklearn.model_selection
 from tqdm import tqdm
 import datetime
 import pickle
@@ -17,7 +17,7 @@ import pandas as pd
 # import gdal, osr
 import loadpaths
 import patchify 
-import torch, torchvision
+import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
@@ -30,13 +30,15 @@ path_dict = loadpaths.loadpaths()
 class DataSetPatches(torch.utils.data.Dataset):
     def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', 
                  preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
-                 subsample_patches=False, frac_subsample=1):
+                 subsample_patches=False, frac_subsample=1, 
+                 path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
         self.mask_dir = mask_dir
         self.mask_suffix = mask_suffix
         self.preprocessing_func = preprocessing_func
-
+        self.path_mapping_dict = path_mapping_dict
+    
         if self.preprocessing_func is not None:  # prep preprocess transformation
             rgb_means = self.preprocessing_func.keywords['mean']
             rgb_std = self.preprocessing_func.keywords['std']
@@ -77,16 +79,25 @@ class DataSetPatches(torch.utils.data.Dataset):
             print(f'Subsampling {n_subsample} patches')
             self.df_patches = self.df_patches[:n_subsample]
             
-        ## Prep the transformation of class inds:
-        dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
-        if unique_labels_arr == None:  # if no array given, presume full array:
-            self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 
+        # ## Prep the transformation of class inds:
+        if self.path_mapping_dict is None:
+            print('WARNING: no label mapping given - so using all labels individually')
+            dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
+            if unique_labels_arr == None:  # if no array given, presume full array:
+                self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 
+            else:
+                self.unique_labels_arr = np.unique(unique_labels_arr)
+            self.mapping_label_to_new_dict = {label: ind for ind, label in enumerate(self.unique_labels_arr)}
+            self.class_name_list = [dict_ind_to_name[label] for label in self.unique_labels_arr]
+            self.n_classes = len(self.class_name_list)
         else:
-            self.unique_labels_arr = np.unique(unique_labels_arr)
-        self.mapping_label_to_new_dict = {label: ind for ind, label in enumerate(self.unique_labels_arr)}
-        self.class_name_list = [dict_ind_to_name[label] for label in self.unique_labels_arr]
-        self.n_classes = len(self.class_name_list)
-        
+            print(f'Loaded {self.path_mapping_dict.split("/")[-1]} to map labels')
+            self.dict_mapping = pickle.load(open(self.path_mapping_dict, 'rb'))           
+            self.mapping_label_to_new_dict = self.dict_mapping['dict_label_mapping']
+            self.unique_labels_arr = np.array(list(self.dict_mapping['dict_label_mapping'].keys()))
+            self.class_name_list = list(self.dict_mapping['dict_new_names'].values())
+            self.n_classes = len(self.class_name_list)
+
     def __getitem__(self, index):
         '''Function that gets data items by index'''
         patch_row = self.df_patches.iloc[index]

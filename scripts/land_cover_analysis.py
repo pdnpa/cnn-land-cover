@@ -14,14 +14,13 @@ from geocube.api.core import make_geocube
 import gdal, osr
 import loadpaths
 import patchify 
-import torch, torchvision
+import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import segmentation_models_pytorch as smp
 
 path_dict = loadpaths.loadpaths()
-
 
 def create_timestamp():
     dt = datetime.datetime.now()
@@ -710,11 +709,11 @@ def check_torch_ready(verbose=1, check_gpu=True, assert_versions=False):
         assert torch.cuda.is_available()
     if verbose > 0:  # possibly also insert assert versions
         print(f'Pytorch version is {torch.__version__}') 
-        print(f'Torchvision version is {torchvision.__version__}')
+        # print(f'Torchvision version is {torchvision.__version__}')  # not using torchvision at the moment though .. 
         print(f'Segmentation-models-pytorch version is {smp.__version__}')
     if assert_versions:
         assert torch.__version__ == '1.12.1+cu102'
-        assert torchvision.__version__ == '0.13.1+cu102'
+        # assert torchvision.__version__ == '0.13.1+cu102'
         assert smp.__version__ == '0.3.0'
 
 def change_tensor_to_max_class_prediction(pred, expected_square_size=512):

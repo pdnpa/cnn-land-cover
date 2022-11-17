@@ -15,9 +15,10 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 100
+n_max_epochs = 10
 learning_rate = 1e-3
 save_full_model = True
+path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
 
 ## Dirs training data:
 dir_ds = path_dict['tiles_few_changes_path']
@@ -25,14 +26,14 @@ dir_im_patches = os.path.join(dir_ds, 'images/')
 dir_mask_patches = os.path.join(dir_ds, 'masks/')
 
 ## Define model:
-n_classes = 27
+n_classes = 7
 LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate)  # load model 
 
 ## Create train dataloader:
 train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
-                                 preprocessing_func=LCU.preprocessing_func,
-                                 subsample_patches=False)
-assert train_ds.n_classes == n_classes
+                              preprocessing_func=LCU.preprocessing_func,
+                              subsample_patches=False, path_mapping_dict=path_mapping_dict)
+assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 
 print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {datetime.datetime.now()}\n')
