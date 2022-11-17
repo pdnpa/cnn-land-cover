@@ -143,6 +143,7 @@ def plot_image_simple(im, ax=None, name_file=None):
         plot_im = im.to_numpy()
     else:
         plot_im = im
+    print(plot_im.shape, type(plot_im))
     rasterio.plot.show(plot_im, ax=ax, cmap='viridis')
     naked(ax)
     if name_file is None:
@@ -150,6 +151,45 @@ def plot_image_simple(im, ax=None, name_file=None):
     else:
         name_tile = name_file.split('/')[-1].rstrip('.tif')
         ax.set_title(name_tile)
+
+def plot_image_as_patches(im, patch_size=512, ax=None, name_file=None):
+    '''Plot image (as np array or xr DataArray)'''
+    if ax is None:
+        ax = plt.subplot(111)
+    if type(im) == xr.DataArray:
+        plot_im = im.to_numpy()
+    else:
+        plot_im = im
+    
+    assert plot_im.ndim == 3 and plot_im.shape[0] == 3
+    assert plot_im.shape[1] == plot_im.shape[2]
+
+    n_pix_im = plot_im.shape[1]
+    n_patches_floor = int(np.floor(n_pix_im / patch_size))
+    width_inter_patch = 30
+
+    n_pix_patched_im = n_pix_im + n_patches_floor * width_inter_patch
+    plot_im = plot_im / 255
+    patched_im_tmp = np.ones((3, n_pix_patched_im, n_pix_im))
+    for irow in range(n_patches_floor):
+        patched_im_tmp[:, irow * (patch_size + width_inter_patch):(irow * (patch_size + width_inter_patch) + patch_size), :] = plot_im[:, irow * patch_size:(irow + 1) * patch_size, :]
+    irow += 1
+    patched_im_tmp[:, irow * (patch_size + width_inter_patch):, :] = plot_im[:, irow * patch_size:, :]
+    
+    patched_im = np.ones((3, n_pix_patched_im, n_pix_patched_im))
+    for icol in range(n_patches_floor):
+        patched_im[:, :, icol * (patch_size + width_inter_patch):(icol * (patch_size + width_inter_patch) + patch_size)] = patched_im_tmp[:, :, icol * patch_size:(icol + 1) * patch_size]
+    icol += 1
+    patched_im[:, :, icol * (patch_size + width_inter_patch):] = patched_im_tmp[:, :, icol * patch_size:]
+    
+    rasterio.plot.show(patched_im, ax=ax, cmap='viridis')
+    naked(ax)
+    if name_file is None:
+        pass 
+    else:
+        name_tile = name_file.split('/')[-1].rstrip('.tif')
+        ax.set_title(name_tile)
+    return patched_im
 
 def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax=None, 
                          plot_colorbar=True, cax=None):
@@ -363,11 +403,57 @@ def plot_distr_classes_from_shape(df_lc, ax=None):
     area_classes = area_classes / np.sum(area_classes)
 
     bar_locs = np.arange(len(unique_classes))
-    ax.bar(x=bar_locs, width=0.8, height=area_classes, facecolor='k')
-    ax.set_xticks(bar_locs)
-    ax.set_xticklabels(unique_classes, rotation=90)
-    ax.set_ylabel('Area (fraction)')
+    ax.barh(y=bar_locs, height=0.8, width=area_classes, facecolor='k')
+    ax.set_yticks(bar_locs)
+    ax.set_yticklabels(unique_classes, rotation=0)
+    ax.set_xlabel('Area (fraction)')
     despine(ax)
+    return ax, (area_classes, unique_classes)
+
+
+def plot_distr_classes_from_multiple_shapes(dict_dfs_lc, ax=None):
+    '''Bar plot of distr of LC classes from DF'''
+    if ax is None:
+        ax = plt.subplot(111)
+
+    class_label_col = 'LC_D_80'
+    unique_classes = np.array([])
+    for name_df, df_lc in dict_dfs_lc.items():
+        unique_classes_tmp = df_lc[class_label_col].unique() 
+        unique_classes = np.concatenate((unique_classes, unique_classes_tmp))
+    unique_classes = np.unique(unique_classes)
+    area_classes = {name_df: np.zeros(len(unique_classes)) for name_df in dict_dfs_lc.keys()}
+
+
+    for name_df, df_lc in dict_dfs_lc.items():
+        for i_c, c_n in enumerate(unique_classes):
+            tmp_df = df_lc[df_lc[class_label_col] == c_n]
+            area_classes[name_df][i_c] = tmp_df['geometry'].area.sum()
+
+    name_sort_df = list(dict_dfs_lc.keys())[0]
+    sort_classes = np.argsort(area_classes[name_sort_df])
+    for name_df in dict_dfs_lc.keys():
+        area_classes[name_df] = area_classes[name_df][sort_classes]
+        area_classes[name_df] = area_classes[name_df] / np.sum(area_classes[name_df])
+
+    unique_classes = unique_classes[sort_classes]
+    bar_locs = np.arange(len(unique_classes))
+    n_dfs = len(dict_dfs_lc)
+    height_bars = 0.8 / n_dfs
+    transpose_bar_locs = 0.5 * height_bars
+
+    iplot = 0
+    for name_df, area_classes_tmp in area_classes.items():
+        ax.barh(y=bar_locs + transpose_bar_locs - iplot * height_bars, 
+                height=height_bars, width=area_classes_tmp, 
+                facecolor=color_dict_stand[iplot], label=name_df)
+        iplot += 1
+    ax.set_yticks(bar_locs)
+    ax.set_yticklabels(unique_classes, rotation=0)
+    ax.set_xlabel('Area (fraction)')
+    ax.set_title(f'Distribution of LC of {" and ".join(list(area_classes.keys()))}')
+    despine(ax)
+    ax.legend(frameon=False, loc='lower right')
     return ax, (area_classes, unique_classes)
 
 def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr', 

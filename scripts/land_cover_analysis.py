@@ -1,4 +1,4 @@
-import os, sys, copy, datetime
+import os, sys, copy, datetime, pickle
 import numpy as np
 from numpy.core.multiarray import square
 from numpy.testing import print_assert_equal
@@ -544,6 +544,89 @@ def undo_zscore_single_image(im_ds, f_preprocess):
     
     assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
     return im_ds
+
+def create_empty_label_mapping_dict():
+    '''Create empty dict with right format for label mapping'''
+
+    dict_ind_to_name, _ = get_lc_mapping_inds_names_dicts()  # get labels of PD
+
+    ## Add labels to dict that don't exist PD (for sake of completeness):
+    dict_ind_to_name[10] = 'Unenclosed Lowland Rough Grassland'
+    dict_ind_to_name[11] = 'Unenclosed Lowland Heath'
+    dict_ind_to_name[17] = 'Coastal Heath'
+    dict_ind_to_name[21] = 'Open Water, Coastal'
+    dict_ind_to_name[23] = 'Wetland, Peat Bog'
+    dict_ind_to_name[24] = 'Wetland, Freshwater Marsh'
+    dict_ind_to_name[25] = 'Wetland, Saltmarsh'
+    dict_ind_to_name[27] = 'Coastal Bare Rock'
+    dict_ind_to_name[28] = 'Coastal Dunes'
+    dict_ind_to_name[29] = 'Coastal Sand Beach'
+    dict_ind_to_name[30] = 'Coastal Shingle Beach'
+    dict_ind_to_name[31] = 'Coastal Mudflats'
+
+    n_classes = 39  # hard code to ensure asserts return expected behaviour
+    assert len(dict_ind_to_name) == n_classes
+    assert len(np.unique(list(dict_ind_to_name.values()))) == n_classes
+    assert (np.sort(np.array(list(dict_ind_to_name.keys()))) == np.arange(n_classes)).all()
+
+    ## Set up format of label mapping dict with a trivial identity transformation:
+    dict_label_mapping = {x: x for x in range(len(dict_ind_to_name))}  # dummy dict (with identity transformation)
+    dict_name_mapping = {v: v for v in dict_ind_to_name.values()}
+    old_names = {x: dict_ind_to_name[x] for x in range(n_classes)}
+    new_names = {x: dict_ind_to_name[x] for x in range(n_classes)}
+
+    dict_mapping = {'dict_label_mapping': dict_label_mapping,
+                    'dict_name_mapping': dict_name_mapping,
+                    'dict_old_names': old_names, 
+                    'dict_new_names': new_names}
+
+    return dict_mapping
+
+def change_lc_label_in_dict(dict_mapping, dict_new_names,
+                            old_ind_list=[0], new_ind=0, new_name=''):
+    for ind in old_ind_list:  # woodlands
+        ## dict_old_names stays as is
+        dict_mapping['dict_label_mapping'][ind] = new_ind
+        dict_mapping['dict_name_mapping'][dict_mapping['dict_old_names'][ind]] = new_name
+    dict_new_names[new_ind] = new_name
+
+    return dict_mapping, dict_new_names
+
+def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/',
+                                  save_mapping=False):
+
+    dict_mapping = create_empty_label_mapping_dict()
+
+    if mapping_type == 'identity':
+        pass 
+    elif mapping_type == 'main_categories':
+        dict_new_names = {}
+        
+        list_old_inds_new_name = [  
+                                    ([0, 38], 'NO CLASS'),
+                                    ([1, 2, 3, 4, 5], 'Wood and Forest Land'),
+                                    ([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], 'Moor and Heath Land'),
+                                    ([18, 19, 20], 'Agro-Pastoral Land'),
+                                    ([21, 22, 23, 24, 25], 'Water and Wetland'),
+                                    ([26, 27, 28, 29, 30, 31], 'Rock and Coastal Land'),
+                                    ([32, 33, 34, 35, 36, 37], 'Developed Land')
+                                 ]
+
+        for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):
+            
+            dict_mapping, dict_new_names = change_lc_label_in_dict(dict_mapping=dict_mapping, dict_new_names=dict_new_names,
+                                                            old_ind_list=old_ind_list, new_ind=new_ind, new_name=new_name)
+        ## finish:
+        dict_mapping['dict_new_names'] = dict_new_names
+
+    if save_mapping:
+        timestamp = create_timestamp()
+        fn = f'label_mapping_dict__{mapping_type}__{timestamp}.pkl'
+        filepath = os.path.join(save_folder, fn)
+        with open(filepath, 'wb') as f:
+            pickle.dump(dict_mapping, f)
+
+    return dict_mapping
 
 def change_labels_to_consecutive_numbers(mask_patches, unique_labels_array=None, 
                                          use_all_pd_classes=False, verbose=0):

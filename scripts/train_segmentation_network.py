@@ -1,6 +1,7 @@
 ## File tor train a LCU
 
 import os, sys
+import datetime
 import loadpaths
 import land_cover_analysis as lca
 import land_cover_visualisation as lcv
@@ -14,7 +15,7 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 2
+n_max_epochs = 100
 learning_rate = 1e-3
 save_full_model = True
 
@@ -30,9 +31,11 @@ LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate)  # load model
 ## Create train dataloader:
 train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
                                  preprocessing_func=LCU.preprocessing_func,
-                                 subsample_patches=True, frac_subsample=0.1)
+                                 subsample_patches=False)
 assert train_ds.n_classes == n_classes
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
+
+print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {datetime.datetime.now()}\n')
 
 ## Train using PL API - saves automatically.
 trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1)  # run on GPU; and set max_epochs.
