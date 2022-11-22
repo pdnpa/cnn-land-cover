@@ -48,7 +48,8 @@ def create_lc_cmap(lc_class_name_list, unique_labels_array):
     lc_colours_list = [lc_colour_mapping_names[xx] for xx in lc_class_name_list]  # get list of colours based on class names
     lc_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('LC classes', colors=lc_colours_list, 
                                                                   N=len(lc_colours_list))  # create qualitative cmap of colour lists
-    formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
+    # formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
+    formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {lc_class_name_list[val]}')  # create formatter for ticks/ticklabels of cbar
     ticks = np.arange(len(lc_colours_list))
 
     return lc_cmap, formatter, ticks 
@@ -197,7 +198,6 @@ def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax
     color legend of classes'''
     if ax is None:
         ax = plt.subplot(111)
-
     # unique_labels = np.unique(im).astype('int')
     # present_class_names = [lc_class_name_list[lab] for lab in unique_labels]
     # lc_cmap, formatter, cbar_ticks = create_lc_cmap(lc_class_name_list=present_class_names)

@@ -158,6 +158,13 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
     dict_ind_to_name[0] = 'NO CLASS'
     dict_name_to_ind = {v: k for k, v in dict_ind_to_name.items()}
 
+    dict_ind_to_name[40] = 'Wood and Forest Land'
+    dict_ind_to_name[41] = 'Moor and Heath Land'
+    dict_ind_to_name[42] = 'Agro-Pastoral Land'
+    dict_ind_to_name[43] = 'Water and Wetland'
+    dict_ind_to_name[44] = 'Rock and Coastal Land'
+    dict_ind_to_name[45] = 'Developed Land'
+
     return dict_ind_to_name, dict_name_to_ind
 
 def get_pols_for_tiles(df_pols, df_tiles, col_name='name'):
