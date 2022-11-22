@@ -733,6 +733,6 @@ def concat_list_of_batches(batches):
     '''Concatenate list of batch of output masks etc'''
     assert type(batches) == list 
     for b in batches:
-        assert type(b) == torch.Tensor 
+        assert type(b) == torch.Tensor, type(b)
 
     return torch.cat(batches, dim=0)

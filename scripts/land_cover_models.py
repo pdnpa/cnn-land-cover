@@ -124,6 +124,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         im = im / 255 
         im = (im - self.rgb_means) / self.rgb_std
         return im
+        
  
     def pass_image(self, im):
         return im

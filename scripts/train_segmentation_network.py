@@ -15,7 +15,7 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 10
+n_max_epochs = 100
 learning_rate = 1e-3
 save_full_model = True
 path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
