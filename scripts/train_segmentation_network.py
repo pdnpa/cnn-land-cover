@@ -35,12 +35,23 @@ train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches,
                               subsample_patches=False, path_mapping_dict=path_mapping_dict)
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
+lcm.save_details_trainds_to_model(model=LCU, train_ds=train_ds)
+lcm.dict_details_training['batch_size'] = batch_size
+lcm.dict_details_training['n_cpus'] = n_cpus 
+lcm.dict_details_training['n_max_epochs'] = n_max_epochs
+lcm.dict_details_training['learning_rate'] = learning_rate
 
-print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {datetime.datetime.now()}\n')
+timestamp_start = datetime.datetime.now()
+print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
 
 ## Train using PL API - saves automatically.
 trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1)  # run on GPU; and set max_epochs.
 trainer.fit(model=LCU, train_dataloaders=train_dl)  # could include validation set here to determine convergence
+
+timestamp_end = datetime.datetime.now() 
+duration = timestamp_end - timestamp_start
+lcm.dict_details_training['duration_training'] = duration 
+print(f'Training finished at {timestamp_end}')
 
 if save_full_model is False:
     LCU.base = None 

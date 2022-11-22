@@ -236,21 +236,8 @@ def plot_image_mask_pred(image, mask, pred, lc_class_name_list=[], unique_labels
     
     return ax_list 
 
-def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
-                                  lc_class_name_list=[], unique_labels_array=None, save_fig=False, 
-                                  filename_prefix='example_predictions'):
-    '''Plot rows of image/mask/prediction + legend.'''
-    assert type(ind_list) == list
-    ind_list = np.sort(np.array(ind_list))
-    assert all_ims.ndim == 4 and all_masks.ndim == 3, 'images and masks dont have expected shape'
-    assert all_preds.ndim == 3, 'predicted masks dont have expected shape. Maybe they are not yet argmaxed?'
-    assert all_ims.shape[0] == all_masks.shape[0] and all_ims.shape[0] == all_preds.shape[0]
-    assert all_ims.shape[-2:] == all_masks.shape[-2:] and all_ims.shape[-2:] == all_preds.shape[-2:]
-
-    ## Select images to be plotted:
-    ims_plot = all_ims[ind_list, :, :, :]
-    masks_plot = all_masks[ind_list, :, :]
-    preds_plot = all_preds[ind_list, :, :]
+def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot, 
+                                 preprocessing_fun, lc_class_name_list=[], unique_labels_array=None):
     assert ims_plot.ndim == 4 and masks_plot.ndim == 3 and preds_plot.ndim == 3
     if preprocessing_fun is None:
         print('WARNING: no preprocessing (eg z-scoring) can be undone because no preprocessing function passed on')
@@ -266,7 +253,7 @@ def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_f
         preds_plot = preds_plot.detach().numpy()
 
     ## Create figure and ax handles:
-    n_pics = len(ind_list)
+    n_pics = ims_plot.shape[0]
     fig = plt.figure(constrained_layout=False, figsize=(7, n_pics * 2))
     gs_ims = fig.add_gridspec(ncols=3, nrows=n_pics, bottom=0.02, top=0.95, 
                               left=0.02, right=0.8, wspace=0.15, hspace=0.15)
@@ -291,6 +278,26 @@ def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_f
             ax_ims[i_ind][0].set_title('Image')
             ax_ims[i_ind][1].set_title('Land cover 80s')
             ax_ims[i_ind][2].set_title('Model prediction')
+
+def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
+                                  lc_class_name_list=[], unique_labels_array=None, save_fig=False, 
+                                  filename_prefix='example_predictions'):
+    '''Plot rows of image/mask/prediction + legend.'''
+    assert type(ind_list) == list
+    ind_list = np.sort(np.array(ind_list))
+    assert all_ims.ndim == 4 and all_masks.ndim == 3, 'images and masks dont have expected shape'
+    assert all_preds.ndim == 3, 'predicted masks dont have expected shape. Maybe they are not yet argmaxed?'
+    assert all_ims.shape[0] == all_masks.shape[0] and all_ims.shape[0] == all_preds.shape[0]
+    assert all_ims.shape[-2:] == all_masks.shape[-2:] and all_ims.shape[-2:] == all_preds.shape[-2:]
+
+    ## Select images to be plotted:
+    ims_plot = all_ims[ind_list, :, :, :]
+    masks_plot = all_masks[ind_list, :, :]
+    preds_plot = all_preds[ind_list, :, :]
+ 
+    plot_image_mask_pred_wrapper(ims_plot=ims_plot, masks_plot=masks_plot, preds_plot=preds_plot, 
+                                 preprocessing_fun=preprocessing_fun, lc_class_name_list=lc_class_name_list, 
+                                 unique_labels_array=unique_labels_array)
 
     if save_fig:
         str_list_inds = '-'.join([str(x) for x in ind_list])
