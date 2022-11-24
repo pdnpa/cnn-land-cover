@@ -389,10 +389,14 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                         fill=0)
     shape_cube = cube.LC_N_80.shape  # somehow sometimes an extra row or of NO CLASS is added... 
     if shape_cube[0]  == 8001:
-        assert np.unique(cube.LC_N_80[0, :]) == np.array([0])
+        if len(np.unique(cube.LC_N_80[0, :])) > 1:
+            print(f'WARNING: {filename} has shape {shape_cube} but first y-row contains following classes: {np.unique(cube.LC_N_80[:, 0])}. Still proceeding..')    
+        # assert np.unique(cube.LC_N_80[0, :]) == np.array([0])
         cube = cube.isel(y=np.arange(1, 8001))  #discard first one that is just no classes 
     if shape_cube[1] == 8001:
-        assert np.unique(cube.LC_N_80[:, 0]) == np.array([0])
+        if len(np.unique(cube.LC_N_80[:, 0])) > 1:
+            print(f'WARNING: {filename} has shape {shape_cube} but first x-col contains following classes: {np.unique(cube.LC_N_80[:, 0])}. Still proceeding..')    
+        # assert np.unique(cube.LC_N_80[:, 0]) == np.array([0])
         cube = cube.isel(x=np.arange(1, 8001))  #discard first one that is just no classes 
 
     assert cube.LC_N_80.shape == (8000, 8000), f'Cube of {filename} is not expected shape, but {cube.LC_N_80.shape}'
