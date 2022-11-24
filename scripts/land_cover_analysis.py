@@ -8,6 +8,7 @@ import rioxarray as rxr
 import sklearn.cluster, sklearn.model_selection
 from tqdm import tqdm
 import shapely as shp
+import shapely.validation
 import pandas as pd
 import geopandas as gpd
 from geocube.api.core import make_geocube
@@ -167,7 +168,63 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
 
     return dict_ind_to_name, dict_name_to_ind
 
-def get_pols_for_tiles(df_pols, df_tiles, col_name='name'):
+def add_main_category_column(df_lc, col_ind_name='LC_N_80', col_code_name='Class_Code'):
+    '''Add main category class code'''
+    mapping_dict = {**{x: 'C' for x in range(1, 6)},
+                    **{x: 'D' for x in range(6, 18)},
+                    **{x: 'E' for x in range(18, 21)},
+                    **{x: 'F' for x in range(21, 26)},
+                    **{x: 'G' for x in range(26, 32)}, 
+                    **{x: 'H' for x in range(32, 38)},
+                    **{38: 'I'}}
+
+    class_col = np.zeros(len(df_lc[col_ind_name]), dtype=str)
+    for ind, label in mapping_dict.items():
+        class_col[df_lc[col_ind_name] == ind] = label 
+    
+    df_lc[col_code_name] = class_col
+
+    return df_lc
+
+def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_name='Class name'):
+    mapping_dict = {'C': 'Wood and Forest Land',
+                    'D': 'Moor and Heath Land',
+                    'E': 'Agro-Pastoral Land',
+                    'F': 'Water and Wetland',
+                    'G': 'Rock and Coastal Land',
+                    'H': 'Developed Land',
+                    'I': 'Unclassified Land'}
+
+    class_col = list(np.zeros(len(df_lc[col_code_name]), dtype=str))
+    for code, label in mapping_dict.items():
+        inds_code = np.where(df_lc[col_code_name] == code)[0]
+        for ii in inds_code:
+            class_col[ii] = label 
+    
+    df_lc[col_label_name] = class_col
+
+    return df_lc
+
+def test_validity_geometry_column(df):
+    '''Test if all polygons in geometry column of df are valid. If not, try to fix.'''
+    arr_valid = np.array([shapely.validation.explain_validity(df['geometry'].iloc[x]) for x in range(len(df))])
+    unique_vals = np.unique(arr_valid)
+    if len(unique_vals) == 1 and unique_vals[0] == 'Valid Geometry':
+        return df 
+    else:
+        for val in unique_vals:
+            if val != 'Valid Geometry':
+                inds_val = np.where(arr_valid == val)[0] 
+                print(f'Geometry {val} for inds {inds_val}')
+                print('Attempting to make valid')
+                for ind in inds_val:
+                    new_geom = shapely.validation.make_valid(df['geometry'].iloc[ind])
+                    df['geometry'].iloc[ind] = new_geom
+                print('Done')
+        return df
+
+
+def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False):
     '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.'''
 
     n_tiles = len(df_tiles)
@@ -176,17 +233,23 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name'):
         tile = df_tiles.iloc[i_tile]
         pol_tile = tile['geometry']  # polygon of tile 
         name_tile = tile[col_name]
-
-        df_relevant_pols = df_pols[df_pols.geometry.overlaps(pol_tile)]  # find polygons that overlap with tile
+        df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
         list_pols = []
         list_class_id = []
         list_class_name = []
+        list_class_code = []
         for i_pol in range(len(df_relevant_pols)):  # loop through pols
             new_pol = df_relevant_pols.iloc[i_pol]['geometry'].intersection(pol_tile)  # create intersection between pol and tile
             list_pols.append(new_pol)
-            list_class_id.append(df_relevant_pols.iloc[i_pol]['LC_N_80'])
-            list_class_name.append(df_relevant_pols.iloc[i_pol]['LC_D_80'])
-        dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(LC_N_80=list_class_id, LC_D_80=list_class_name)  # put all new intersections back into a dataframe        # df_relevant_pols
+            if extract_main_categories_only:
+                list_class_code.append(df_relevant_pols.iloc[i_pol]['Class_Code'])
+            else:
+                list_class_id.append(df_relevant_pols.iloc[i_pol]['LC_N_80'])
+                list_class_name.append(df_relevant_pols.iloc[i_pol]['LC_D_80'])
+        if extract_main_categories_only:  # kind of a silly way to do this, but wasnt sure how to soft code these? look into it again if more columns are (potentially ) needed
+            dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(Class_Code=list_class_code)  # put all new intersections back into a dataframe
+        else:
+            dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(LC_N_80=list_class_id, LC_D_80=list_class_name)  # put all new intersections back into a dataframe
 
     return dict_pols
 
@@ -293,9 +356,18 @@ def select_tiles_from_list(list_tile_names=[], shp_all_tiles_path=None, save_new
 
     return df_selection
 
+def save_tile_names_to_list(list_tile_names, text_filename):
+    assert type(list_tile_names) == list 
+    assert type(text_filename) == str and text_filename[-4:] == '.txt'
+    print(f'Saving {len(list_tile_names)} tile names to {text_filename}')
+
+    with open(text_filename, 'w') as f:
+        for line in list_tile_names:
+            f.write(f"{line}\n")
+
 def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                                 resolution=(-0.125, 0.125),
-                                interpolation=None,
+                                interpolation=None, 
                                 save_raster=False, filename='mask.tif',
                                 maskdir=None, plot_raster=False,
                                 verbose=0):
@@ -363,7 +435,7 @@ def create_image_mask_patches(image, mask=None, patch_size=512):
 
     if mask is not None:
         assert type(mask) == np.ndarray 
-        assert mask.shape == (1, len(image.x), len(image.y))
+        assert mask.shape == (1, len(image.x), len(image.y)), mask.shape
         mask = np.squeeze(mask)  # get rid of extra dim 
 
     n_exp_patches = int(np.floor(len(image.x) / patch_size))
