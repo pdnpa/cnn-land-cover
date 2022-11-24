@@ -312,9 +312,18 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     ## Convert shape to raster:
     cube = make_geocube(df_shp, measurements=[col_name],
                         interpolate_na_method=interpolation,
-                        # like=ex_tile)  # use resolution of example tiff
-                        fill=0,
-                        resolution=resolution)
+                        # like=ex_tile,  # use resolution of example tiff
+                        resolution=resolution,
+                        fill=0)
+    shape_cube = cube.LC_N_80.shape  # somehow sometimes an extra row or of NO CLASS is added... 
+    if shape_cube[0]  == 8001:
+        assert np.unique(cube.LC_N_80[0, :]) == np.array([0])
+        cube = cube.isel(y=np.arange(1, 8001))  #discard first one that is just no classes 
+    if shape_cube[1] == 8001:
+        assert np.unique(cube.LC_N_80[:, 0]) == np.array([0])
+        cube = cube.isel(x=np.arange(1, 8001))  #discard first one that is just no classes 
+
+    assert cube.LC_N_80.shape == (8000, 8000), f'Cube of {filename} is not expected shape, but {cube.LC_N_80.shape}'
 
     ## Decrease data size:
     if verbose > 0:
@@ -334,6 +343,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
             filename = filename + '.tif'
         if maskdir is None:  # use default path for mask files 
             maskdir = path_dict['mask_path']
+        # print(maskdir, filename)
         filepath = os.path.join(maskdir, filename)
         cube[col_name].rio.to_raster(filepath)
         if verbose > 0:
