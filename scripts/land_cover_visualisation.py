@@ -473,6 +473,8 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr',
     lc_names = list(df_1.select_dtypes(np.number).columns)
     distr_1 = df_1.sum(0, numeric_only=True) / len(df_1)
     distr_2 = df_2.sum(0, numeric_only=True) / len(df_2)
+    distr_1[distr_1 == 0] = 1e-6
+    distr_2[distr_2 == 0] = 1e-6
     assert len(distr_1) == len(distr_2) and len(distr_1) == len(lc_names)
 
     ax.plot([1e-4, 1], [1e-4, 1], c='k', alpha=0.4, zorder=-1)
@@ -500,10 +502,30 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr',
     minl, maxl = equal_xy_lims(ax)
     ax.set_title('LC distribution of PD vs sample')
     if plot_legend:
-        ax.legend(bbox_to_anchor=(1, 1))
+        ax.legend(bbox_to_anchor=(1, 1), ncol=2)
     despine(ax)
 
     if save_fig:
         if filename is None:
             filename = 'content/evaluation_sample_50tiles/distr_eval_sample.pdf'
         plt.savefig(filename, bbox_inches='tight')
+
+def plot_difference_total_lc_from_dfs(dict_dfs={}):
+    '''Plot difference between LC'''
+    class_name_col = 'Class name'
+    names_dfs = list(dict_dfs.keys())
+    # unique_labels = np.unique(np.concatenate([dict_dfs[x][class_name_col].unique() for x in names_dfs]))
+    unique_labels = ['Wood and Forest Land', 'Moor and Heath Land', 'Agro-Pastoral Land',
+                    'Water and Wetland', 'Rock and Coastal Land', 'Developed Land', 'Unclassified Land']
+    print(unique_labels)
+
+    dict_sum_area = {x: np.zeros(len(unique_labels)) for x in names_dfs}
+    for name_df in names_dfs:
+        for i_lab, label in enumerate(unique_labels):
+            dict_sum_area[name_df][i_lab] = dict_dfs[name_df][dict_dfs[name_df][class_name_col] == label]['area'].sum()
+
+    ax = plt.subplot(111)
+    for name_df in names_dfs: 
+        ax.plot(dict_sum_area[name_df], label=name_df)
+    ax.legend()
+    return dict_sum_area
