@@ -304,13 +304,19 @@ def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[],
     return df_distr
 
 def sample_tiles_by_class_distr_from_df(df_all_tiles_distr, n_samples=100, 
+                                        class_distr = None,
                                         iterations=1000, verbose=1):
 
     n_tiles = len(df_all_tiles_distr)
-    # class_distr_mat = df_all_tiles_distr.select_dtypes(include=np.number).to_numpy() 
-    class_distr = df_all_tiles_distr.sum(axis=0, numeric_only=True)
-    class_distr = class_distr / class_distr.sum()
-    
+    if class_distr is None:  # use distr of given df
+        class_distr = df_all_tiles_distr.sum(axis=0, numeric_only=True)
+        class_distr = class_distr / class_distr.sum()
+    else:
+        assert len(class_distr) == 27, f'expected 27 classes but received {len(class_distr)}'
+        assert type(class_distr) == np.array or type(class_distr) == pd.core.series.Series
+        assert np.sum(class_distr) == 1
+        print('Using predefined class distribution')
+
     for it in range(iterations):
         random_inds = np.random.choice(a=n_tiles, size=n_samples, replace=False)
         df_select = df_all_tiles_distr.iloc[random_inds]

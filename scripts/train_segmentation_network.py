@@ -15,13 +15,14 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 100
+n_max_epochs = 20
 learning_rate = 1e-3
 save_full_model = True
 path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
 
 ## Dirs training data:
-dir_ds = path_dict['tiles_few_changes_path']
+# dir_ds = path_dict['tiles_few_changes_path']
+dir_ds = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/'
 dir_im_patches = os.path.join(dir_ds, 'images/')
 dir_mask_patches = os.path.join(dir_ds, 'masks/')
 
@@ -36,10 +37,10 @@ train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches,
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 lcm.save_details_trainds_to_model(model=LCU, train_ds=train_ds)
-lcm.dict_details_training['batch_size'] = batch_size
-lcm.dict_details_training['n_cpus'] = n_cpus 
-lcm.dict_details_training['n_max_epochs'] = n_max_epochs
-lcm.dict_details_training['learning_rate'] = learning_rate
+LCU.dict_training_details['batch_size'] = batch_size
+LCU.dict_training_details['n_cpus'] = n_cpus 
+LCU.dict_training_details['n_max_epochs'] = n_max_epochs
+LCU.dict_training_details['learning_rate'] = learning_rate
 
 timestamp_start = datetime.datetime.now()
 print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
@@ -50,7 +51,7 @@ trainer.fit(model=LCU, train_dataloaders=train_dl)  # could include validation s
 
 timestamp_end = datetime.datetime.now() 
 duration = timestamp_end - timestamp_start
-lcm.dict_details_training['duration_training'] = duration 
+LCU.dict_training_details['duration_training'] = duration 
 print(f'Training finished at {timestamp_end}')
 
 if save_full_model is False:
