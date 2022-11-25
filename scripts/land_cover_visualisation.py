@@ -48,7 +48,8 @@ def create_lc_cmap(lc_class_name_list, unique_labels_array):
     lc_colours_list = [lc_colour_mapping_names[xx] for xx in lc_class_name_list]  # get list of colours based on class names
     lc_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('LC classes', colors=lc_colours_list, 
                                                                   N=len(lc_colours_list))  # create qualitative cmap of colour lists
-    formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
+    # formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
+    formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {lc_class_name_list[val]}')  # create formatter for ticks/ticklabels of cbar
     ticks = np.arange(len(lc_colours_list))
 
     return lc_cmap, formatter, ticks 
@@ -197,7 +198,6 @@ def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax
     color legend of classes'''
     if ax is None:
         ax = plt.subplot(111)
-
     # unique_labels = np.unique(im).astype('int')
     # present_class_names = [lc_class_name_list[lab] for lab in unique_labels]
     # lc_cmap, formatter, cbar_ticks = create_lc_cmap(lc_class_name_list=present_class_names)
@@ -236,21 +236,8 @@ def plot_image_mask_pred(image, mask, pred, lc_class_name_list=[], unique_labels
     
     return ax_list 
 
-def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
-                                  lc_class_name_list=[], unique_labels_array=None, save_fig=False, 
-                                  filename_prefix='example_predictions'):
-    '''Plot rows of image/mask/prediction + legend.'''
-    assert type(ind_list) == list
-    ind_list = np.sort(np.array(ind_list))
-    assert all_ims.ndim == 4 and all_masks.ndim == 3, 'images and masks dont have expected shape'
-    assert all_preds.ndim == 3, 'predicted masks dont have expected shape. Maybe they are not yet argmaxed?'
-    assert all_ims.shape[0] == all_masks.shape[0] and all_ims.shape[0] == all_preds.shape[0]
-    assert all_ims.shape[-2:] == all_masks.shape[-2:] and all_ims.shape[-2:] == all_preds.shape[-2:]
-
-    ## Select images to be plotted:
-    ims_plot = all_ims[ind_list, :, :, :]
-    masks_plot = all_masks[ind_list, :, :]
-    preds_plot = all_preds[ind_list, :, :]
+def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot, 
+                                 preprocessing_fun, lc_class_name_list=[], unique_labels_array=None):
     assert ims_plot.ndim == 4 and masks_plot.ndim == 3 and preds_plot.ndim == 3
     if preprocessing_fun is None:
         print('WARNING: no preprocessing (eg z-scoring) can be undone because no preprocessing function passed on')
@@ -266,7 +253,7 @@ def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_f
         preds_plot = preds_plot.detach().numpy()
 
     ## Create figure and ax handles:
-    n_pics = len(ind_list)
+    n_pics = ims_plot.shape[0]
     fig = plt.figure(constrained_layout=False, figsize=(7, n_pics * 2))
     gs_ims = fig.add_gridspec(ncols=3, nrows=n_pics, bottom=0.02, top=0.95, 
                               left=0.02, right=0.8, wspace=0.15, hspace=0.15)
@@ -291,6 +278,26 @@ def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_f
             ax_ims[i_ind][0].set_title('Image')
             ax_ims[i_ind][1].set_title('Land cover 80s')
             ax_ims[i_ind][2].set_title('Model prediction')
+
+def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
+                                  lc_class_name_list=[], unique_labels_array=None, save_fig=False, 
+                                  filename_prefix='example_predictions'):
+    '''Plot rows of image/mask/prediction + legend.'''
+    assert type(ind_list) == list
+    ind_list = np.sort(np.array(ind_list))
+    assert all_ims.ndim == 4 and all_masks.ndim == 3, 'images and masks dont have expected shape'
+    assert all_preds.ndim == 3, 'predicted masks dont have expected shape. Maybe they are not yet argmaxed?'
+    assert all_ims.shape[0] == all_masks.shape[0] and all_ims.shape[0] == all_preds.shape[0]
+    assert all_ims.shape[-2:] == all_masks.shape[-2:] and all_ims.shape[-2:] == all_preds.shape[-2:]
+
+    ## Select images to be plotted:
+    ims_plot = all_ims[ind_list, :, :, :]
+    masks_plot = all_masks[ind_list, :, :]
+    preds_plot = all_preds[ind_list, :, :]
+ 
+    plot_image_mask_pred_wrapper(ims_plot=ims_plot, masks_plot=masks_plot, preds_plot=preds_plot, 
+                                 preprocessing_fun=preprocessing_fun, lc_class_name_list=lc_class_name_list, 
+                                 unique_labels_array=unique_labels_array)
 
     if save_fig:
         str_list_inds = '-'.join([str(x) for x in ind_list])
@@ -466,6 +473,8 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr',
     lc_names = list(df_1.select_dtypes(np.number).columns)
     distr_1 = df_1.sum(0, numeric_only=True) / len(df_1)
     distr_2 = df_2.sum(0, numeric_only=True) / len(df_2)
+    distr_1[distr_1 == 0] = 1e-6
+    distr_2[distr_2 == 0] = 1e-6
     assert len(distr_1) == len(distr_2) and len(distr_1) == len(lc_names)
 
     ax.plot([1e-4, 1], [1e-4, 1], c='k', alpha=0.4, zorder=-1)
@@ -493,10 +502,30 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr',
     minl, maxl = equal_xy_lims(ax)
     ax.set_title('LC distribution of PD vs sample')
     if plot_legend:
-        ax.legend(bbox_to_anchor=(1, 1))
+        ax.legend(bbox_to_anchor=(1, 1), ncol=2)
     despine(ax)
 
     if save_fig:
         if filename is None:
             filename = 'content/evaluation_sample_50tiles/distr_eval_sample.pdf'
         plt.savefig(filename, bbox_inches='tight')
+
+def plot_difference_total_lc_from_dfs(dict_dfs={}):
+    '''Plot difference between LC'''
+    class_name_col = 'Class name'
+    names_dfs = list(dict_dfs.keys())
+    # unique_labels = np.unique(np.concatenate([dict_dfs[x][class_name_col].unique() for x in names_dfs]))
+    unique_labels = ['Wood and Forest Land', 'Moor and Heath Land', 'Agro-Pastoral Land',
+                    'Water and Wetland', 'Rock and Coastal Land', 'Developed Land', 'Unclassified Land']
+    print(unique_labels)
+
+    dict_sum_area = {x: np.zeros(len(unique_labels)) for x in names_dfs}
+    for name_df in names_dfs:
+        for i_lab, label in enumerate(unique_labels):
+            dict_sum_area[name_df][i_lab] = dict_dfs[name_df][dict_dfs[name_df][class_name_col] == label]['area'].sum()
+
+    ax = plt.subplot(111)
+    for name_df in names_dfs: 
+        ax.plot(dict_sum_area[name_df], label=name_df)
+    ax.legend()
+    return dict_sum_area

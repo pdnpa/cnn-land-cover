@@ -1,11 +1,13 @@
 {
   "tplas":
     {"paths": {
-      "image_path": "/home/tplas/data/gis/most recent APGB 12.5cm aerial/117383_20221005/12.5cm Aerial Photo/117383-1_RGB_1_Shape/images/",
-      "mask_path": "/home/tplas/data/gis/most recent APGB 12.5cm aerial/117383_20221005/12.5cm Aerial Photo/117383-1_RGB_1_Shape/masks/",
+      "image_path": "/home/tplas/data/gis/most recent APGB 12.5cm aerial/gradbach_6tiles/12.5cm Aerial Photo/117383-1_RGB_1_Shape/tiles/",
+      "mask_path": "/home/tplas/data/gis/most recent APGB 12.5cm aerial/gradbach_6tiles/12.5cm Aerial Photo/117383-1_RGB_1_Shape/tiles/tile_masks/",
       "tiles_few_changes_path": "/home/tplas/data/gis/most recent APGB 12.5cm aerial/tiles_few_changes/",
       "lc_80s_path": "/home/tplas/data/gis/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp",
-      "landscape_character_grid_path": "/home/tplas/data/gis/Landscape_Character_Grid 2019-08-29 09-57-26/Landscape_Character_Grid.shp"
+      "landscape_character_grid_path": "/home/tplas/data/gis/Landscape_Character_Grid 2019-08-29 09-57-26/Landscape_Character_Grid.shp",
+      "evaluation_50tiles": "/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
+      "evaluation_50tiles_polygons": "/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/Landscape_Character_80s_2022.shp"
               }
     },
   "thijs": 
@@ -14,7 +16,9 @@
       "mask_path": "/home/thijs/Google Drive/peak district/data/most recent APGB 12.5cm aerial/117383_20221005/12.5cm Aerial Photo/117383-1_RGB_1_Shape/masks/",
       "tiles_few_changes_path": "/media/thijs/hooghoudt/GIS projects/PD/most recent APGB 12.5cm aerial/117523_20221107/12.5cm Aerial Photo/",
       "lc_80s_path": "/home/thijs/Google Drive/peak district/data/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp",
-      "landscape_character_grid_path": "/home/thijs/Google Drive/peak district/data/Landscape_Character_Grid 2019-08-29 09-57-26/Landscape_Character_Grid.shp"
+      "landscape_character_grid_path": "/home/thijs/Google Drive/peak district/data/Landscape_Character_Grid 2019-08-29 09-57-26/Landscape_Character_Grid.shp",
+      "evaluation_50tiles": "/home/thijs/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
+      "evaluation_50tiles_polygons": "/home/thijs/repos/cnn-land-cover/content/evaluation_polygons/Landscape_Character_80s_2022.shp"
               }
     }
 }
