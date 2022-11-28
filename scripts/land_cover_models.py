@@ -43,6 +43,8 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.shuffle_order_patches = shuffle_order_patches
         self.frac_subsample = frac_subsample
         self.relabel_masks = relabel_masks
+        self.subsample_patches = subsample_patches
+        self.unique_labels_arr = unique_labels_arr
 
         if self.preprocessing_func is not None:  # prep preprocess transformation
             rgb_means = self.preprocessing_func.keywords['mean']
@@ -67,13 +69,38 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.list_patch_names = [x.split('/')[-1].rstrip('.npy') for x in self.list_im_npys]
         self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
 
+        self.create_df_patches()
+        self.organise_df_patches()
+        self.create_label_mapping()        
+
+    def __getitem__(self, index):
+        '''Function that gets data items by index'''
+        patch_row = self.df_patches.iloc[index]
+        im = np.load(patch_row['im_filepath'])  #0.25ms
+        mask = np.load(patch_row['mask_filepath'])  #0.25ms
+        im = torch.tensor(im).float()  # 0.1ms
+        im = self.preprocess_image(im)  # 0.25 ms
+        if self.relabel_masks:
+            mask = self.remap_labels(mask)  # 2.5ms
+        mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
+        return im, mask 
+
+    def __repr__(self):
+        return f'DataLoaderPatches class'
+
+    def __len__(self):
+        return len(self.df_patches)
+
+    def create_df_patches(self):
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys})
 
-        if subsample_patches:
-            assert frac_subsample <= 1 and frac_subsample > 0
-            n_subsample = int(len(self.df_patches) * frac_subsample)
+    def organise_df_patches(self):
+
+        if self.subsample_patches:
+            assert self.frac_subsample <= 1 and self.frac_subsample > 0
+            n_subsample = int(len(self.df_patches) * self.frac_subsample)
             print(f'Subsampling {n_subsample} patches')
             self.df_patches = self.df_patches[:n_subsample]
         
@@ -85,14 +112,15 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.df_patches = self.df_patches.sort_values('patch_name')
         self.df_patches = self.df_patches.reset_index(drop=True)
             
+    def create_label_mapping(self):
         # ## Prep the transformation of class inds:
         if self.path_mapping_dict is None:
             print('WARNING: no label mapping given - so using all labels individually')
             dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
-            if unique_labels_arr == None:  # if no array given, presume full array:
+            if self.unique_labels_arr == None:  # if no array given, presume full array:
                 self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 
             else:
-                self.unique_labels_arr = np.unique(unique_labels_arr)
+                self.unique_labels_arr = np.unique(self.unique_labels_arr)
             self.mapping_label_to_new_dict = {label: ind for ind, label in enumerate(self.unique_labels_arr)}
             self.class_name_list = [dict_ind_to_name[label] for label in self.unique_labels_arr]
             self.n_classes = len(self.class_name_list)
@@ -111,24 +139,6 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.class_name_list = list(self.dict_mapping['dict_new_names'].values())
             self.n_classes = len(self.class_name_list)
 
-    def __getitem__(self, index):
-        '''Function that gets data items by index'''
-        patch_row = self.df_patches.iloc[index]
-        im = np.load(patch_row['im_filepath'])  #0.25ms
-        mask = np.load(patch_row['mask_filepath'])  #0.25ms
-        im = torch.tensor(im).float()  # 0.1ms
-        im = self.preprocess_image(im)  # 0.25 ms
-        mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
-        if self.relabel_masks:
-            mask = self.remap_labels(mask)  # 2.5ms
-        return im, mask 
-
-    def __repr__(self):
-        return f'DataLoaderPatches class'
-
-    def __len__(self):
-        return len(self.df_patches)
-    
     def zscore_image(self, im):
         '''Apply preprocessing function to a single image. 
         Adapted from lca.apply_zscore_preprocess_images() but more specific/faster.
@@ -150,6 +160,44 @@ class DataSetPatches(torch.utils.data.Dataset):
         for label in self.unique_labels_arr:
             new_mask[mask == label] = self.mapping_label_to_new_dict[label]
         return new_mask
+
+class DataSetPatchesTwoMasks(DataSetPatches):
+    def __init__(self, mask_dir_2, mask_suffix_2='_lc_2022_mask.npy', 
+                 relabel_masks_2=False, **kwargs):
+        self.mask_dir_2 = mask_dir_2
+        self.mask_suffix_2 = mask_suffix_2
+        self.relabel_masks_2 = relabel_masks_2
+        
+        super().__init__(**kwargs)
+        
+        assert 'mask_2_filepath' in self.df_patches.columns 
+ 
+        print(f'Relabelling mask 1: {self.relabel_masks}\nRelabelling mask 2: {self.relabel_masks_2}')
+
+    def __getitem__(self, index):
+        '''Function that gets data items by index'''
+        patch_row = self.df_patches.iloc[index]
+        im = np.load(patch_row['im_filepath'])  #0.25ms
+        mask = np.load(patch_row['mask_filepath'])  #0.25ms
+        mask_2 = np.load(patch_row['mask_2_filepath'])
+        im = torch.tensor(im).float()  # 0.1ms
+        im = self.preprocess_image(im)  # 0.25 ms
+        if self.relabel_masks:
+            mask = self.remap_labels(mask)  # 2.5ms
+        if self.relabel_masks_2:
+            mask_2 = self.remap_labels(mask_2)
+        
+        mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
+        mask_2 = torch.tensor(mask_2).type(torch.LongTensor)
+        return im, mask, mask_2
+
+    def create_df_patches(self):
+        self.list_mask_2_npys = [os.path.join(self.mask_dir_2, x.split('/')[-1].rstrip('.npy') + self.mask_suffix_2) for x in self.list_im_npys]
+        self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
+                                        'im_filepath': self.list_im_npys, 
+                                        'mask_filepath': self.list_mask_npys,
+                                        'mask_2_filepath': self.list_mask_2_npys})
+
 
 class LandCoverUNet(pl.LightningModule):
     ## I think it's best to use the Lightning Module. See here:
@@ -266,11 +314,22 @@ def get_batch_from_ds(ds, batch_size=5, start_ind=0):
     assert type(batch_size) == int and type(start_ind) == int
     for ii in range(start_ind, start_ind + batch_size):
         tmp_items.append(ds[ii])
+        if len(ds[ii]) == 2:
+            n_outputs = 2
+        elif len(ds[ii]) == 3:
+            n_outputs = 3
+        else:
+            assert False, f'DS has {len(ds[ii])} outputs. Expected 2 or 3'
     list_inputs = [torch.Tensor(x[0])[None, :, :, :] for x in tmp_items]
     list_outputs = [torch.Tensor(x[1])[None, :, :] for x in tmp_items]
     list_inputs = lca.concat_list_of_batches(list_inputs)
     list_outputs = lca.concat_list_of_batches(list_outputs)
-    return [list_inputs, list_outputs]
+    if n_outputs == 2:
+        return [list_inputs, list_outputs]
+    elif n_outputs == 3:
+        list_outputs_2 = [torch.Tensor(x[2])[None, :, :] for x in tmp_items]
+        list_outputs_2 = lca.concat_list_of_batches(list_outputs_2)
+        return [list_inputs, list_outputs, list_outputs_2]
 
 def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, 
                                               plot_prediction=True, preprocessing_fun=None,
@@ -279,17 +338,24 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None,
         batch = next(iter(test_dl))
     elif batch is not None and test_dl is None:
         pass  # use batch 
-    assert len(batch) == 2 and type(batch) == list, 'batch of unexpected format.. Expected [batch_images, batch_masks]'
+    assert (len(batch) == 2 or len(batch) == 3) and type(batch) == list, 'batch of unexpected format.. Expected [batch_images, batch_masks]'
     predicted_labels = model.forward(batch[0])
     predicted_labels = lca.change_tensor_to_max_class_prediction(pred=predicted_labels)
+    if len(batch) == 3:
+        mask_2 = batch[2]
+    else:
+        mask_2 = None
     if preprocessing_fun is None:
         preprocessing_fun = model.preprocessing_fun
     if plot_prediction:
-        lcv.plot_image_mask_pred_wrapper(ims_plot=batch[0], masks_plot=batch[1],
+        lcv.plot_image_mask_pred_wrapper(ims_plot=batch[0], masks_plot=batch[1], masks_2_plot=mask_2,
                                          preds_plot=predicted_labels, preprocessing_fun=preprocessing_fun,
                                          lc_class_name_list=lc_class_name_list,
                                          unique_labels_array=unique_labels_array)
-    return (batch[0], batch[1], predicted_labels)
+    if len(batch) == 3:
+        return (batch[0], batch[1], batch[2], predicted_labels)    
+    elif len(batch) == 2:
+        return (batch[0], batch[1], predicted_labels)
 
 def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
                             batch_size=10):

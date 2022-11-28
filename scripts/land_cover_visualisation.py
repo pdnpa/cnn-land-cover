@@ -212,7 +212,7 @@ def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax
         plt.colorbar(im_plot, format=formatter, ticks=cbar_ticks, cax=cax)
     naked(ax)
 
-def plot_image_mask_pred(image, mask, pred, lc_class_name_list=[], unique_labels_array=None, 
+def plot_image_mask_pred(image, mask, pred, mask_2=None, lc_class_name_list=[], unique_labels_array=None, 
                          ax_list=None, plot_colorbar=True, cax=None):
     '''Plot image/mask/prediction next to each other & cbar if given'''
     ## check that ax_list is of correct format:
@@ -224,20 +224,24 @@ def plot_image_mask_pred(image, mask, pred, lc_class_name_list=[], unique_labels
             print(f'ax_list is type {type(ax_list)} of len {len(ax_list)}')
 
     if create_new_ax:
-        fig, ax_list = plt.subplot(1, 3, figsize=(6, 20))
+        fig, ax_list = plt.subplot(1, 4 if mask_2 is not None else 3, figsize=(6, 20))
 
     ## Use specific functions for each:
     plot_image_simple(im=image, ax=ax_list[0])
     plot_landcover_image(im=mask, ax=ax_list[1], lc_class_name_list=lc_class_name_list, 
                          unique_labels_array=unique_labels_array, plot_colorbar=False)
-    plot_landcover_image(im=pred, ax=ax_list[2], lc_class_name_list=lc_class_name_list, 
+    plot_landcover_image(im=pred, ax=ax_list[2 if mask_2 is None else 3], lc_class_name_list=lc_class_name_list, 
                         unique_labels_array=unique_labels_array, 
                         plot_colorbar=plot_colorbar, cax=cax)
+    if mask_2 is not None:
+        plot_landcover_image(im=mask_2, ax=ax_list[2], lc_class_name_list=lc_class_name_list, 
+                            unique_labels_array=unique_labels_array, plot_colorbar=False)
     
     return ax_list 
 
 def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot, 
-                                 preprocessing_fun, lc_class_name_list=[], unique_labels_array=None):
+                                 preprocessing_fun, masks_2_plot=None, 
+                                 lc_class_name_list=[], unique_labels_array=None):
     assert ims_plot.ndim == 4 and masks_plot.ndim == 3 and preds_plot.ndim == 3
     if preprocessing_fun is None:
         print('WARNING: no preprocessing (eg z-scoring) can be undone because no preprocessing function passed on')
@@ -251,11 +255,17 @@ def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot,
         masks_plot = masks_plot.detach().numpy()
     if type(preds_plot) == torch.Tensor:
         preds_plot = preds_plot.detach().numpy()
+    if masks_2_plot is not None:
+        if type(masks_2_plot) == torch.Tensor:
+            masks_2_plot = masks_2_plot.detach().numpy() 
+        bool_2_masks = True 
+    else:
+        bool_2_masks = False
 
     ## Create figure and ax handles:
     n_pics = ims_plot.shape[0]
-    fig = plt.figure(constrained_layout=False, figsize=(7, n_pics * 2))
-    gs_ims = fig.add_gridspec(ncols=3, nrows=n_pics, bottom=0.02, top=0.95, 
+    fig = plt.figure(constrained_layout=False, figsize=(9 if bool_2_masks else 7, n_pics * 2))
+    gs_ims = fig.add_gridspec(ncols=4 if bool_2_masks else 3, nrows=n_pics, bottom=0.02, top=0.95, 
                               left=0.02, right=0.8, wspace=0.15, hspace=0.15)
     figsize = fig.get_size_inches()
     ideal_legend_height_inch = len(lc_class_name_list) * 0.4
@@ -268,16 +278,21 @@ def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot,
 
     ## Plot using specific function, for each row:
     for i_ind in range(n_pics):
-        ax_ims[i_ind] = [fig.add_subplot(gs_ims[i_ind, xx]) for xx in range(3)]
+        ax_ims[i_ind] = [fig.add_subplot(gs_ims[i_ind, xx]) for xx in range(4 if bool_2_masks else 3)]
         plot_image_mask_pred(image=ims_plot[i_ind, :, :, :], mask=masks_plot[i_ind, :, :],
-                             pred=preds_plot[i_ind, :, :], ax_list=ax_ims[i_ind],
+                             pred=preds_plot[i_ind, :, :], mask_2=masks_2_plot[i_ind, :, :],
+                             ax_list=ax_ims[i_ind],
                              lc_class_name_list=lc_class_name_list, unique_labels_array=unique_labels_array,
                              plot_colorbar=(i_ind == 0), cax=ax_cbar)
 
         if i_ind == 0:
             ax_ims[i_ind][0].set_title('Image')
             ax_ims[i_ind][1].set_title('Land cover 80s')
-            ax_ims[i_ind][2].set_title('Model prediction')
+            if bool_2_masks:
+                ax_ims[i_ind][2].set_title('Land cover 2022')
+                ax_ims[i_ind][3].set_title('Model prediction')
+            else:
+                ax_ims[i_ind][2].set_title('Model prediction')
 
 def plot_image_mask_pred_from_all(all_ims, all_masks, all_preds, preprocessing_fun=None, ind_list=[0],
                                   lc_class_name_list=[], unique_labels_array=None, save_fig=False, 
