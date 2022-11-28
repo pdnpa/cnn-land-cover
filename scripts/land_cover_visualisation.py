@@ -516,16 +516,30 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
     names_dfs = list(dict_dfs.keys())
     # unique_labels = np.unique(np.concatenate([dict_dfs[x][class_name_col].unique() for x in names_dfs]))
     unique_labels = ['Wood and Forest Land', 'Moor and Heath Land', 'Agro-Pastoral Land',
-                    'Water and Wetland', 'Rock and Coastal Land', 'Developed Land', 'Unclassified Land']
+                     'Water and Wetland', 'Rock and Coastal Land', 'Developed Land', 'Unclassified Land']
     print(unique_labels)
 
     dict_sum_area = {x: np.zeros(len(unique_labels)) for x in names_dfs}
     for name_df in names_dfs:
         for i_lab, label in enumerate(unique_labels):
             dict_sum_area[name_df][i_lab] = dict_dfs[name_df][dict_dfs[name_df][class_name_col] == label]['area'].sum()
+        print(name_df, dict_sum_area[name_df].sum())
 
+    diff_count = np.zeros(len(unique_labels))
+    for i_lab, label in enumerate(unique_labels):
+        diff_count[i_lab] = dict_sum_area[names_dfs[1]][i_lab] - dict_sum_area[names_dfs[0]][i_lab]
+        diff_count[i_lab] = diff_count[i_lab] / 1e6  # go to km^2
+    print(diff_count.sum())
+    sorted_counts = np.argsort(diff_count)[::-1]
+    diff_count = diff_count[sorted_counts]
+    unique_labels = [unique_labels[x] for x in sorted_counts]
     ax = plt.subplot(111)
-    for name_df in names_dfs: 
-        ax.plot(dict_sum_area[name_df], label=name_df)
-    ax.legend()
+    ax.barh(y=np.arange(len(unique_labels)) * 1.5, width=diff_count, height=0.4, facecolor='grey')
+    for i_lab, label in enumerate(unique_labels):
+        ax.text(s=label, x=0, y=i_lab * 1.5 + 0.25, fontdict={'ha': 'center', 'va': 'bottom'})
+    despine(ax)
+    ax.set_xlabel(f'Area difference {names_dfs[1]} - {names_dfs[0]} (km^2)')
+    ax.set_yticks([])
+    ax.spines['left'].set_visible(False)
+    ax.set_title(f'Total net difference in LC between {names_dfs[1]} and {names_dfs[0]}', fontdict={'weight': 'bold'})
     return dict_sum_area

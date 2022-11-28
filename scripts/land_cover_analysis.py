@@ -205,6 +205,25 @@ def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_n
 
     return df_lc
 
+def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_name='class_ind'):
+
+    mapping_dict = {'C': 1,
+                    'D': 2,
+                    'E': 3,
+                    'F': 4,
+                    'G': 5,
+                    'H': 6,
+                    'I': 0}
+
+    class_ind_col = np.zeros(len(df_lc[col_code_name]), dtype=int)
+    for code, new_ind in mapping_dict.items():
+        inds_code = np.where(df_lc[col_code_name] == code)[0]
+        class_ind_col[inds_code] = new_ind 
+    
+    df_lc[col_ind_name] = class_ind_col
+
+    return df_lc
+
 def test_validity_geometry_column(df):
     '''Test if all polygons in geometry column of df are valid. If not, try to fix.'''
     arr_valid = np.array([shapely.validation.explain_validity(df['geometry'].iloc[x]) for x in range(len(df))])
@@ -243,6 +262,8 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
             list_pols.append(new_pol)
             if extract_main_categories_only:
                 list_class_code.append(df_relevant_pols.iloc[i_pol]['Class_Code'])
+                if df_relevant_pols.iloc[i_pol]['Class_Code'] is None: 
+                    print(f'{name_tile} contains a polygon with missing Class_Code label')
             else:
                 list_class_id.append(df_relevant_pols.iloc[i_pol]['LC_N_80'])
                 list_class_name.append(df_relevant_pols.iloc[i_pol]['LC_D_80'])
@@ -384,7 +405,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
         - None: nothing done with missing data (turned into 0)
         - 'nearest': using label of nearest pixels (takes bit of extra time)
     '''
-    assert not np.isin(0, np.unique(df_shp[col_name])), '0 is already a class label, so cant be used for fill value'
+    # assert not np.isin(0, np.unique(df_shp[col_name])), '0 is already a class label, so cant be used for fill value'
     assert len(resolution) == 2 and resolution[0] < 0 and resolution[1] > 0, 'resolution has unexpected size/values'
     
     ## Convert shape to raster:
@@ -393,19 +414,19 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                         # like=ex_tile,  # use resolution of example tiff
                         resolution=resolution,
                         fill=0)
-    shape_cube = cube.LC_N_80.shape  # somehow sometimes an extra row or of NO CLASS is added... 
+    shape_cube = cube[col_name].shape  # somehow sometimes an extra row or of NO CLASS is added... 
     if shape_cube[0]  == 8001:
-        if len(np.unique(cube.LC_N_80[0, :])) > 1:
-            print(f'WARNING: {filename} has shape {shape_cube} but first y-row contains following classes: {np.unique(cube.LC_N_80[:, 0])}. Still proceeding..')    
-        # assert np.unique(cube.LC_N_80[0, :]) == np.array([0])
+        if len(np.unique(cube[col_name][0, :])) > 1:
+            print(f'WARNING: {filename} has shape {shape_cube} but first y-row contains following classes: {np.unique(cube[col_name][:, 0])}. Still proceeding..')    
+        # assert np.unique(cube[col_name][0, :]) == np.array([0])
         cube = cube.isel(y=np.arange(1, 8001))  #discard first one that is just no classes 
     if shape_cube[1] == 8001:
-        if len(np.unique(cube.LC_N_80[:, 0])) > 1:
-            print(f'WARNING: {filename} has shape {shape_cube} but first x-col contains following classes: {np.unique(cube.LC_N_80[:, 0])}. Still proceeding..')    
-        # assert np.unique(cube.LC_N_80[:, 0]) == np.array([0])
+        if len(np.unique(cube[col_name][:, 0])) > 1:
+            print(f'WARNING: {filename} has shape {shape_cube} but first x-col contains following classes: {np.unique(cube[col_name][:, 0])}. Still proceeding..')    
+        # assert np.unique(cube[col_name][:, 0]) == np.array([0])
         cube = cube.isel(x=np.arange(1, 8001))  #discard first one that is just no classes 
 
-    assert cube.LC_N_80.shape == (8000, 8000), f'Cube of {filename} is not expected shape, but {cube.LC_N_80.shape}'
+    assert cube[col_name].shape == (8000, 8000), f'Cube of {filename} is not expected shape, but {cube[col_name].shape}'
 
     ## Decrease data size:
     if verbose > 0:
