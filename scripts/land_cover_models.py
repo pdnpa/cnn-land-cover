@@ -1,20 +1,10 @@
 from json import encoder
 import os, sys, copy
 import numpy as np
-# from numpy.core.multiarray import square
-# from numpy.testing import print_assert_equal
-# import rasterio
-# import xarray as xr
-# import rioxarray as rxr
-# import sklearn.model_selection
 from tqdm import tqdm
 import datetime
 import pickle
-# import shapely as shp
 import pandas as pd
-# import geopandas as gpd
-# from geocube.api.core import make_geocube
-# import gdal, osr
 import loadpaths
 import patchify 
 import torch
@@ -30,6 +20,10 @@ import land_cover_visualisation as lcv
 path_dict = loadpaths.loadpaths()
 
 class DataSetPatches(torch.utils.data.Dataset):
+    '''Data set for images & masks. Saves file paths, but only loads into memory during __getitem__.
+    
+    Used for training etc - __getitem__ has expected output (input, output) for PL models.
+    '''
     def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', 
                  preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True,
@@ -71,10 +65,11 @@ class DataSetPatches(torch.utils.data.Dataset):
 
         self.create_df_patches()
         self.organise_df_patches()
+        print(f'Loaded {len(self.df_patches)} patches')
         self.create_label_mapping()        
 
     def __getitem__(self, index):
-        '''Function that gets data items by index'''
+        '''Function that gets data items by index. I have added timings in case this should be sped up.'''
         patch_row = self.df_patches.iloc[index]
         im = np.load(patch_row['im_filepath'])  #0.25ms
         mask = np.load(patch_row['mask_filepath'])  #0.25ms
@@ -92,12 +87,13 @@ class DataSetPatches(torch.utils.data.Dataset):
         return len(self.df_patches)
 
     def create_df_patches(self):
+        '''Create dataframe with all patch locations'''
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys})
 
     def organise_df_patches(self):
-
+        '''Subsample & sort/shuffle patches DF'''
         if self.subsample_patches:
             assert self.frac_subsample <= 1 and self.frac_subsample > 0
             n_subsample = int(len(self.df_patches) * self.frac_subsample)
@@ -113,7 +109,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.df_patches = self.df_patches.reset_index(drop=True)
             
     def create_label_mapping(self):
-        # ## Prep the transformation of class inds:
+        '''Prep the transformation of class inds'''
         if self.path_mapping_dict is None:
             print('WARNING: no label mapping given - so using all labels individually')
             dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
@@ -162,36 +158,43 @@ class DataSetPatches(torch.utils.data.Dataset):
         return new_mask
 
 class DataSetPatchesTwoMasks(DataSetPatches):
-    def __init__(self, mask_dir_2, mask_suffix_2='_lc_2022_mask.npy', 
+    '''DS class that holds another set of masks (of the same images).
+    Useful for plotting both mask sets; but generally not compatible with PL trainer API.
+    '''
+    def __init__(self, mask_dir_2, mask_suffix_2='_lc_2022_mask.npy',
+                 mask_1_name='LC 80s', mask_2_name='LC 2020', 
                  relabel_masks_2=False, **kwargs):
         self.mask_dir_2 = mask_dir_2
         self.mask_suffix_2 = mask_suffix_2
         self.relabel_masks_2 = relabel_masks_2
+        self.mask_1_name = mask_1_name
+        self.mask_2_name = mask_2_name
         
         super().__init__(**kwargs)
         
-        assert 'mask_2_filepath' in self.df_patches.columns 
- 
+        assert 'mask_2_filepath' in self.df_patches.columns  # just double checking that create_df_patches() has been correctly overridden.
         print(f'Relabelling mask 1: {self.relabel_masks}\nRelabelling mask 2: {self.relabel_masks_2}')
 
     def __getitem__(self, index):
-        '''Function that gets data items by index'''
+        '''Function that gets data items by index.
+        Override to include mask_2'''
         patch_row = self.df_patches.iloc[index]
-        im = np.load(patch_row['im_filepath'])  #0.25ms
-        mask = np.load(patch_row['mask_filepath'])  #0.25ms
+        im = np.load(patch_row['im_filepath'])  
+        mask = np.load(patch_row['mask_filepath'])  
         mask_2 = np.load(patch_row['mask_2_filepath'])
-        im = torch.tensor(im).float()  # 0.1ms
-        im = self.preprocess_image(im)  # 0.25 ms
+        im = torch.tensor(im).float() 
+        im = self.preprocess_image(im)  
         if self.relabel_masks:
-            mask = self.remap_labels(mask)  # 2.5ms
+            mask = self.remap_labels(mask) 
         if self.relabel_masks_2:
             mask_2 = self.remap_labels(mask_2)
         
-        mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
+        mask = torch.tensor(mask).type(torch.LongTensor)
         mask_2 = torch.tensor(mask_2).type(torch.LongTensor)
         return im, mask, mask_2
 
     def create_df_patches(self):
+        '''Override to include mask_2_filepath'''
         self.list_mask_2_npys = [os.path.join(self.mask_dir_2, x.split('/')[-1].rstrip('.npy') + self.mask_suffix_2) for x in self.list_im_npys]
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'im_filepath': self.list_im_npys, 
@@ -200,9 +203,12 @@ class DataSetPatchesTwoMasks(DataSetPatches):
 
 
 class LandCoverUNet(pl.LightningModule):
-    ## I think it's best to use the Lightning Module. See here:
-    ## https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html
-    ## https://colab.research.google.com/drive/1eRgcdQvNWzcEed2eTj8paDnnQ0qplXAh?usp=sharing#scrollTo=V7ELesz1kVQo
+    '''
+    UNet for semantic segmentation. Build using API of pytorch lightning
+    (see: https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html)
+    
+    
+    '''
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
                  lr=1e-3):
         super().__init__()
@@ -264,7 +270,8 @@ class LandCoverUNet(pl.LightningModule):
     #     '''Only adjust if you need outputs of different training steps'''
     #     torch.stack([x["loss"] for x in outputs]).mean()
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx):  # add dataloader id for separating test losss per test ds? 
+        '''Done after training finished.'''
         x, y = batch
         output = self.base(x)
         loss = self.loss(output, y)
@@ -272,6 +279,8 @@ class LandCoverUNet(pl.LightningModule):
         self.log('test_loss', loss)
     
     def validation_step(self, batch, batch_idx):
+        '''Done during training (with unseen data), eg after each epoch.
+        This is commonly a small portion of the train data. (eg 20%). '''
         x, y = batch
         output = self.base(x)
         loss = self.loss(output, y)
@@ -305,11 +314,13 @@ class LandCoverUNet(pl.LightningModule):
             print(f'LCU model saved as {self.filename} at {self.filepath}')
 
 def load_model(folder='', filename=''):
+    '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)
     return LCU 
 
 def get_batch_from_ds(ds, batch_size=5, start_ind=0):
+    '''Given DS, retrieve a batch of data (for plotting etc)'''
     tmp_items = []
     assert type(batch_size) == int and type(start_ind) == int
     for ii in range(start_ind, start_ind + batch_size):
@@ -334,6 +345,7 @@ def get_batch_from_ds(ds, batch_size=5, start_ind=0):
 def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, 
                                               plot_prediction=True, preprocessing_fun=None,
                                               lc_class_name_list=None, unique_labels_array=None):
+    '''Predict LC of a single batch, and plot if wanted'''
     if batch is None and test_dl is not None:
         batch = next(iter(test_dl))
     elif batch is not None and test_dl is None:
@@ -359,6 +371,9 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None,
 
 def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
                             batch_size=10):
+    '''Wrapper function that predicts & reconstructs full tile.
+    WIP
+    '''
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_dir(dir_im)
 
@@ -404,9 +419,9 @@ def save_details_trainds_to_model(model, train_ds):
     assert len(model.dict_training_details) == 0, f'training dictionary is not empty but contains {model.dict_training_details.keys()}. Consider a new function that adds info of second training procedure?'
 
     list_names_attrs = ['df_patches', 'im_dir', 'mask_dir', 'path_mapping_dict', 
-                    'preprocessing_func', 'rgb_means', 'rgb_std', 'shuffle_order_patches', 
-                    'frac_subsample', 'unique_labels_arr', 'mapping_label_to_new_dict', 
-                    'class_name_list', 'n_classes']
+                        'preprocessing_func', 'rgb_means', 'rgb_std', 'shuffle_order_patches', 
+                        'frac_subsample', 'unique_labels_arr', 'mapping_label_to_new_dict', 
+                        'class_name_list', 'n_classes']
 
     for name_attr in list_names_attrs:  # add to model one by one:
         model.dict_training_details[name_attr] = getattr(train_ds, name_attr)
