@@ -32,7 +32,7 @@ path_dict = loadpaths.loadpaths()
 class DataSetPatches(torch.utils.data.Dataset):
     def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', 
                  preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
-                 subsample_patches=False, frac_subsample=1, 
+                 subsample_patches=False, frac_subsample=1, relabel_masks=True,
                  path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
@@ -42,6 +42,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.path_mapping_dict = path_mapping_dict
         self.shuffle_order_patches = shuffle_order_patches
         self.frac_subsample = frac_subsample
+        self.relabel_masks = relabel_masks
 
         if self.preprocessing_func is not None:  # prep preprocess transformation
             rgb_means = self.preprocessing_func.keywords['mean']
@@ -69,6 +70,13 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys})
+
+        if subsample_patches:
+            assert frac_subsample <= 1 and frac_subsample > 0
+            n_subsample = int(len(self.df_patches) * frac_subsample)
+            print(f'Subsampling {n_subsample} patches')
+            self.df_patches = self.df_patches[:n_subsample]
+        
         if self.shuffle_order_patches:
             print('Patches ordered randomly')
             self.df_patches = self.df_patches.sample(frac=1, replace=False)
@@ -76,12 +84,6 @@ class DataSetPatches(torch.utils.data.Dataset):
             print('Patches sorted by tile/patch order')
             self.df_patches = self.df_patches.sort_values('patch_name')
         self.df_patches = self.df_patches.reset_index(drop=True)
-
-        if subsample_patches:
-            assert frac_subsample <= 1 and frac_subsample > 0
-            n_subsample = int(len(self.df_patches) * frac_subsample)
-            print(f'Subsampling {n_subsample} patches')
-            self.df_patches = self.df_patches[:n_subsample]
             
         # ## Prep the transformation of class inds:
         if self.path_mapping_dict is None:
@@ -95,10 +97,17 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.class_name_list = [dict_ind_to_name[label] for label in self.unique_labels_arr]
             self.n_classes = len(self.class_name_list)
         else:
-            print(f'Loaded {self.path_mapping_dict.split("/")[-1]} to map labels')
             self.dict_mapping = pickle.load(open(self.path_mapping_dict, 'rb'))           
-            self.mapping_label_to_new_dict = self.dict_mapping['dict_label_mapping']
-            self.unique_labels_arr = np.array(list(self.dict_mapping['dict_label_mapping'].keys()))
+            if self.relabel_masks:  # normal loading of dict_mapping:
+                print(f'Loaded {self.path_mapping_dict.split("/")[-1]} to map labels')
+                self.mapping_label_to_new_dict = self.dict_mapping['dict_label_mapping']
+                self.unique_labels_arr = np.array(list(self.dict_mapping['dict_label_mapping'].keys()))
+            else:  # don't remap, but just changing these two objects for consistency.
+                ## Because there is no remapping, it is just identity transformation. 
+                ## Assume the given path_mapping_dict output is thus already input (hence no remapping required)
+                print(f'Loaded {self.path_mapping_dict.split("/")[-1]} just for meta data. Will not remap labels.')
+                self.unique_labels_arr = np.unique(list(self.dict_mapping['dict_label_mapping'].values())) 
+                self.mapping_label_to_new_dict = {k: k for k in self.unique_labels_arr}
             self.class_name_list = list(self.dict_mapping['dict_new_names'].values())
             self.n_classes = len(self.class_name_list)
 
@@ -110,7 +119,8 @@ class DataSetPatches(torch.utils.data.Dataset):
         im = torch.tensor(im).float()  # 0.1ms
         im = self.preprocess_image(im)  # 0.25 ms
         mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
-        mask = self.remap_labels(mask)  # 2.5ms
+        if self.relabel_masks:
+            mask = self.remap_labels(mask)  # 2.5ms
         return im, mask 
 
     def __repr__(self):
@@ -128,7 +138,6 @@ class DataSetPatches(torch.utils.data.Dataset):
         im = im / 255 
         im = (im - self.rgb_means) / self.rgb_std
         return im
-        
  
     def pass_image(self, im):
         return im
