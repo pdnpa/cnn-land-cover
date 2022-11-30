@@ -305,7 +305,10 @@ class LandCoverUNet(pl.LightningModule):
         
         When calling this function with a DataLoader (trainer.predict(LCU, test_dl), then the output will be
         a list of batches'''
-        x, y = batch
+        if len(batch) == 1:
+            x = batch[0]
+        elif len(batch) == 2:
+            x, y = batch
         output = self.base(x)
         
         return output
@@ -383,6 +386,65 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
     elif len(batch) == 2:
         return (batch[0], batch[1], predicted_labels)
 
+def prediction_one_tile(model, trainer, tilepath='', patch_size=512,
+                        batch_size=10):
+    ## Load tile
+    im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
+    im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
+                                     'ind_y': ('y', np.arange(len(im_tile.y)))})
+    ## TODO: catch geo coords / ref
+    ## Copy of full tile
+    mask_tile = copy.deepcopy(im_tile.sel(band=1, drop=True))
+    mask_tile[:, :] = 0  # set everything to no class
+
+    ## Split up tile in main + right side + bottom
+    assert len(im_tile.x) == len(im_tile.y)
+    n_pix = len(im_tile.x)
+    n_patches_per_side = int(np.floor(n_pix / patch_size))
+    n_pix_fit = n_patches_per_side * patch_size
+    assert n_pix_fit % batch_size == 0
+    
+    im_main = im_tile.where(im_tile.ind_x < n_pix_fit, drop=True)
+    im_main = im_main.where(im_tile.ind_y < n_pix_fit, drop=True)
+
+    ## Cut off top & right side. Patch mirrored matrix and just do first row? 
+    print('Divided tile')
+    
+    ## Create patches
+
+    patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, patch_size=patch_size)
+    patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float')
+    patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im[0], f_preprocess=model.preprocessing_func)
+    assert patches_im.shape[0] == n_patches_per_side ** 2
+
+    ## Create DL with patches (just use standard DL as in notebook)
+    predict_ds = TensorDataset(patches_im)
+    predict_dl = DataLoader(predict_ds, batch_size=batch_size)
+
+    print('Predicting patches:')
+    ## Predict from DL
+    pred_masks = trainer.predict(model, predict_dl)
+    pred_masks = lca.concat_list_of_batches(pred_masks)
+    pred_masks = lca.change_tensor_to_max_class_prediction(pred=pred_masks)
+
+    ## set dtype to something appropriate (uint8?) 
+
+    ## [Handle edges, by patching from the other side; or using next tile]
+
+
+    ## Reconstruct full tile
+    assert pred_masks.shape[0] == patches_im.shape[0] and pred_masks.shape[0] == n_patches_per_side ** 2
+    assert pred_masks.shape[-2:] == patches_im.shape[-2:] and pred_masks.shape[-2] == patch_size
+    temp_shape = (n_patches_per_side, n_patches_per_side, patch_size, patch_size)  # need for unpatchifying below:
+    reconstructed_tile_mask = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), im_main.shape[-2:]) # won't work if im_tile has a remainder
+    full_shape = reconstructed_tile_mask.shape
+    ## Add back geo coord:
+    mask_tile[:full_shape[0], :full_shape[1]] = reconstructed_tile_mask
+    
+    ## Save & return
+    return im_tile, im_main, reconstructed_tile_mask, mask_tile
+
+
 def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
                             batch_size=10):
     '''Wrapper function that predicts & reconstructs full tile.
@@ -393,36 +455,8 @@ def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
 
     ## Loop across tiles:
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
+        prediction_one_tile()
 
-        ## Load tile
-        im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
-
-        ## Create patches
-        ## TODO: cut off im_tile here so exactly factorized by patch_size. 
-        ## Cut off top & right side. Patch mirrored matrix and just do first row? 
-
-        patches_im, _ = lca.create_image_mask_patches(image=im_tile, mask=None, patch_size=patch_size)
-        patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float')
-        patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im, f_preprocess=model.preprocessing_func)
-
-        ## Create DL with patches (just use standard DL as in notebook)
-        predict_ds = TensorDataset(patches_im)
-        predict_dl = DataLoader(predict_ds, batch_size=batch_size)
-
-        ## Predict from DL
-        pred_masks = trainer.predict(model, predict_dl)
-        pred_masks = lca.concat_list_of_batches(pred_masks)
-        pred_masks = lca.change_tensor_to_max_class_prediction(pred=pred_masks)
-        ## set dtype to something appropriate (uint8?) 
-
-        ## [Handle edges, by patching from the other side; or using next tile]
-
-
-        ## Reconstruct full tile
-        assert pred_masks.shape == patches_im.shape 
-        reconstructed_tile_mask = patchify.unpatchify(pred_masks, im_tile.shape) # won't work if im_tile has a remainder
-
-        ## Save
 
 def save_details_trainds_to_model(model, train_ds):
     '''Save details of train data set to model'''
