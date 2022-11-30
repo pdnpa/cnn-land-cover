@@ -6,6 +6,11 @@ import datetime
 import pickle
 import pandas as pd
 import loadpaths
+import pandas as pd 
+import geopandas as gpd
+import rasterio
+import rasterio.features
+import shapely.geometry
 import patchify 
 import torch
 from torch import nn
@@ -386,8 +391,13 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
     elif len(batch) == 2:
         return (batch[0], batch[1], predicted_labels)
 
-def prediction_one_tile(model, trainer, tilepath='', patch_size=512,
-                        batch_size=10):
+def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
+                        batch_size=10, save_raster=False, save_shp=False,
+                        model_name=None, verbose=1,
+                        save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
+    if trainer is None:
+        trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1)  # run on GPU; and set max_epochs.
+    
     ## Load tile
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
     im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
@@ -408,7 +418,8 @@ def prediction_one_tile(model, trainer, tilepath='', patch_size=512,
     im_main = im_main.where(im_tile.ind_y < n_pix_fit, drop=True)
 
     ## Cut off top & right side. Patch mirrored matrix and just do first row? 
-    print('Divided tile')
+    if verbose > 0:
+        print('Divided tile')
     
     ## Create patches
 
@@ -421,7 +432,8 @@ def prediction_one_tile(model, trainer, tilepath='', patch_size=512,
     predict_ds = TensorDataset(patches_im)
     predict_dl = DataLoader(predict_ds, batch_size=batch_size)
 
-    print('Predicting patches:')
+    if verbose > 0:
+        print('Predicting patches:')
     ## Predict from DL
     pred_masks = trainer.predict(model, predict_dl)
     pred_masks = lca.concat_list_of_batches(pred_masks)
@@ -442,7 +454,24 @@ def prediction_one_tile(model, trainer, tilepath='', patch_size=512,
     mask_tile[:full_shape[0], :full_shape[1]] = reconstructed_tile_mask
     
     ## Save & return
-    return im_tile, im_main, reconstructed_tile_mask, mask_tile
+    assert model_name is not None, 'add model name to LCU upon saving.. '
+    tile_name = tilepath.split('/')[-1].rstrip('.tif')
+    if save_raster:
+        assert False, 'raster saving not yet implemented'
+    if save_shp:
+        if verbose > 0:
+            print('Now saving')
+        name_file = f'{model_name}_{tile_name}_LC-prediction'
+        shape_gen = ((shapely.geometry.shape(s), v) for s, v in rasterio.features.shapes(mask_tile.to_numpy(), transform=mask_tile.rio.transform()))  # create generator with shapes
+        gdf = gpd.GeoDataFrame(dict(zip(["geometry", "class"], zip(*shape_gen))), crs=mask_tile.rio.crs)
+        gdf['Class name'] = 'A'
+        for ii, lab in enumerate(model.dict_training_details['class_name_list']):
+           gdf['Class name'].iloc[gdf['class'] == ii] = lab 
+        gdf.to_file(os.path.join(save_folder, name_file))
+    else:
+        gdf = None
+
+    return mask_tile, gdf
 
 
 def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
