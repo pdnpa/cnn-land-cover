@@ -562,3 +562,83 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
     ax.spines['left'].set_visible(False)
     ax.set_title(f'Total net difference in LC between {names_dfs[1]} and {names_dfs[0]}', fontdict={'weight': 'bold'})
     return dict_sum_area
+
+def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
+                           plot_results=True, ax_hm=None, ax_stats=None,
+                           dim_truth=0, normalise_hm=True):
+    if model is not None:
+        conf_mat = model.test_confusion_mat 
+        class_name_list = model.dict_training_details['class_name_list']
+        n_classes = model.dict_training_details['n_classes']
+    else:
+        n_classes = conf_mat.shape[0]
+    assert conf_mat.ndim == 2 and conf_mat.shape[0] == conf_mat.shape[1]
+    assert len(class_name_list) == conf_mat.shape[0], len(class_name_list) == n_classes
+    assert (conf_mat >= 0).all()
+    assert dim_truth == 0, 'if true labels are on the other axis, code below doesnt work. Add transpose here..?'
+
+    _, dict_name_to_shortcut = lca.get_mapping_class_names_to_shortcut()
+    shortcuts = ''.join([dict_name_to_shortcut[x] for x in class_name_list])        
+    assert len(shortcuts) == n_classes
+
+    if normalise_hm:
+        conf_mat_norm = conf_mat / conf_mat.sum() 
+    else:
+        conf_mat_norm = conf_mat / (64 * 1e6)  # convert to square km
+
+    sens_arr = np.zeros(n_classes)  #true positive rate
+    # spec_arr = np.zeros(n_classes)  # true negative rate
+    prec_arr = np.zeros(n_classes)  # positive predictive value (= 1 - false discovery rate)
+    dens_true_arr = np.zeros(n_classes)   # density of true class
+    dens_pred_arr = np.zeros(n_classes)
+
+    for i_c in range(n_classes):
+        sens_arr[i_c] = conf_mat[i_c, i_c] / conf_mat[i_c, :].sum()  # sum of true pos + false neg
+        prec_arr[i_c] = conf_mat[i_c, i_c] / conf_mat[:, i_c].sum()  # sum of true pos + false pos
+        dens_true_arr[i_c] = conf_mat_norm[i_c, :].sum()  # either density (when normalised) or total area
+        dens_pred_arr[i_c] = conf_mat_norm[:, i_c].sum()
+
+    df_stats_per_class = pd.DataFrame({'class name': class_name_list, 'class shortcut': [x for x in shortcuts],
+                                      'sensitivity': sens_arr, 
+                                      'precision': prec_arr, 'true density': dens_true_arr,
+                                      'predicted density': dens_pred_arr})
+
+    overall_accuracy = conf_mat.diagonal().sum() / conf_mat.sum() 
+    sub_mat = conf_mat[1:4, :][:, 1:4]
+    sub_accuracy = sub_mat.diagonal().sum() / sub_mat.sum()
+
+    if plot_results:
+        if ax_hm is None or ax_stats is None:
+            fig = plt.figure(figsize=(9, 4), constrained_layout=False)
+            gs_hm = fig.add_gridspec(nrows=1, ncols=1, left=0.05, right=0.58, bottom=0.05, top=0.95)
+            gs_stats = fig.add_gridspec(nrows=1, ncols=1, left=0.7, right=0.95, bottom=0.05, top=0.68)
+            ax_hm = fig.add_subplot(gs_hm[0])
+            ax_stats = fig.add_subplot(gs_stats[0])
+        
+        ## Heatmap of confusion matrix:
+        sns.heatmap(conf_mat_norm * 100 if normalise_hm else conf_mat_norm, 
+                    cmap='Greens', annot=True, fmt='.2f' if normalise_hm else '.1f', xticklabels=shortcuts, 
+                    yticklabels=shortcuts, cbar_kws={'label': 'Occurance (%)' if normalise_hm else 'Area (km^2)'}, ax=ax_hm)
+        ax_hm.set_title('Confusion matrix evaluation data', fontdict={'weight': 'bold'})
+        ax_hm.set_ylabel('True labels')
+        ax_hm.set_xlabel('Predicted labels')
+
+        ## Print stats:
+        ## Create table content:
+        col_names = ['true density', 'sensitivity', 'precision']
+        col_headers = ['Density' if normalise_hm else 'True area\n(km^2)', 'Sensitivity', 'Precision']
+        row_headers = [f'  {x}  ' for x in list(df_stats_per_class['class shortcut'])]
+        table_text = []
+        for irow in range(n_classes):
+            df_row = df_stats_per_class.iloc[irow]
+            table_text.append([str(np.round(df_row[x], 2)) for x in col_names])
+
+        tab = ax_stats.table(cellText=table_text, rowLabels=row_headers, colLabels=col_headers, loc='center')
+        tab.scale(1.1, 2)
+        tab.auto_set_font_size(False)
+        tab.set_fontsize(10)
+        ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=-0.2, y=1.15, clip_on=False)
+        ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6)), 1)} km^2', x=-0.2, y=1.27, clip_on=False)
+        naked(ax_stats)
+
+    return df_stats_per_class, overall_accuracy, sub_accuracy, (ax_hm, ax_stats)

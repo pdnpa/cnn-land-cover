@@ -168,6 +168,19 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
 
     return dict_ind_to_name, dict_name_to_ind
 
+def get_mapping_class_names_to_shortcut():
+    mapping_dict_to_full = {'C': 'Wood and Forest Land',
+                    'D': 'Moor and Heath Land',
+                    'E': 'Agro-Pastoral Land',
+                    'F': 'Water and Wetland',
+                    'G': 'Rock and Coastal Land',
+                    'H': 'Developed Land',
+                    'I': 'Unclassified Land',
+                    '0': 'NO CLASS'}
+
+    mapping_dict_to_shortcut = {v: k for k, v in mapping_dict_to_full.items()}
+    return mapping_dict_to_full, mapping_dict_to_shortcut
+
 def add_main_category_column(df_lc, col_ind_name='LC_N_80', col_code_name='Class_Code'):
     '''Add main category class code'''
     mapping_dict = {**{x: 'C' for x in range(1, 6)},
@@ -187,6 +200,7 @@ def add_main_category_column(df_lc, col_ind_name='LC_N_80', col_code_name='Class
     return df_lc
 
 def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_name='Class name'):
+    '''Add column with main category names, based on class codes'''
     mapping_dict = {'C': 'Wood and Forest Land',
                     'D': 'Moor and Heath Land',
                     'E': 'Agro-Pastoral Land',
@@ -206,7 +220,7 @@ def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_n
     return df_lc
 
 def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_name='class_ind'):
-
+    '''Add column with main category indices, based on class codes'''
     mapping_dict = {'C': 1,
                     'D': 2,
                     'E': 3,

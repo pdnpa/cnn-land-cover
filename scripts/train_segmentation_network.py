@@ -88,10 +88,11 @@ duration = timestamp_end - timestamp_start
 LCU.dict_training_details['duration_training'] = duration 
 print(f'Training finished at {timestamp_end}')
 
+## Test on unseen evaluation set:
+LCU.eval() 
+trainer.test(model=LCU, dataloaders=test_dl)
+
+## Save:
 if save_full_model is False:
     LCU.base = None 
 LCU.save_model()
-LCU.eval() 
-
-## Test on unseen evaluation set:
-trainer.test(model=LCU, dataloaders=test_dl)
