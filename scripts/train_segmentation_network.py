@@ -15,7 +15,7 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 10
+n_max_epochs = 15
 learning_rate = 1e-3
 save_full_model = True
 use_valid_ds = True
@@ -42,15 +42,17 @@ train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches,
                               shuffle_order_patches=True, relabel_masks=True,
                               subsample_patches=False, path_mapping_dict=path_mapping_dict)
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
+train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 
 if use_valid_ds:
     ## Create validation set:
-    train_ds_size = int(len(train_ds) * 0.85)
-    valid_ds_size = len(train_ds) - train_ds_size
-    train_ds, valid_ds = torch.utils.data.random_split(train_ds, [train_ds_size, valid_ds_size])  #, generator=seed)
-
-train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
-if use_valid_ds:
+    valid_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
+                                mask_suffix='_lc_2022_mask.npy',
+                                preprocessing_func=LCU.preprocessing_func,
+                                shuffle_order_patches=True, relabel_masks=False,
+                                subsample_patches=True, frac_subsample=0.1, 
+                                path_mapping_dict=path_mapping_dict)
+    assert valid_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
     valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus)
 
 ## Create test dataloader:
@@ -76,7 +78,8 @@ print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n
 ## Train using PL API - saves automatically.
 trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1)  # run on GPU; and set max_epochs.
 if use_valid_ds:
-    trainer.fit(model=LCU, train_dataloaders=train_dl, valid_dataloaders=valid_dl) 
+    # trainer.fit(model=LCU, train_dataloaders=train_dl, valid_dataloaders=valid_dl) 
+    trainer.fit(LCU, train_dl, valid_dl) 
 else:
     trainer.fit(model=LCU, train_dataloaders=train_dl) 
 
