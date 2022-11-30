@@ -241,6 +241,9 @@ class LandCoverUNet(pl.LightningModule):
         ## Add info dict with some info: epochs, PL version, .. 
         self.dict_training_details = {}  # can be added post hoc once train dataset is defined
 
+        self.calculate_test_confusion_mat = True
+        self.test_confusion_mat = np.zeros((7, 7))
+
     def __repr__(self):
         return f'LandCoverUNet class'
 
@@ -275,9 +278,18 @@ class LandCoverUNet(pl.LightningModule):
         x, y = batch
         output = self.base(x)
         loss = self.loss(output, y)
-
         self.log('test_loss', loss)
     
+        if self.calculate_test_confusion_mat:
+            det_output = lca.change_tensor_to_max_class_prediction(pred=output)  # change soft maxed output to arg max
+            assert det_output.shape == y.shape
+            assert output.ndim == 4
+            n_classes = output.shape[1]
+            for ic_true in range(n_classes):
+                for ic_pred in range(n_classes):
+                    n_match = int((det_output[y == ic_true] == ic_pred).sum()) 
+                    self.test_confusion_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
+
     def validation_step(self, batch, batch_idx):
         '''Done during training (with unseen data), eg after each epoch.
         This is commonly a small portion of the train data. (eg 20%). '''
@@ -322,9 +334,11 @@ def load_model(folder='', filename=''):
 def get_batch_from_ds(ds, batch_size=5, start_ind=0):
     '''Given DS, retrieve a batch of data (for plotting etc)'''
     tmp_items = []
+    names_patches = []
     assert type(batch_size) == int and type(start_ind) == int
     for ii in range(start_ind, start_ind + batch_size):
         tmp_items.append(ds[ii])
+        names_patches.append(ds.df_patches.iloc[ii]['patch_name'])
         if len(ds[ii]) == 2:
             n_outputs = 2
         elif len(ds[ii]) == 3:
@@ -336,13 +350,13 @@ def get_batch_from_ds(ds, batch_size=5, start_ind=0):
     list_inputs = lca.concat_list_of_batches(list_inputs)
     list_outputs = lca.concat_list_of_batches(list_outputs)
     if n_outputs == 2:
-        return [list_inputs, list_outputs]
+        return [list_inputs, list_outputs], names_patches
     elif n_outputs == 3:
         list_outputs_2 = [torch.Tensor(x[2])[None, :, :] for x in tmp_items]
         list_outputs_2 = lca.concat_list_of_batches(list_outputs_2)
-        return [list_inputs, list_outputs, list_outputs_2]
+        return [list_inputs, list_outputs, list_outputs_2], names_patches
 
-def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, 
+def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, names_patches=None,
                                               plot_prediction=True, preprocessing_fun=None,
                                               lc_class_name_list=None, unique_labels_array=None):
     '''Predict LC of a single batch, and plot if wanted'''
@@ -362,7 +376,7 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None,
     if plot_prediction:
         lcv.plot_image_mask_pred_wrapper(ims_plot=batch[0], masks_plot=batch[1], masks_2_plot=mask_2,
                                          preds_plot=predicted_labels, preprocessing_fun=preprocessing_fun,
-                                         lc_class_name_list=lc_class_name_list,
+                                         lc_class_name_list=lc_class_name_list, names_patches=names_patches,
                                          unique_labels_array=unique_labels_array)
     if len(batch) == 3:
         return (batch[0], batch[1], batch[2], predicted_labels)    

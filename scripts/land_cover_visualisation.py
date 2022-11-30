@@ -240,7 +240,7 @@ def plot_image_mask_pred(image, mask, pred, mask_2=None, lc_class_name_list=[], 
     return ax_list 
 
 def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot, 
-                                 preprocessing_fun, masks_2_plot=None, 
+                                 preprocessing_fun, masks_2_plot=None, names_patches=None,
                                  lc_class_name_list=[], unique_labels_array=None):
     assert ims_plot.ndim == 4 and masks_plot.ndim == 3 and preds_plot.ndim == 3
     if preprocessing_fun is None:
@@ -276,6 +276,9 @@ def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot,
     ax_ims = {}
     ax_cbar = fig.add_subplot(gs_cbar[0])
 
+    if names_patches is not None:
+        assert len(names_patches) == ims_plot.shape[0], 'names and ims not same len'
+
     ## Plot using specific function, for each row:
     for i_ind in range(n_pics):
         ax_ims[i_ind] = [fig.add_subplot(gs_ims[i_ind, xx]) for xx in range(4 if bool_2_masks else 3)]
@@ -284,7 +287,8 @@ def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot,
                              ax_list=ax_ims[i_ind],
                              lc_class_name_list=lc_class_name_list, unique_labels_array=unique_labels_array,
                              plot_colorbar=(i_ind == 0), cax=ax_cbar)
-
+        if names_patches is not None:
+            ax_ims[i_ind][0].set_ylabel(names_patches[i_ind])
         if i_ind == 0:
             ax_ims[i_ind][0].set_title('Image')
             ax_ims[i_ind][1].set_title('Land cover 80s')
