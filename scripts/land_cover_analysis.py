@@ -872,3 +872,25 @@ def concat_list_of_batches(batches):
         assert type(b) == torch.Tensor, type(b)
 
     return torch.cat(batches, dim=0)
+
+def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_list, 
+                                    unique_labels_array):
+    if type(mask_true) == xr.DataArray:
+        mask_true = mask_true.to_numpy()
+    if type(mask_pred) == xr.DataArray:
+        mask_pred = mask_pred.to_numpy()
+    mask_true = np.squeeze(mask_true)
+    mask_pred = np.squeeze(mask_pred)
+
+    assert mask_pred.shape == mask_true.shape, f'{mask_pred.shape}, {mask_true.shape}'
+    assert len(lc_class_name_list) == len(unique_labels_array)
+    n_classes = len(lc_class_name_list)
+    conf_mat = np.zeros((n_classes, n_classes))
+    for ic_true in range(n_classes):
+        for ic_pred in range(n_classes):
+            n_match = int((mask_pred[mask_true == ic_true] == ic_pred).sum())
+            conf_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
+
+    return conf_mat
+
+

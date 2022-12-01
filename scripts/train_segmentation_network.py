@@ -65,6 +65,7 @@ test_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_
 test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus)
 
 ## Save details to model:
+## TODO: unique labels array isn't correct (range(39) instaed of range(7) for main cats)
 lcm.save_details_trainds_to_model(model=LCU, train_ds=train_ds)
 LCU.dict_training_details['batch_size'] = batch_size
 LCU.dict_training_details['n_cpus'] = n_cpus 
@@ -95,4 +96,6 @@ trainer.test(model=LCU, dataloaders=test_dl)
 ## Save:
 if save_full_model is False:
     LCU.base = None 
-LCU.save_model()
+LCU.save_model()  
+
+#TODO save name to model

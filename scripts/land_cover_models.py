@@ -1,5 +1,5 @@
 from json import encoder
-import os, sys, copy
+import os, sys, copy, shutil
 import numpy as np
 from tqdm import tqdm
 import datetime
@@ -430,7 +430,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
 
     ## Create DL with patches (just use standard DL as in notebook)
     predict_ds = TensorDataset(patches_im)
-    predict_dl = DataLoader(predict_ds, batch_size=batch_size)
+    predict_dl = DataLoader(predict_ds, batch_size=batch_size, num_workers=8)
 
     if verbose > 0:
         print('Predicting patches:')
@@ -468,24 +468,59 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
         for ii, lab in enumerate(model.dict_training_details['class_name_list']):
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
         gdf.to_file(os.path.join(save_folder, name_file))
+        print(f'Saved {name_file} with {len(gdf)} polygons')
+        ## zip:
+        ## shutil.make_archive(output_filename, 'zip', dir_name)
     else:
         gdf = None
 
     return mask_tile, gdf
 
 
-def tile_prediction_wrapper(model, trainer, dir_im='', patch_size=512,
-                            batch_size=10):
+def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
+                             patch_size=512, batch_size=10, save_shp=False, save_raster=False):
     '''Wrapper function that predicts & reconstructs full tile.
     WIP
     '''
     ## Get list of all image tiles to predict
-    list_tiff_tiles = lca.get_all_tifs_from_dir(dir_im)
+    list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
+    print(f'Loaded {len(list_tiff_tiles)} tiffs where first 3 are {list_tiff_tiles[:3]}')
+    unique_labels_array = np.arange(7)  # hard coded because dict_treaining_details needs to be fixed
+
+    if dir_mask_eval is not None:
+        print('Evaluating vs true masks')
+        dict_acc = {} 
+        dict_conf_mat = {}
+        dict_df_stats = {}
+    else:
+        print('No true masks given')
+        dict_acc = None 
+        dict_df_stats = None
+        dict_conf_mat = None 
 
     ## Loop across tiles:
+    i_tile = 0
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
-        prediction_one_tile()
+        mask_tile, mask_shp = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
+                                                      save_shp=save_shp, save_raster=save_raster, 
+                                                      model_name='LCU_2022-11-30-1205')
 
+        if dir_mask_eval is not None:
+            tilename = tilepath.split('/')[-1].rstrip('.tif')
+            tile_path_mask = os.path.join(dir_mask_eval, tilename + mask_suffix)
+            mask_tile_true = lca.load_tiff(tile_path_mask)
+
+            conf_mat = lca.compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=mask_tile, 
+                                                        lc_class_name_list=model.dict_training_details['class_name_list'], 
+                                                        unique_labels_array=unique_labels_array)
+            tmp = lcv.plot_confusion_summary(conf_mat=conf_mat, class_name_list=model.dict_training_details['class_name_list'], 
+                                             plot_results=False, normalise_hm=True)
+            dict_df_stats[tilename], dict_acc[tilename], _, __ = tmp 
+            dict_conf_mat[tilename] = conf_mat
+    
+        i_tile += 1
+
+    return dict_acc, dict_df_stats, dict_conf_mat
 
 def save_details_trainds_to_model(model, train_ds):
     '''Save details of train data set to model'''
