@@ -589,10 +589,11 @@ def augment_patches(all_patches_img, all_patches_mask):
     pass
     return all_patches_img, all_patches_mask
 
-def change_data_to_tensor(*args, tensor_dtype='int'):
+def change_data_to_tensor(*args, tensor_dtype='int', verbose=1):
     '''Change data to torch tensor type.'''
     assert tensor_dtype in ['int', 'float'], f'tensor dtype {tensor_dtype} not recognised'
-    print('WARNING: data not yet normalised!!')
+    if verbose > 0:
+        print('WARNING: data not yet normalised!!')
     new_ds = []
     for ds in args:
         ds = torch.tensor(ds)

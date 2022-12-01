@@ -593,10 +593,16 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
     dens_pred_arr = np.zeros(n_classes)
 
     for i_c in range(n_classes):
-        sens_arr[i_c] = conf_mat[i_c, i_c] / conf_mat[i_c, :].sum()  # sum of true pos + false neg
-        prec_arr[i_c] = conf_mat[i_c, i_c] / conf_mat[:, i_c].sum()  # sum of true pos + false pos
         dens_true_arr[i_c] = conf_mat_norm[i_c, :].sum()  # either density (when normalised) or total area
         dens_pred_arr[i_c] = conf_mat_norm[:, i_c].sum()
+        if dens_true_arr[i_c] > 0:
+            sens_arr[i_c] = conf_mat[i_c, i_c] /  dens_true_arr[i_c]  # sum of true pos + false neg
+        else:
+            sens_arr[i_c] = np.nan 
+        if dens_pred_arr[i_c] > 0: 
+            prec_arr[i_c] = conf_mat[i_c, i_c] / dens_pred_arr[i_c]  # sum of true pos + false pos
+        else:
+            prec_arr[i_c] = np.nan
 
     df_stats_per_class = pd.DataFrame({'class name': class_name_list, 'class shortcut': [x for x in shortcuts],
                                       'sensitivity': sens_arr, 

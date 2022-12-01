@@ -396,7 +396,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
                         model_name=None, verbose=1,
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
     if trainer is None:
-        trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1)  # run on GPU; and set max_epochs.
+        trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1, enable_progress_bar=False)  # run on GPU; and set max_epochs.
     
     ## Load tile
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
@@ -424,7 +424,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     ## Create patches
 
     patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, patch_size=patch_size)
-    patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float')
+    patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float', verbose=0)
     patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im[0], f_preprocess=model.preprocessing_func)
     assert patches_im.shape[0] == n_patches_per_side ** 2
 
@@ -468,7 +468,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
         for ii, lab in enumerate(model.dict_training_details['class_name_list']):
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
         gdf.to_file(os.path.join(save_folder, name_file))
-        print(f'Saved {name_file} with {len(gdf)} polygons')
+        if verbose > 0:
+            print(f'Saved {name_file} with {len(gdf)} polygons')
         ## zip:
         ## shutil.make_archive(output_filename, 'zip', dir_name)
     else:
@@ -479,12 +480,10 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
 
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, batch_size=10, save_shp=False, save_raster=False):
-    '''Wrapper function that predicts & reconstructs full tile.
-    WIP
-    '''
+    '''Wrapper function that predicts & reconstructs full tile.'''
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
-    print(f'Loaded {len(list_tiff_tiles)} tiffs where first 3 are {list_tiff_tiles[:3]}')
+    print(f'Loaded {len(list_tiff_tiles)} tiffs from subdirs of {dir_im}')
     unique_labels_array = np.arange(7)  # hard coded because dict_treaining_details needs to be fixed
 
     if dir_mask_eval is not None:
