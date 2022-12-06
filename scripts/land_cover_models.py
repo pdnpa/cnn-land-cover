@@ -20,6 +20,7 @@ import segmentation_models_pytorch as smp
 import pytorch_lightning as pl
 import land_cover_analysis as lca
 import land_cover_visualisation as lcv
+import custom_losses as cl
 
 
 path_dict = loadpaths.loadpaths()
@@ -215,7 +216,7 @@ class LandCoverUNet(pl.LightningModule):
     
     '''
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
-                 lr=1e-3):
+                 lr=1e-3, loss_function='cross_entropy'):
         super().__init__()
 
         self.save_hyperparameters()
@@ -233,13 +234,28 @@ class LandCoverUNet(pl.LightningModule):
         ## Define the preprocessing function that the data needs to be applied to
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
 
+        self.ce_loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)
+        self.focal_loss = cl.FocalLoss(gamma=0.75)
+        self.iou_loss = cl.mIoULoss(n_classes=n_classes)
+
         ## Define loss used for training:
-        # self.loss = self.dummy_loss
-        self.loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)  # reduction: 'none' (returns full-sized tensor), 'mean', 'sum'. Can also insert class weights and ignore indices
+        if loss_function == 'dummy':
+            self.loss = self.dummy_loss
+        elif loss_function == 'cross_entropy':
+            self.loss = self.ce_loss  # reduction: 'none' (returns full-sized tensor), 'mean', 'sum'. Can also insert class weights and ignore indices
+        elif loss_function == 'focal_loss':
+            self.loss = self.focal_loss
+        elif loss_function == 'iou_loss':
+            self.loss = self.iou_loss
+        else:
+            assert False, f'Loss function {loss_function} not recognised.'
+        print(f'{loss_function} loss is used.')
         # self.seg_val_metric = pl.metrics.Accuracy()
 
         # self.log(prog_bar=True)
 
+        self.model_name = 'LCU (not saved)'
+        self.description = 'LandCoverUNet class'
         self.filename = None
         self.filepath = None
 
@@ -249,8 +265,19 @@ class LandCoverUNet(pl.LightningModule):
         self.calculate_test_confusion_mat = True
         self.test_confusion_mat = np.zeros((7, 7))
 
+    def __str__(self):
+        """Define name"""
+        return self.model_name
+
     def __repr__(self):
-        return f'LandCoverUNet class'
+        return f'Instance {self.model_name} of LandCoverUNet class'
+
+    def change_description(self, new_description='', add=False):
+        '''Just used for keeping notes etc.'''
+        if add:
+            self.description = self.description + '\n' + new_description
+        else:
+            self.description = new_description
 
     def dummy_loss(self, y, output):
         '''Dummy function for loss'''
@@ -283,8 +310,13 @@ class LandCoverUNet(pl.LightningModule):
         x, y = batch
         output = self.base(x)
         loss = self.loss(output, y)
-        self.log('test_loss', loss)
+        self.log('test_loss', loss)  # to be the same metric that it was trained on.. Maybe redundant? 
     
+        self.log('test_ce_loss', self.ce_loss(output, y))
+        self.log('test_focal_loss', self.focal_loss(output, y))
+        self.log('test_iou_loss', self.iou_loss(output, y))
+        ## TODO: add hard accuracy, soft accuracy (sort of like CE), accuracy per class, iou per clas, ... ? 
+
         if self.calculate_test_confusion_mat:
             det_output = lca.change_tensor_to_max_class_prediction(pred=output)  # change soft maxed output to arg max
             assert det_output.shape == y.shape
@@ -326,6 +358,7 @@ class LandCoverUNet(pl.LightningModule):
         '''Save model'''
         timestamp = lca.create_timestamp()
         self.filename = f'LCU_{timestamp}.data'
+        self.model_name = f'LCU_{timestamp}'
         self.filepath = os.path.join(folder, self.filename)
 
         file_handle = open(self.filepath, 'wb')
@@ -333,10 +366,16 @@ class LandCoverUNet(pl.LightningModule):
         if verbose > 0:
             print(f'LCU model saved as {self.filename} at {self.filepath}')
 
-def load_model(folder='', filename=''):
+def load_model(folder='', filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)
+
+    if verbose > 0:  # print some info
+        print(f'Loaded {LCU}')
+        for info_name in ['loss_function', 'n_max_epochs']:
+            if info_name in LCU.dict_training_details.keys():
+                print(f'{info_name} is {LCU.dict_training_details[info_name]}')
     return LCU 
 
 def get_batch_from_ds(ds, batch_size=5, start_ind=0):
