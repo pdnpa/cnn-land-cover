@@ -596,11 +596,11 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         dens_true_arr[i_c] = conf_mat_norm[i_c, :].sum()  # either density (when normalised) or total area
         dens_pred_arr[i_c] = conf_mat_norm[:, i_c].sum()
         if dens_true_arr[i_c] > 0:
-            sens_arr[i_c] = conf_mat[i_c, i_c] /  dens_true_arr[i_c]  # sum of true pos + false neg
+            sens_arr[i_c] = conf_mat_norm[i_c, i_c] /  dens_true_arr[i_c]  # sum of true pos + false neg
         else:
             sens_arr[i_c] = np.nan 
         if dens_pred_arr[i_c] > 0: 
-            prec_arr[i_c] = conf_mat[i_c, i_c] / dens_pred_arr[i_c]  # sum of true pos + false pos
+            prec_arr[i_c] = conf_mat_norm[i_c, i_c] / dens_pred_arr[i_c]  # sum of true pos + false pos
         else:
             prec_arr[i_c] = np.nan
 

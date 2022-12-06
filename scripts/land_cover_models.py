@@ -250,9 +250,9 @@ class LandCoverUNet(pl.LightningModule):
         else:
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
-        # self.seg_val_metric = pl.metrics.Accuracy()
-
-        # self.log(prog_bar=True)
+        self.calculate_test_confusion_mat = True
+        self.test_confusion_mat = np.zeros((7, 7))
+        # self.seg_val_metric = pl.metrics.Accuracy()  # https://devblog.pytorchlightning.ai/torchmetrics-pytorch-metrics-built-to-scale-7091b1bec919
 
         self.model_name = 'LCU (not saved)'
         self.description = 'LandCoverUNet class'
@@ -261,9 +261,6 @@ class LandCoverUNet(pl.LightningModule):
 
         ## Add info dict with some info: epochs, PL version, .. 
         self.dict_training_details = {}  # can be added post hoc once train dataset is defined
-
-        self.calculate_test_confusion_mat = True
-        self.test_confusion_mat = np.zeros((7, 7))
 
     def __str__(self):
         """Define name"""
@@ -315,7 +312,7 @@ class LandCoverUNet(pl.LightningModule):
         self.log('test_ce_loss', self.ce_loss(output, y))
         self.log('test_focal_loss', self.focal_loss(output, y))
         self.log('test_iou_loss', self.iou_loss(output, y))
-        ## TODO: add hard accuracy, soft accuracy (sort of like CE), accuracy per class, iou per clas, ... ? 
+        ## TODO: accuracy per class, iou per clas, ... ? 
 
         if self.calculate_test_confusion_mat:
             det_output = lca.change_tensor_to_max_class_prediction(pred=output)  # change soft maxed output to arg max
@@ -326,6 +323,9 @@ class LandCoverUNet(pl.LightningModule):
                 for ic_pred in range(n_classes):
                     n_match = int((det_output[y == ic_true] == ic_pred).sum()) 
                     self.test_confusion_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
+            overall_accuracy = self.test_confusion_mat.diagonal().sum() / self.test_confusion_mat.sum() 
+            self.log('test_overall_accuracy', overall_accuracy)
+
 
     def validation_step(self, batch, batch_idx):
         '''Done during training (with unseen data), eg after each epoch.
@@ -432,11 +432,12 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
 
 def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
                         batch_size=10, save_raster=False, save_shp=False,
-                        model_name=None, verbose=1,
+                        create_shp=False, model_name=None, verbose=1,
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
     if trainer is None:
         trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1, enable_progress_bar=False)  # run on GPU; and set max_epochs.
-    
+    if save_shp:
+        create_shp = True  # is needed to save
     ## Load tile
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
     im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
@@ -497,25 +498,26 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     tile_name = tilepath.split('/')[-1].rstrip('.tif')
     if save_raster:
         assert False, 'raster saving not yet implemented'
-    if save_shp:
+    if create_shp:
         if verbose > 0:
-            print('Now saving')
+            print('Now creating polygons of prediction')
         name_file = f'{model_name}_{tile_name}_LC-prediction'
         shape_gen = ((shapely.geometry.shape(s), v) for s, v in rasterio.features.shapes(mask_tile.to_numpy(), transform=mask_tile.rio.transform()))  # create generator with shapes
         gdf = gpd.GeoDataFrame(dict(zip(["geometry", "class"], zip(*shape_gen))), crs=mask_tile.rio.crs)
         gdf['Class name'] = 'A'
         for ii, lab in enumerate(model.dict_training_details['class_name_list']):
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
-        gdf.to_file(os.path.join(save_folder, name_file))
-        if verbose > 0:
-            print(f'Saved {name_file} with {len(gdf)} polygons')
-        ## zip:
-        ## shutil.make_archive(output_filename, 'zip', dir_name)
+        if save_shp:
+            save_path = os.path.join(save_folder, name_file)
+            gdf.to_file(save_path)
+            if verbose > 0:
+                print(f'Saved {name_file} with {len(gdf)} polygons to {save_path}')
+            ## zip:
+            ## shutil.make_archive(output_filename, 'zip', dir_name)
     else:
         gdf = None
 
     return mask_tile, gdf
-
 
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, batch_size=10, save_shp=False, save_raster=False):

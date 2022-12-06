@@ -15,7 +15,7 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 2
+n_max_epochs = 15
 learning_rate = 1e-3
 loss_function = 'focal_loss'
 save_full_model = True
