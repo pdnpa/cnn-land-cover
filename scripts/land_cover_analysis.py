@@ -899,39 +899,79 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
     assert type(gdf) == gpd.GeoDataFrame
     n_pols = len(gdf)
+    gdf = copy.deepcopy(gdf)
     area_array = gdf['geometry'].area
     inds_pols_lower_th = np.where(area_array < area_threshold)[0]
     if verbose > 0:
         print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols}')
     other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
     
+
+    # if False:
+    #     small_pols = gdf[gdf['geometry'].area < area_threshold]
+    #     assert (np.array(small_pols.index) == inds_pols_lower_th).all()
+    #     large_pols = gdf[gdf['geometry'].area >= area_threshold]
+    #     nn_arr = np.zeros(len(small_pols))
+                
+    #     for i_small, pol in tqdm(small_pols.iterrows()):
+    #         nn_arr[i_small] = np.argmin(large_pols.distance(pol['geometry'])) 
+
+    #     return nn_arr
+    # elif False:
+    #     if verbose > 0:
+    #         print('Finding which polygons should be merged')
+    #     count_to_be_lab = len(inds_pols_lower_th)
+    #     gdf.at[inds_pols_lower_th, class_col] = np.nan 
+
+    #     weights_obj_main = libpysal.weights.KNN.from_dataframe(gdf, k=1)  # Queen is fine I think?? bit faster than Rook 
+    #     assert (np.array(list(weights_obj_main.neighbors.keys())) == np.arange(len(gdf))).all()
+    #     neighbour_arr = np.array([weights_obj_main.neighbors[ii][0] for ii in range(len(gdf))])
+    #     return gdf, neighbour_arr, inds_pols_lower_th
+    #     while count_to_be_lab > 0:
+
+    #         print(f'Number of nans: {np.sum(gdf[class_col] == np.nan)}')
+    #         neighbours_small_pols = neighbour_arr[inds_pols_lower_th]  # neighbours of small polygons 
+    #         # large_neighbours = np.logical_not(np.isin(neighbours_small_pols, inds_pols_lower_th))  # are those neighbours small pols themselves?
+    #         gdf.at[inds_pols_lower_th, class_col] = gdf.loc[neighbours_small_pols, class_col]
+            
+    #         count_to_be_lab = np.sum(gdf[class_col] == np.nan)
+
+    # elif True:
     if verbose > 0:
         print('Finding which polygons should be merged')
     weights_obj_main = libpysal.weights.Queen.from_dataframe(gdf)  # Queen is fine I think?? bit faster than Rook 
+    n_pols = len(inds_pols_lower_th)
+    n_pols_more_1_neigh = 0
+    n_pols_more_1_neigh_all_small = 0
+    n_pols_1_n = 0
+    n_pols_m_n = 0
     for i_pol, ind_pol in tqdm(enumerate(inds_pols_lower_th)):
         ## This should maybe be a while loop to account for changes..? pop ind_pol if flipped, keep going until no more flips?
         inds_neighbours = np.array(weights_obj_main.neighbors[i_pol])
         if len(inds_neighbours) > 1:
             inds_neighbours = inds_neighbours[~np.isin(inds_neighbours, inds_pols_lower_th)]  # remove other small pols
-            
+            n_pols_more_1_neigh += 1
             if len(inds_neighbours) == 0:  # all removed, so restore:
                 inds_neighbours = np.where(gdf.geometry.touches(gdf.iloc[ind_pol]['geometry']))[0]  # bit slow but doesn't occur often
                 inds_neighbours = np.array([inds_neighbours[-1]])  # take the last one because it's most likely to merge with
+                n_pols_more_1_neigh_all_small += 1
 
         df_neighbours = gdf.iloc[inds_neighbours]
         unique_classes_neighbours = df_neighbours[class_col].unique()
         if len(unique_classes_neighbours) == 1:  # can change if all neighbouring pols have only 1 class:
+            n_pols_1_n += 1
             gdf.at[ind_pol, class_col] = unique_classes_neighbours[0]
             for col_name in other_cols:  # also change other columns accordingly
                 gdf.at[ind_pol, col_name] = gdf.loc[inds_neighbours[0], col_name]  # just taking 0th index here because len unique == 1
         else:
             ## assign to neighbour, with probabilty of size of that pol.. Not sure what's best here? 
+            n_pols_m_n += 1
             prob = df_neighbours['geometry'].area / df_neighbours['geometry'].area.sum() 
             random_ind = np.random.choice(a=len(df_neighbours), size=1, p=prob)
             gdf.at[ind_pol, class_col] = df_neighbours.iloc[random_ind][class_col]
             for col_name in other_cols:
                 gdf.at[ind_pol, col_name] = gdf.loc[inds_neighbours[random_ind], col_name].iloc[0]
-    
+    print(n_pols,    n_pols_more_1_neigh,   n_pols_more_1_neigh_all_small, n_pols_1_n,  n_pols_m_n)
     if verbose > 0:
         print('Merging polygons with same class') 
     unique_classes = gdf[class_col].unique()
@@ -941,8 +981,9 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
     for i_c, cl in enumerate(unique_classes):
         # finding merges for class {cl} with len {np.sum(gdf[class_col] == cl)}')
         inds_pols_class = np.where(gdf[class_col] == cl)[0]
-        weights_obj = libpysal.weights.Rook.from_dataframe(gdf.iloc[inds_pols_class], silence_warnings=True)
+        weights_obj = libpysal.weights.Queen.from_dataframe(gdf.iloc[inds_pols_class], silence_warnings=True)
         new_pol_id = weights_obj.component_labels  # IDs of to-be-created polygons
+        print(cl, len(np.unique(new_pol_id)))
         new_pol_id = new_pol_id + count  # so that classes remain separated
         array_to_merge[inds_pols_class] = new_pol_id
         count += len(inds_pols_class)
@@ -950,8 +991,9 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
 
     assert n_unique == len(np.unique(array_to_merge))
     gdf['new_pol_id'] = array_to_merge
+    return gdf
     print('dissolving')
     gdf = gdf.dissolve(by='new_pol_id', as_index=False)  # this takes most time.
-    gdf = gdf.drop('new_pol_id', axis=1)
+    # gdf = gdf.drop('new_pol_id', axis=1)
 
     return gdf

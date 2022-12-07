@@ -235,7 +235,8 @@ class LandCoverUNet(pl.LightningModule):
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
 
         self.ce_loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)
-        self.focal_loss = cl.FocalLoss(gamma=0.75)
+        # self.focal_loss = cl.FocalLoss(gamma=0.75)
+        self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
         self.iou_loss = cl.mIoULoss(n_classes=n_classes)
 
         ## Define loss used for training:
@@ -255,7 +256,7 @@ class LandCoverUNet(pl.LightningModule):
         # self.seg_val_metric = pl.metrics.Accuracy()  # https://devblog.pytorchlightning.ai/torchmetrics-pytorch-metrics-built-to-scale-7091b1bec919
 
         self.model_name = 'LCU (not saved)'
-        self.description = 'LandCoverUNet class'
+        self.description = 'LandCoverUNet class using FocalClass2'
         self.filename = None
         self.filepath = None
 
@@ -351,9 +352,14 @@ class LandCoverUNet(pl.LightningModule):
         return output
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)  # momentum=0.9
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
 
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+        # return {'optimizer': optimizer,
+        #         'lr_scheduler': scheduler, # Changed scheduler to lr_scheduler
+        #         'monitor': 'val_loss'}
+        
     def save_model(self, folder='', verbose=1):
         '''Save model'''
         timestamp = lca.create_timestamp()
