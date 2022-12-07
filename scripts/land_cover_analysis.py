@@ -895,48 +895,55 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
 
     return conf_mat
 
-def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class'):
+def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1):
+    '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
     assert type(gdf) == gpd.GeoDataFrame
     n_pols = len(gdf)
     area_array = gdf['geometry'].area
     inds_pols_lower_th = np.where(area_array < area_threshold)[0]
-    print(f'number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols}')
+    if verbose > 0:
+        print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols}')
     other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
- 
-    print('Finding which polygons should be merged')
+    
+    if verbose > 0:
+        print('Finding which polygons should be merged')
+    weights_obj_main = libpysal.weights.Queen.from_dataframe(gdf)  # Queen is fine I think?? bit faster than Rook 
     for i_pol, ind_pol in tqdm(enumerate(inds_pols_lower_th)):
         ## This should maybe be a while loop to account for changes..? pop ind_pol if flipped, keep going until no more flips?
-        inds_neighbours = np.where(gdf.geometry.touches(gdf.iloc[ind_pol]['geometry']))[0]
+        inds_neighbours = np.array(weights_obj_main.neighbors[i_pol])
         if len(inds_neighbours) > 1:
-            ## remove other small pols
-            inds_neighbours = inds_neighbours[~np.isin(inds_neighbours, inds_pols_lower_th)]
-            if len(inds_neighbours) == 0:
-                print('WARNING: please fix me. just retain 1 neighbour')
-                continue 
+            inds_neighbours = inds_neighbours[~np.isin(inds_neighbours, inds_pols_lower_th)]  # remove other small pols
+            
+            if len(inds_neighbours) == 0:  # all removed, so restore:
+                inds_neighbours = np.where(gdf.geometry.touches(gdf.iloc[ind_pol]['geometry']))[0]  # bit slow but doesn't occur often
+                inds_neighbours = np.array([inds_neighbours[-1]])  # take the last one because it's most likely to merge with
 
         df_neighbours = gdf.iloc[inds_neighbours]
         unique_classes_neighbours = df_neighbours[class_col].unique()
-        if len(unique_classes_neighbours) == 1:  # can chnage if all neighbouring pols have only 1 class:
-            ## Change class of ind_pol 
+        if len(unique_classes_neighbours) == 1:  # can change if all neighbouring pols have only 1 class:
             gdf.at[ind_pol, class_col] = unique_classes_neighbours[0]
-            for col_name in other_cols:
+            for col_name in other_cols:  # also change other columns accordingly
                 gdf.at[ind_pol, col_name] = gdf.loc[inds_neighbours[0], col_name]  # just taking 0th index here because len unique == 1
-
-        # if i_pol == 1000:
-        #     break
-
-    ## Run libpysal Rook per class
-    print('Merging polygons with same class') 
+        else:
+            ## assign to neighbour, with probabilty of size of that pol.. Not sure what's best here? 
+            prob = df_neighbours['geometry'].area / df_neighbours['geometry'].area.sum() 
+            random_ind = np.random.choice(a=len(df_neighbours), size=1, p=prob)
+            gdf.at[ind_pol, class_col] = df_neighbours.iloc[random_ind][class_col]
+            for col_name in other_cols:
+                gdf.at[ind_pol, col_name] = gdf.loc[inds_neighbours[random_ind], col_name].iloc[0]
+    
+    if verbose > 0:
+        print('Merging polygons with same class') 
     unique_classes = gdf[class_col].unique()
     array_to_merge = np.zeros(len(gdf))
     count = 0
     n_unique = 0
     for i_c, cl in enumerate(unique_classes):
-        # print(f'finding merges for class {cl} with len {np.sum(gdf[class_col] == cl)}')
+        # finding merges for class {cl} with len {np.sum(gdf[class_col] == cl)}')
         inds_pols_class = np.where(gdf[class_col] == cl)[0]
         weights_obj = libpysal.weights.Rook.from_dataframe(gdf.iloc[inds_pols_class], silence_warnings=True)
-        new_pol_id = weights_obj.component_labels
-        new_pol_id = new_pol_id + count  # so that classes remain separated 
+        new_pol_id = weights_obj.component_labels  # IDs of to-be-created polygons
+        new_pol_id = new_pol_id + count  # so that classes remain separated
         array_to_merge[inds_pols_class] = new_pol_id
         count += len(inds_pols_class)
         n_unique += len(np.unique(new_pol_id))
@@ -944,7 +951,7 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class'):
     assert n_unique == len(np.unique(array_to_merge))
     gdf['new_pol_id'] = array_to_merge
     print('dissolving')
-    gdf = gdf.dissolve(by='new_pol_id', as_index=False)
+    gdf = gdf.dissolve(by='new_pol_id', as_index=False)  # this takes most time.
     gdf = gdf.drop('new_pol_id', axis=1)
 
     return gdf
