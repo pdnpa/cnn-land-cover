@@ -1,6 +1,6 @@
 ## File tor train a LCU
 
-import os, sys
+import os, sys, json
 import datetime
 import loadpaths
 import land_cover_analysis as lca
@@ -24,10 +24,14 @@ path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dict
 
 ## Dirs training data:
 # dir_ds = path_dict['tiles_few_changes_path']
-dir_ds = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/'
-dir_im_patches = os.path.join(dir_ds, 'images/')
-dir_mask_patches = os.path.join(dir_ds, 'masks/')
-
+# dir_ds = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/'
+# dir_im_patches = os.path.join(dir_ds, 'images/')
+# dir_mask_patches = os.path.join(dir_ds, 'masks/')
+dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
+dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022/'
+with open('/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/10_training_tiles_from_eval.json', 'r') as f:
+    dict_tile_names_sample = json.load(f)
+    
 ## Dirs test data:
 dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
 dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022/'
@@ -35,12 +39,14 @@ dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eva
 ## Define model:
 n_classes = 7
 LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, loss_function=loss_function)  # load model 
+LCU.change_description(new_description='10 training tiles from eval. 2022 masks.', add=True)
 
 ## Create train & validation dataloader:
 train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
-                              mask_suffix='_lc_80s_mask.npy',
+                              mask_suffix='_lc_2022_mask.npy',
+                              list_tile_names=dict_tile_names_sample['sample'],
                               preprocessing_func=LCU.preprocessing_func,
-                              shuffle_order_patches=True, relabel_masks=True,
+                              shuffle_order_patches=True, relabel_masks=False,
                               subsample_patches=False, path_mapping_dict=path_mapping_dict)
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
@@ -49,6 +55,7 @@ if use_valid_ds:
     ## Create validation set:
     valid_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                                 mask_suffix='_lc_2022_mask.npy',
+                              list_tile_names=dict_tile_names_sample['remainder'],
                                 preprocessing_func=LCU.preprocessing_func,
                                 shuffle_order_patches=True, relabel_masks=False,
                                 subsample_patches=True, frac_subsample=0.1, 
@@ -59,6 +66,7 @@ if use_valid_ds:
 ## Create test dataloader:
 test_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                             mask_suffix='_lc_2022_mask.npy',
+                              list_tile_names=dict_tile_names_sample['remainder'],
                             preprocessing_func=LCU.preprocessing_func, path_mapping_dict=path_mapping_dict,
                             shuffle_order_patches=True, relabel_masks=False,
                             subsample_patches=False)

@@ -30,7 +30,7 @@ class DataSetPatches(torch.utils.data.Dataset):
     
     Used for training etc - __getitem__ has expected output (input, output) for PL models.
     '''
-    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', 
+    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', list_tile_names=None,
                  preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True,
                  path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
@@ -45,6 +45,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.relabel_masks = relabel_masks
         self.subsample_patches = subsample_patches
         self.unique_labels_arr = unique_labels_arr
+        self.list_tile_names = list_tile_names
 
         if self.preprocessing_func is not None:  # prep preprocess transformation
             rgb_means = self.preprocessing_func.keywords['mean']
@@ -65,7 +66,12 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.preprocess_image = self.pass_image
 
         ## create data frame or something of all files 
-        self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir)]
+        if list_tile_names is None:
+            self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir)]
+        else:
+            assert type(list_tile_names) == list
+            print(f'Only using patches that are in tile list (of length {len(list_tile_names)}).')
+            self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir) if x[:6] in list_tile_names]
         self.list_patch_names = [x.split('/')[-1].rstrip('.npy') for x in self.list_im_npys]
         self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
 

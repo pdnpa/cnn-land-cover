@@ -336,9 +336,11 @@ def create_df_with_class_distr_per_tile(dict_dfs, all_class_names=[],
     assert np.isclose(df_distr.sum(axis=1, numeric_only=True), 1, atol=1e-8).all(), 'Area fraction does not sum to 1'
     assert df_distr['NO CLASS'].min() >= 0, 'negative remainder found'
     if filter_no_class:  # optionally, filter tiles that have too much NO CLASS area
-        print(f'{len(df_distr)} tiles analysed')
+        n_tiles_before = len(df_distr)
         df_distr = df_distr[df_distr['NO CLASS'] < no_class_threshold]
-        print(f'{len(df_distr)} tiles kept after no-class filter')
+        n_tiles_after = len(df_distr)
+        if n_tiles_after != n_tiles_before:
+            print(f'{n_tiles_after}/{n_tiles_before} tiles kept after no-class filter')
     return df_distr
 
 def sample_tiles_by_class_distr_from_df(df_all_tiles_distr, n_samples=100, 
@@ -351,8 +353,8 @@ def sample_tiles_by_class_distr_from_df(df_all_tiles_distr, n_samples=100,
         class_distr = class_distr / class_distr.sum()
     else:
         assert len(class_distr) == 27, f'expected 27 classes but received {len(class_distr)}'
-        assert type(class_distr) == np.array or type(class_distr) == pd.core.series.Series
-        assert np.sum(class_distr) == 1
+        assert type(class_distr) == np.array or type(class_distr) == pd.core.series.Series, type(class_distr)
+        assert np.sum(class_distr) == 1 or np.isclose(np.sum(class_distr), 1, atol=1e-8)
         print('Using predefined class distribution')
 
     for it in range(iterations):

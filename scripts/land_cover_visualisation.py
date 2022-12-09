@@ -482,8 +482,8 @@ def plot_distr_classes_from_multiple_shapes(dict_dfs_lc, ax=None):
     ax.legend(frameon=False, loc='lower right')
     return ax, (area_classes, unique_classes)
 
-def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr', 
-                                     label_2='Sample LC distr', ax=None, plot_legend=True,
+def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)', 
+                                     label_2='Sample', ax=None, plot_legend=True,
                                      save_fig=False, filename=None):
     '''Scatter plot of distr of LC classes of two DFs'''
     if ax is None:
@@ -514,12 +514,12 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD) LC distr',
     else:
         ax.plot(distr_1, distr_2, '.')
 
-    ax.set_xlabel('True (PD) LC distr')
-    ax.set_ylabel('Sample LC distr')
+    ax.set_xlabel(f'{label_1} LC distr.')
+    ax.set_ylabel(f'{label_2} LC distr.')
     ax.set_yscale('log')
     ax.set_xscale('log')
     minl, maxl = equal_xy_lims(ax)
-    ax.set_title('LC distribution of PD vs sample')
+    ax.set_title(f'LC distribution of {label_1} vs {label_2}')
     if plot_legend:
         ax.legend(bbox_to_anchor=(1, 1), ncol=2)
     despine(ax)
