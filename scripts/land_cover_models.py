@@ -222,11 +222,12 @@ class LandCoverUNet(pl.LightningModule):
     
     '''
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
-                 lr=1e-3, loss_function='cross_entropy'):
+                 lr=1e-3, loss_function='cross_entropy', skip_factor_eval=1):
         super().__init__()
 
         self.save_hyperparameters()
         self.lr = lr
+        self.skip_factor_eval = skip_factor_eval
         # pl.seed_everything(7)
 
         ## Use SMP Unet as base model. This PL class essentially just wraps around that:
@@ -313,6 +314,10 @@ class LandCoverUNet(pl.LightningModule):
         '''Done after training finished.'''
         x, y = batch
         output = self.base(x)
+        if self.skip_factor_eval is not None:
+            assert y.ndim == 3 and output.ndim == 4
+            y = y[:, ::self.skip_factor_eval, ::self.skip_factor_eval]
+            output = output[:, :, ::self.skip_factor_eval, ::self.skip_factor_eval]
         loss = self.loss(output, y)
         self.log('test_loss', loss)  # to be the same metric that it was trained on.. Maybe redundant? 
     
@@ -322,7 +327,7 @@ class LandCoverUNet(pl.LightningModule):
         ## TODO: accuracy per class, iou per clas, ... ? 
 
         if self.calculate_test_confusion_mat:
-            det_output = lca.change_tensor_to_max_class_prediction(pred=output)  # change soft maxed output to arg max
+            det_output = lca.change_tensor_to_max_class_prediction(pred=output, expected_square_size=512 / self.skip_factor_eval)  # change soft maxed output to arg max
             assert det_output.shape == y.shape
             assert output.ndim == 4
             n_classes = output.shape[1]
@@ -388,6 +393,8 @@ def load_model(folder='', filename='', verbose=1):
         for info_name in ['loss_function', 'n_max_epochs']:
             if info_name in LCU.dict_training_details.keys():
                 print(f'{info_name} is {LCU.dict_training_details[info_name]}')
+        print(LCU.description)
+
     return LCU 
 
 def get_batch_from_ds(ds, batch_size=5, start_ind=0):
