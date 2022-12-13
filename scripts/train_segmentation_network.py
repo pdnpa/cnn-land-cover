@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 
 path_dict = loadpaths.loadpaths()
 lca.check_torch_ready(check_gpu=True, assert_versions=True)
+pl.seed_everything(86, workers=True)
 
 ## Parameters:
 batch_size = 10
@@ -87,7 +88,18 @@ timestamp_start = datetime.datetime.now()
 print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
 
 ## Train using PL API - saves automatically.
-trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1)  # run on GPU; and set max_epochs.
+trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, auto_lr_find='lr')  # run on GPU; and set max_epochs.
+# # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
+# trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
+
+## Optimise learning rate:
+lr_finder = trainer.tuner.lr_find(LCU, train_dataloaders=train_dl, val_dataloaders=valid_dl, num_training=100)
+print(f'Optimised learning rate to {lr_finder.suggestion()}')
+LCU.lr = lr_finder.suggestion() 
+# bs_finder = trainer.tuner.scale_batch_size(LCU, train_dataloaders=train_dl, val_dataloaders=valid_dl)
+# print(f'Optimised learning rate to {bs_finder.suggestion()}')
+
+assert False
 if use_valid_ds:
     # trainer.fit(model=LCU, train_dataloaders=train_dl, valid_dataloaders=valid_dl) 
     trainer.fit(LCU, train_dl, valid_dl) 
