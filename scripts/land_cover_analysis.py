@@ -899,52 +899,85 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
 
     return conf_mat
 
-def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1):
+def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1, max_it=5):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
     assert type(gdf) == gpd.GeoDataFrame
-    n_pols = len(gdf)
+    n_pols_start = len(gdf)
     gdf = copy.deepcopy(gdf)
-    area_array = gdf['geometry'].area
-    inds_pols_greater_th = np.where(area_array >= area_threshold)[0]
-    inds_pols_lower_th = np.where(area_array < area_threshold)[0]
-    if verbose > 0:
-        print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols}')
-    other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
+       
+    ## Each iteration of the loop will dissolve polygons that are smaller than area_threshold and adjacent to a large polygon
+    ## But if a small polygon is inside another small polygon, it will not be dissolved. Hence the while loop to iterate until no more small polygons are left.
+    current_it = 0
+    continue_dissolving = True
+    sort_ascending = True
+    while continue_dissolving:
+        if verbose > 0:
+            print(f'Current iteration: {current_it}/{max_it}')
+        area_array = gdf['geometry'].area
+        inds_pols_greater_th = np.where(area_array >= area_threshold)[0]
+        inds_pols_lower_th = np.where(area_array < area_threshold)[0]
+        n_pols_start_loop = len(gdf)
+        if verbose > 0 and current_it == 0:
+            print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols_start}')
+        other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
 
-    ## Sort large pols by area for faster NN search
-    gdf_l = gdf.iloc[inds_pols_greater_th].copy()
-    gdf_l = gdf_l.assign(area=gdf_l['geometry'].area)
-    gdf_l = gdf_l.sort_values(by='area', ascending=True) 
-    
-    ## Create an rtree of large pols for fast NN search. 
-    idx = gdf_l.sindex
-
-    ## For each small pol, find the nearest large pol and take over class. 
-    for i_pol, ind_pol in tqdm(enumerate(inds_pols_lower_th)):
-        # Rtree works based on bounds, so it typically selects too many. Using rtree, find selection of large pols:
-        pol = gdf.iloc[ind_pol]['geometry']
-        list_selection_nearby_large_pols = np.sort(list(idx.intersection(pol.bounds)))  # sort to maintain order of area
-        n_sel = len(list_selection_nearby_large_pols)
-        gdf_selection = gdf_l.iloc[list_selection_nearby_large_pols]
-
-        ## Loop through selection of large pols based on bounds to find exact boundary pol using touches():
-        for i_large_pol, large_pol in enumerate(gdf_selection['geometry']):
-            if large_pol.touches(pol):
-                ind_nearest_pol = list_selection_nearby_large_pols[i_large_pol]
-                break
-            if i_large_pol == n_sel - 2:  # this is the second last large pol, so it must be the last one. Because they are sorted by area, the last one will take most time (especially when there is 1 huge polygon at the end)
-                ind_nearest_pol = list_selection_nearby_large_pols[-1]
-                break
-    
-        ## Assign class and other cols of large pol to small pol:
-        gdf.at[ind_pol, class_col] = gdf_l.iloc[ind_nearest_pol][class_col]
-        for col_name in other_cols:
-            gdf.at[ind_pol, col_name] = gdf_l.iloc[ind_nearest_pol][col_name]
+        ## Sort large pols by area for faster NN search
+        gdf_l = gdf.iloc[inds_pols_greater_th].copy()
+        gdf_l = gdf_l.assign(area=gdf_l['geometry'].area)
+        gdf_l = gdf_l.sort_values(by='area', ascending=sort_ascending) 
         
-    gdf = gdf.dissolve(by='class', as_index=False)  # this takes most time.
-    gdf = gdf.explode().reset_index(drop=True)
-    gdf = gdf.assign(area=gdf['geometry'].area)
-    if verbose > 0:
-        print(f'Number of new polygons: {len(gdf)}, number of old polygons: {n_pols}')
-    gdf['polygon_id_in_tile'] = gdf.index
+        ## Create an rtree of large pols for fast NN search. 
+        idx = gdf_l.sindex
+
+        ## For each small pol, find the nearest large pol and take over class. 
+        for i_pol, ind_pol in tqdm(enumerate(inds_pols_lower_th)):
+            # Rtree works based on bounds, so it typically selects too many. Using rtree, find selection of large pols:
+            pol = gdf.iloc[ind_pol]['geometry']
+            list_selection_nearby_large_pols = np.sort(list(idx.intersection(pol.bounds)))  # sort to maintain order of area
+            n_sel = len(list_selection_nearby_large_pols)
+            gdf_selection = gdf_l.iloc[list_selection_nearby_large_pols]
+
+            ## Loop through selection of large pols based on bounds to find exact boundary pol using touches():
+            for i_large_pol, large_pol in enumerate(gdf_selection['geometry']):
+                if large_pol.touches(pol):
+                    ind_nearest_pol = list_selection_nearby_large_pols[i_large_pol]
+                    break
+                if i_large_pol == n_sel - 2:  # this is the second last large pol, so it must be the last one. Because they are sorted by area, the last one will take most time (especially when there is 1 huge polygon at the end)
+                    ind_nearest_pol = list_selection_nearby_large_pols[-1]
+                    break
+        
+            ## Assign class and other cols of large pol to small pol:
+            gdf.at[ind_pol, class_col] = gdf_l.iloc[ind_nearest_pol][class_col]
+            for col_name in other_cols:
+                gdf.at[ind_pol, col_name] = gdf_l.iloc[ind_nearest_pol][col_name]
+            
+        ## Dissolve all polygons with same class and explode multipols:
+        gdf = gdf.dissolve(by='class', as_index=False)  # this takes most time.
+        gdf = gdf.explode().reset_index(drop=True)
+        gdf = gdf.assign(area=gdf['geometry'].area)
+
+        n_pols_end_loop = len(gdf)
+        if verbose > 0:
+            print(f'Number of new polygons: {n_pols_end_loop}, number of old polygons: {n_pols_start_loop}')
+        gdf['polygon_id_in_tile'] = gdf.index
+
+         ## Stop conditions: 1) no more small pols, 2) no more changes, 3) max number of iterations
+        if len(gdf[gdf['area'] < area_threshold]) == 0:
+            if verbose > 0:
+                print(f'SUCCESS: No more polygons smaller than {area_threshold}. Stopping.')
+            continue_dissolving = False
+        current_it += 1
+        if current_it >= max_it:
+            if verbose > 0:
+                print(f'Warning: maximum number of iterations ({max_it}) reached. Stopping.')
+            continue_dissolving = False
+        if sort_ascending is False:
+            if verbose > 0:
+                print(f'Have tried sorting other way once. Stopping.')
+            continue_dissolving = False
+        if n_pols_end_loop == n_pols_start_loop:
+            if verbose > 0:
+                print(f'No more changes. Trying to sort other way around.')
+            sort_ascending = False  # if no more changes, but still small pols left, then sort by descending area to dissolve into the largest polygons first, to resolve cases where they touch by a single pixel
+
     return gdf
