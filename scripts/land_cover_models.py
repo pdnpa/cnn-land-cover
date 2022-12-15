@@ -66,14 +66,34 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.preprocess_image = self.pass_image
 
         ## create data frame or something of all files 
+        if type(self.im_dir) == list:
+            self.multiple_im_dirs = True
+            self.list_im_npys = []
+            print(f'Multiple ({len(self.im_dir)}) image directories provided. Will concatenate all patches together.')
+        elif type(self.im_dir) == str:
+            self.multiple_im_dirs = False
+
         if list_tile_names is None:
-            self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir)]
+            if self.multiple_im_dirs is False:
+                self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir)]
+            else:
+                for curr_dir in im_dir:
+                    self.list_im_npys += [os.path.join(curr_dir, x) for x in os.listdir(curr_dir)]
         else:
             assert type(list_tile_names) == list
             print(f'Only using patches that are in tile list (of length {len(list_tile_names)}).')
-            self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir) if x[:6] in list_tile_names]
+            if self.multiple_im_dirs is False:
+                self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir) if x[:6] in list_tile_names]
+            else:
+                for curr_dir in im_dir:
+                    self.list_im_npys += [os.path.join(curr_dir, x) for x in os.listdir(curr_dir) if x[:6] in list_tile_names]  
+                self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir) if x[:6] in list_tile_names]
         self.list_patch_names = [x.split('/')[-1].rstrip('.npy') for x in self.list_im_npys]
-        self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
+        if mask_dir is None:
+            print('No mask directory provided. Will use image parent directory instead.')
+            self.list_mask_npys = [x.replace('/images/', '/masks/').replace('.npy', mask_suffix) for x in self.list_im_npys]
+        else:
+            self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
 
         self.create_df_patches()
         self.organise_df_patches()
