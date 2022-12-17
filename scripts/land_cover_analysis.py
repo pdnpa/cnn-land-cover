@@ -899,7 +899,7 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
 
     return conf_mat
 
-def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1, max_it=5):
+def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1, max_it=5, ignore_index=0):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
     assert type(gdf) == gpd.GeoDataFrame
     n_pols_start = len(gdf)
@@ -914,12 +914,26 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
         if verbose > 0:
             print(f'Current iteration: {current_it}/{max_it}')
         area_array = gdf['geometry'].area
-        inds_pols_greater_th = np.where(area_array >= area_threshold)[0]
+        inds_pols_greater_th = np.where(np.logical_and(area_array >= area_threshold, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
         inds_pols_lower_th = np.where(area_array < area_threshold)[0]
         n_pols_start_loop = len(gdf)
         if verbose > 0 and current_it == 0:
             print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols_start}')
         other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
+
+        if len(inds_pols_greater_th) == 1:
+            ## Only 1 pol greater than are; convert all small pols to this class. Do this manually to speed up. 
+            if verbose > 0:
+                print('Only 1 pol greater than area threshold. Converting all small pols to this class')
+            ind_large_pol = inds_pols_greater_th[0]
+            bounds_tile = tuple(gdf.total_bounds)
+            pol_tile = shapely.geometry.box(*bounds_tile)
+            gdf_new = gpd.GeoDataFrame(geometry=[pol_tile], crs=gdf.crs)
+            gdf_new[class_col] = gdf.iloc[ind_large_pol][class_col]
+            for col_name in other_cols:
+                gdf_new[col_name] = gdf.iloc[ind_large_pol][col_name]
+            gdf_new = gdf_new.assign(area=gdf_new['geometry'].area)
+            return gdf_new
 
         ## Sort large pols by area for faster NN search
         gdf_l = gdf.iloc[inds_pols_greater_th].copy()
