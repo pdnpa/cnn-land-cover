@@ -16,7 +16,8 @@ pl.seed_everything(86, workers=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 15
+n_max_epochs = 10
+optimise_learning_rate = False
 learning_rate = 1e-3
 loss_function = 'focal_loss'
 save_full_model = True
@@ -24,15 +25,19 @@ use_valid_ds = True
 path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
 
 ## Dirs training data:
-# dir_ds = path_dict['tiles_few_changes_path']
 # dir_ds = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/'
 # dir_im_patches = os.path.join(dir_ds, 'images/')
 # dir_mask_patches = os.path.join(dir_ds, 'masks/')
-dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
-dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022/'
-with open('/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/10_training_tiles_from_eval.json', 'r') as f:
-    dict_tile_names_sample = json.load(f)
+
+# dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
+# dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022/'
+# with open('/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/10_training_tiles_from_eval.json', 'r') as f:
+#     dict_tile_names_sample = json.load(f)
     
+dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/']#,
+                #   '/home/tplas/data/gis/most recent APGB 12.5cm aerial/urban_tiles/images/']
+dir_mask_patches = None 
+
 ## Dirs test data:
 dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
 dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022/'
@@ -40,14 +45,14 @@ dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eva
 ## Define model:
 n_classes = 7
 LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, loss_function=loss_function)  # load model 
-LCU.change_description(new_description='10 training tiles from eval. 2022 masks.', add=True)
+LCU.change_description(new_description='13 training tiles CDEof and urban.', add=True)
 
 ## Create train & validation dataloader:
 train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
-                              mask_suffix='_lc_2022_mask.npy',
-                              list_tile_names=dict_tile_names_sample['sample'],
+                              mask_suffix='_lc_80s_mask.npy',
+                            #   list_tile_names=dict_tile_names_sample['sample'],
                               preprocessing_func=LCU.preprocessing_func,
-                              shuffle_order_patches=True, relabel_masks=False,
+                              shuffle_order_patches=True, relabel_masks=True,
                               subsample_patches=False, path_mapping_dict=path_mapping_dict)
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
@@ -56,7 +61,7 @@ if use_valid_ds:
     ## Create validation set:
     valid_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                                 mask_suffix='_lc_2022_mask.npy',
-                              list_tile_names=dict_tile_names_sample['remainder'],
+                            #   list_tile_names=dict_tile_names_sample['remainder'],
                                 preprocessing_func=LCU.preprocessing_func,
                                 shuffle_order_patches=True, relabel_masks=False,
                                 subsample_patches=True, frac_subsample=0.1, 
@@ -67,7 +72,7 @@ if use_valid_ds:
 ## Create test dataloader:
 test_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                             mask_suffix='_lc_2022_mask.npy',
-                              list_tile_names=dict_tile_names_sample['remainder'],
+                            #   list_tile_names=dict_tile_names_sample['remainder'],
                             preprocessing_func=LCU.preprocessing_func, path_mapping_dict=path_mapping_dict,
                             shuffle_order_patches=True, relabel_masks=False,
                             subsample_patches=False)
@@ -93,13 +98,13 @@ trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, auto
 # trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
 
 ## Optimise learning rate:
-lr_finder = trainer.tuner.lr_find(LCU, train_dataloaders=train_dl, val_dataloaders=valid_dl, num_training=100)
-print(f'Optimised learning rate to {lr_finder.suggestion()}')
-LCU.lr = lr_finder.suggestion() 
-# bs_finder = trainer.tuner.scale_batch_size(LCU, train_dataloaders=train_dl, val_dataloaders=valid_dl)
-# print(f'Optimised learning rate to {bs_finder.suggestion()}')
+if optimise_learning_rate:
+    lr_finder = trainer.tuner.lr_find(LCU, train_dataloaders=train_dl, val_dataloaders=valid_dl, num_training=100)
+    print(f'Optimised learning rate to {lr_finder.suggestion()}')
+    LCU.lr = lr_finder.suggestion() 
+    # bs_finder = trainer.tuner.scale_batch_size(LCU, train_dataloaders=train_dl, val_dataloaders=valid_dl)
+    # print(f'Optimised learning rate to {bs_finder.suggestion()}')
 
-assert False
 if use_valid_ds:
     # trainer.fit(model=LCU, train_dataloaders=train_dl, valid_dataloaders=valid_dl) 
     trainer.fit(LCU, train_dl, valid_dl) 
