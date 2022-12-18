@@ -928,7 +928,24 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
             print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols_start}')
         other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
 
-        if len(inds_pols_greater_th) == 1:
+        if len(inds_pols_greater_th) == 0:
+            ## No pols greater than area threshold; convert all small pols to no-class. Do this manually to speed up. 
+            if verbose > 0:
+                print('No pols greater than area threshold. Converting all small pols to no-class')
+            bounds_tile = tuple(gdf.total_bounds)
+            pol_tile = shapely.geometry.box(*bounds_tile)
+            gdf_new = gpd.GeoDataFrame(geometry=[pol_tile], crs=gdf.crs)
+            gdf_new[class_col] = ignore_index
+            no_class_inds_original_gdf = np.where(gdf[class_col] == ignore_index)[0]
+            if len(no_class_inds_original_gdf) > 0:
+                for col_name in other_cols:
+                    gdf_new[col_name] = gdf.iloc[no_class_inds_original_gdf[0]][col_name]
+            else:
+                for col_name in other_cols:
+                    gdf_new[col_name] = np.nan
+            return gdf_new 
+
+        elif len(inds_pols_greater_th) == 1:
             ## Only 1 pol greater than are; convert all small pols to this class. Do this manually to speed up. 
             if verbose > 0:
                 print('Only 1 pol greater than area threshold. Converting all small pols to this class')
@@ -957,20 +974,24 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
             list_selection_nearby_large_pols = np.sort(list(idx.intersection(pol.bounds)))  # sort to maintain order of area
             n_sel = len(list_selection_nearby_large_pols)
             gdf_selection = gdf_l.iloc[list_selection_nearby_large_pols]
+            convert_pol = False 
 
             ## Loop through selection of large pols based on bounds to find exact boundary pol using touches():
             for i_large_pol, large_pol in enumerate(gdf_selection['geometry']):
                 if large_pol.touches(pol):
                     ind_nearest_pol = list_selection_nearby_large_pols[i_large_pol]
+                    convert_pol = True
                     break
                 if i_large_pol == n_sel - 2:  # this is the second last large pol, so it must be the last one. Because they are sorted by area, the last one will take most time (especially when there is 1 huge polygon at the end)
                     ind_nearest_pol = list_selection_nearby_large_pols[-1]
+                    convert_pol = True
                     break
         
-            ## Assign class and other cols of large pol to small pol:
-            gdf.at[ind_pol, class_col] = gdf_l.iloc[ind_nearest_pol][class_col]
-            for col_name in other_cols:
-                gdf.at[ind_pol, col_name] = gdf_l.iloc[ind_nearest_pol][col_name]
+            if convert_pol:  # just to make sure ind_near_pol is defined.
+                ## Assign class and other cols of large pol to small pol:
+                gdf.at[ind_pol, class_col] = gdf_l.iloc[ind_nearest_pol][class_col]
+                for col_name in other_cols:
+                    gdf.at[ind_pol, col_name] = gdf_l.iloc[ind_nearest_pol][col_name]
             
         ## Dissolve all polygons with same class and explode multipols:
         gdf = gdf.dissolve(by='class', as_index=False)  # this takes most time.
