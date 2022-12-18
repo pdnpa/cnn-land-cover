@@ -16,6 +16,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
+import torchmetrics
 import segmentation_models_pytorch as smp
 import pytorch_lightning as pl
 import land_cover_analysis as lca
@@ -265,6 +266,7 @@ class LandCoverUNet(pl.LightningModule):
         # self.focal_loss = cl.FocalLoss(gamma=0.75)
         self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
         self.iou_loss = cl.mIoULoss(n_classes=n_classes)
+        self.dice_loss = torchmetrics.Dice(num_classes=n_classes, ignore_index=0, requires_grad=True)#, average='macro')
 
         ## Define loss used for training:
         if loss_function == 'dummy':
@@ -275,6 +277,10 @@ class LandCoverUNet(pl.LightningModule):
             self.loss = self.focal_loss
         elif loss_function == 'iou_loss':
             self.loss = self.iou_loss
+        elif loss_function == 'dice_loss':
+            self.loss = self.dice_loss
+        elif loss_function == 'focal_and_dice_loss':
+            self.loss = lambda x, y: self.focal_loss(x, y) + self.dice_loss(x, y)
         else:
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
@@ -292,10 +298,16 @@ class LandCoverUNet(pl.LightningModule):
 
     def __str__(self):
         """Define name"""
-        return self.model_name
+        if hasattr(self, 'model_name'):
+            return self.model_name
+        else:
+            return 'LCU model'
 
     def __repr__(self):
-        return f'Instance {self.model_name} of LandCoverUNet class'
+        if hasattr(self, 'model_name'):
+            return f'Instance {self.model_name} of LandCoverUNet class'
+        else:
+            return f'Instance of LandCoverUNet class'
 
     def change_description(self, new_description='', add=False):
         '''Just used for keeping notes etc.'''
@@ -413,7 +425,8 @@ def load_model(folder='', filename='', verbose=1):
         for info_name in ['loss_function', 'n_max_epochs']:
             if info_name in LCU.dict_training_details.keys():
                 print(f'{info_name} is {LCU.dict_training_details[info_name]}')
-        print(LCU.description)
+        if hasattr(LCU, 'description'):
+            print(LCU.description)
 
     return LCU 
 
@@ -472,11 +485,12 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
 def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
                         batch_size=10, save_raster=False, save_shp=False,
                         create_shp=False, model_name=None, verbose=1,
+                        dissolve_small_pols=False, area_threshold=100,
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
     if trainer is None:
         trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1, enable_progress_bar=False)  # run on GPU; and set max_epochs.
-    if save_shp:
-        create_shp = True  # is needed to save
+    if save_shp or dissolve_small_pols:
+        create_shp = True  # is needed to save or dissolve
     ## Load tile
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
     im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
@@ -501,7 +515,6 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
         print('Divided tile')
     
     ## Create patches
-
     patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, patch_size=patch_size)
     patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float', verbose=0)
     patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im[0], f_preprocess=model.preprocessing_func)
@@ -521,22 +534,21 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     ## set dtype to something appropriate (uint8?) 
 
     ## [Handle edges, by patching from the other side; or using next tile]
-
+    ## For no, shape_predicted_tile_part is returned to indicate the shape of the predicted part of the tile
 
     ## Reconstruct full tile
     assert pred_masks.shape[0] == patches_im.shape[0] and pred_masks.shape[0] == n_patches_per_side ** 2
     assert pred_masks.shape[-2:] == patches_im.shape[-2:] and pred_masks.shape[-2] == patch_size
     temp_shape = (n_patches_per_side, n_patches_per_side, patch_size, patch_size)  # need for unpatchifying below:
     reconstructed_tile_mask = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), im_main.shape[-2:]) # won't work if im_tile has a remainder
-    full_shape = reconstructed_tile_mask.shape
+    assert reconstructed_tile_mask.ndim == 2
+    shape_predicted_tile_part = reconstructed_tile_mask.shape
     ## Add back geo coord:
-    mask_tile[:full_shape[0], :full_shape[1]] = reconstructed_tile_mask
+    mask_tile[:shape_predicted_tile_part[0], :shape_predicted_tile_part[1]] = reconstructed_tile_mask
     
     ## Save & return
     assert model_name is not None, 'add model name to LCU upon saving.. '
     tile_name = tilepath.split('/')[-1].rstrip('.tif')
-    if save_raster:
-        assert False, 'raster saving not yet implemented'
     if create_shp:
         if verbose > 0:
             print('Now creating polygons of prediction')
@@ -546,6 +558,15 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
         gdf['Class name'] = 'A'
         for ii, lab in enumerate(model.dict_training_details['class_name_list']):
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
+        if dissolve_small_pols:
+            gdf = lca.filter_small_polygons_from_gdf(gdf=gdf, area_threshold=area_threshold, class_col='class',
+                                                     verbose=verbose)
+            ## Then convert back to raster so they are consistent: 
+            ds_dissolved_tile = lca.convert_shp_mask_to_raster(df_shp=gdf, col_name='class')
+            assert ds_dissolved_tile['class'].shape == mask_tile.shape
+            assert (ds_dissolved_tile['class'].x == mask_tile.x).all()
+            assert (ds_dissolved_tile['class'].y == mask_tile.y).all()
+            mask_tile[:, :] = ds_dissolved_tile['class'][:, :]
         if save_shp:
             save_path = os.path.join(save_folder, name_file)
             gdf.to_file(save_path)
@@ -556,10 +577,14 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     else:
         gdf = None
 
-    return mask_tile, gdf
+    if save_raster:
+        assert False, 'raster saving not yet implemented'
+    
+    return mask_tile, gdf, shape_predicted_tile_part
 
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
-                             patch_size=512, batch_size=10, save_shp=False, save_raster=False):
+                             patch_size=512, batch_size=10, save_shp=False, save_raster=False,
+                             dissolve_small_pols=False, area_threshold=100, skip_factor=None):
     '''Wrapper function that predicts & reconstructs full tile.'''
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
@@ -577,27 +602,47 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         dict_df_stats = None
         dict_conf_mat = None 
 
+    if area_threshold == 0 and dissolve_small_pols is True:
+        dissolve_small_pols = False
+        print('WARNING: area_threshold is 0, so no polygons will be dissolved.')
+    if area_threshold > 0 and dissolve_small_pols is False:
+        print('Warning: area_threshold is > 0, but dissolve_small_pols is False, so NOT dissolving small polygons.')
+        assert False
+    if dissolve_small_pols:
+        print('Dissolving small polygons. WARNING: this takes considerable overhead computing time')
+
     ## Loop across tiles:
     i_tile = 0
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
-        mask_tile, mask_shp = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
+        mask_tile, mask_shp, shape_predicted_tile = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
                                                       save_shp=save_shp, save_raster=save_raster, 
-                                                      model_name='LCU_2022-11-30-1205')
+                                                      model_name='LCU_2022-11-30-1205',
+                                                      create_shp=True,
+                                                      dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold)
 
         if dir_mask_eval is not None:
             tilename = tilepath.split('/')[-1].rstrip('.tif')
             tile_path_mask = os.path.join(dir_mask_eval, tilename + mask_suffix)
-            mask_tile_true = lca.load_tiff(tile_path_mask)
+            mask_tile_true = np.squeeze(lca.load_tiff(tile_path_mask, datatype='np'))
+            mask_tile = mask_tile.to_numpy()
 
+            ## Cut off no-class edge
+            assert mask_tile_true.shape == mask_tile.shape, f'Predicted mask shape {mask_tile.shape} does not match true mask shape {mask_tile_true.shape}'
+            mask_tile = mask_tile[:shape_predicted_tile[0], :shape_predicted_tile[1]]
+            mask_tile_true = mask_tile_true[:shape_predicted_tile[0], :shape_predicted_tile[1]]
+
+            ## Compute confusion matrix:
             conf_mat = lca.compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=mask_tile, 
                                                         lc_class_name_list=model.dict_training_details['class_name_list'], 
-                                                        unique_labels_array=unique_labels_array)
+                                                        unique_labels_array=unique_labels_array, skip_factor=skip_factor)
             tmp = lcv.plot_confusion_summary(conf_mat=conf_mat, class_name_list=model.dict_training_details['class_name_list'], 
                                              plot_results=False, normalise_hm=True)
             dict_df_stats[tilename], dict_acc[tilename], _, __ = tmp 
             dict_conf_mat[tilename] = conf_mat
     
         i_tile += 1
+        # if i_tile == 1:
+        #     break
 
     return dict_acc, dict_df_stats, dict_conf_mat
 

@@ -421,6 +421,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                                 verbose=0):
     '''
     Turn gdf of shape file polygon into a raster file. Possibly store & plot.
+    Assumes col_name is a numeric column with class labels.
 
     interpolation:
         - None: nothing done with missing data (turned into 0)
@@ -880,7 +881,7 @@ def concat_list_of_batches(batches):
     return torch.cat(batches, dim=0)
 
 def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_list, 
-                                    unique_labels_array):
+                                         unique_labels_array, skip_factor=27):
     if type(mask_true) == xr.DataArray:
         mask_true = mask_true.to_numpy()
     if type(mask_pred) == xr.DataArray:
@@ -892,6 +893,12 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
     assert len(lc_class_name_list) == len(unique_labels_array)
     n_classes = len(lc_class_name_list)
     conf_mat = np.zeros((n_classes, n_classes))
+
+    if skip_factor is not None:
+        assert type(skip_factor) == int
+        assert skip_factor > 0 and skip_factor < mask_pred.shape[0] and skip_factor < mask_pred.shape[1]
+        mask_pred = mask_pred[::skip_factor, ::skip_factor]
+        mask_true = mask_true[::skip_factor, ::skip_factor]
     for ic_true in range(n_classes):
         for ic_pred in range(n_classes):
             n_match = int((mask_pred[mask_true == ic_true] == ic_pred).sum())
