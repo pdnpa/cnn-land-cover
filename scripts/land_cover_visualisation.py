@@ -566,52 +566,10 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
 def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None,
                            dim_truth=0, normalise_hm=True):
-    if model is not None:
-        conf_mat = model.test_confusion_mat 
-        class_name_list = model.dict_training_details['class_name_list']
-        n_classes = model.dict_training_details['n_classes']
-    else:
-        n_classes = conf_mat.shape[0]
-    assert conf_mat.ndim == 2 and conf_mat.shape[0] == conf_mat.shape[1]
-    assert len(class_name_list) == conf_mat.shape[0], len(class_name_list) == n_classes
-    assert (conf_mat >= 0).all()
-    assert dim_truth == 0, 'if true labels are on the other axis, code below doesnt work. Add transpose here..?'
 
-    _, dict_name_to_shortcut = lca.get_mapping_class_names_to_shortcut()
-    shortcuts = ''.join([dict_name_to_shortcut[x] for x in class_name_list])        
-    assert len(shortcuts) == n_classes
-
-    if normalise_hm:
-        conf_mat_norm = conf_mat / conf_mat.sum() 
-    else:
-        conf_mat_norm = conf_mat / (64 * 1e6)  # convert to square km
-
-    sens_arr = np.zeros(n_classes)  #true positive rate
-    # spec_arr = np.zeros(n_classes)  # true negative rate
-    prec_arr = np.zeros(n_classes)  # positive predictive value (= 1 - false discovery rate)
-    dens_true_arr = np.zeros(n_classes)   # density of true class
-    dens_pred_arr = np.zeros(n_classes)
-
-    for i_c in range(n_classes):
-        dens_true_arr[i_c] = conf_mat_norm[i_c, :].sum()  # either density (when normalised) or total area
-        dens_pred_arr[i_c] = conf_mat_norm[:, i_c].sum()
-        if dens_true_arr[i_c] > 0:
-            sens_arr[i_c] = conf_mat_norm[i_c, i_c] /  dens_true_arr[i_c]  # sum of true pos + false neg
-        else:
-            sens_arr[i_c] = np.nan 
-        if dens_pred_arr[i_c] > 0: 
-            prec_arr[i_c] = conf_mat_norm[i_c, i_c] / dens_pred_arr[i_c]  # sum of true pos + false pos
-        else:
-            prec_arr[i_c] = np.nan
-
-    df_stats_per_class = pd.DataFrame({'class name': class_name_list, 'class shortcut': [x for x in shortcuts],
-                                      'sensitivity': sens_arr, 
-                                      'precision': prec_arr, 'true density': dens_true_arr,
-                                      'predicted density': dens_pred_arr})
-
-    overall_accuracy = conf_mat.diagonal().sum() / conf_mat.sum() 
-    sub_mat = conf_mat[1:4, :][:, 1:4]
-    sub_accuracy = sub_mat.diagonal().sum() / sub_mat.sum()
+    df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes = \
+        lca.compute_stats_from_confusion_mat(model=model, conf_mat=conf_mat, class_name_list=class_name_list,
+                                         dim_truth=dim_truth, normalise_hm=normalise_hm)
 
     if plot_results:
         if ax_hm is None or ax_stats is None:
@@ -648,3 +606,5 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         naked(ax_stats)
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, (ax_hm, ax_stats)
+
+    

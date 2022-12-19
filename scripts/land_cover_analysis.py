@@ -881,7 +881,7 @@ def concat_list_of_batches(batches):
     return torch.cat(batches, dim=0)
 
 def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_list, 
-                                         unique_labels_array, skip_factor=27):
+                                         unique_labels_array, skip_factor=None):
     if type(mask_true) == xr.DataArray:
         mask_true = mask_true.to_numpy()
     if type(mask_pred) == xr.DataArray:
@@ -894,7 +894,7 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
     n_classes = len(lc_class_name_list)
     conf_mat = np.zeros((n_classes, n_classes))
 
-    if skip_factor is not None:
+    if skip_factor is not None and skip_factor > 0:
         assert type(skip_factor) == int
         assert skip_factor > 0 and skip_factor < mask_pred.shape[0] and skip_factor < mask_pred.shape[1]
         mask_pred = mask_pred[::skip_factor, ::skip_factor]
@@ -905,6 +905,100 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
             conf_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
 
     return conf_mat
+
+def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=None,
+                                     dim_truth=0, normalise_hm=True):
+
+    if model is not None:
+        conf_mat = model.test_confusion_mat 
+        class_name_list = model.dict_training_details['class_name_list']
+        n_classes = model.dict_training_details['n_classes']
+    else:
+        n_classes = conf_mat.shape[0]
+    assert conf_mat.ndim == 2 and conf_mat.shape[0] == conf_mat.shape[1]
+    assert len(class_name_list) == conf_mat.shape[0], len(class_name_list) == n_classes
+    assert (conf_mat >= 0).all()
+    assert dim_truth == 0, 'if true labels are on the other axis, code below doesnt work. Add transpose here..?'
+
+    _, dict_name_to_shortcut = get_mapping_class_names_to_shortcut()
+    shortcuts = ''.join([dict_name_to_shortcut[x] for x in class_name_list])        
+    assert len(shortcuts) == n_classes
+
+    if normalise_hm:
+        conf_mat_norm = conf_mat / conf_mat.sum() 
+    else:
+        conf_mat_norm = conf_mat / (64 * 1e6)  # convert to square km
+
+    sens_arr = np.zeros(n_classes)  #true positive rate
+    # spec_arr = np.zeros(n_classes)  # true negative rate
+    prec_arr = np.zeros(n_classes)  # positive predictive value (= 1 - false discovery rate)
+    dens_true_arr = np.zeros(n_classes)   # density of true class
+    dens_pred_arr = np.zeros(n_classes)
+
+    for i_c in range(n_classes):
+        dens_true_arr[i_c] = conf_mat_norm[i_c, :].sum()  # either density (when normalised) or total area
+        dens_pred_arr[i_c] = conf_mat_norm[:, i_c].sum()
+        if dens_true_arr[i_c] > 0:
+            sens_arr[i_c] = conf_mat_norm[i_c, i_c] /  dens_true_arr[i_c]  # sum of true pos + false neg
+        else:
+            sens_arr[i_c] = np.nan 
+        if dens_pred_arr[i_c] > 0: 
+            prec_arr[i_c] = conf_mat_norm[i_c, i_c] / dens_pred_arr[i_c]  # sum of true pos + false pos
+        else:
+            prec_arr[i_c] = np.nan
+
+    df_stats_per_class = pd.DataFrame({'class name': class_name_list, 'class shortcut': [x for x in shortcuts],
+                                      'sensitivity': sens_arr, 
+                                      'precision': prec_arr, 'true density': dens_true_arr,
+                                      'predicted density': dens_pred_arr})
+
+    overall_accuracy = conf_mat.diagonal().sum() / conf_mat.sum() 
+    sub_mat = conf_mat[1:4, :][:, 1:4]
+    sub_accuracy = sub_mat.diagonal().sum() / sub_mat.sum()
+
+    return df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes
+
+def compute_confusion_mat_from_dirs(dir_mask_true, dir_mask_pred_shp, 
+                                    lc_class_name_list, unique_labels_array,
+                                    col_name_shp_file='class', shape_predicted_tile=(7680, 7680),
+                                    skip_factor=None, mask_suffix='_lc_2022_mask'):
+
+    list_mask_true = get_all_tifs_from_dir(dir_mask_true)
+    list_names_masks_pred = os.listdir(dir_mask_pred_shp)
+    list_files_masks_pred = [os.path.join(dir_mask_pred_shp, xx, f'{xx}.shp') for xx in list_names_masks_pred]
+
+    dict_acc = {} 
+    dict_conf_mat = {}
+    dict_df_stats = {}
+
+    for i_tile, tilepath in tqdm(enumerate(list_mask_true)):
+        tilename = tilepath.split('/')[-1].rstrip('.tif')[:6]#.rstrip(mask_suffix)
+        mask_tile_true = np.squeeze(load_tiff(tilepath, datatype='np'))
+
+        corresponding_shp_path = [xx for xx in list_files_masks_pred if tilename in xx]
+        assert len(corresponding_shp_path) == 1
+        corresponding_shp_path = corresponding_shp_path[0]
+        mask_pred_shp = load_pols(corresponding_shp_path)
+        ds_pred_tile = convert_shp_mask_to_raster(df_shp=mask_pred_shp, col_name=col_name_shp_file)
+        np_pred_tile = ds_pred_tile[col_name_shp_file].to_numpy()
+
+        ## Cut off no-class edge
+        assert mask_tile_true.shape == np_pred_tile.shape, f'Predicted mask shape {np_pred_tile.shape} does not match true mask shape {mask_tile_true.shape}'
+        np_pred_tile = np_pred_tile[:shape_predicted_tile[0], :shape_predicted_tile[1]]
+        mask_tile_true = mask_tile_true[:shape_predicted_tile[0], :shape_predicted_tile[1]]
+
+        ## Compute confusion matrix:
+        conf_mat = compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=np_pred_tile, 
+                                                    lc_class_name_list=lc_class_name_list, 
+                                                    unique_labels_array=unique_labels_array, skip_factor=skip_factor)
+        tmp = compute_stats_from_confusion_mat(conf_mat=conf_mat, class_name_list=lc_class_name_list, 
+                                               normalise_hm=True)
+
+        dict_df_stats[tilename] = tmp[0] 
+        dict_acc[tilename] = tmp[1]
+        dict_conf_mat[tilename] = conf_mat
+
+    return dict_acc, dict_df_stats, dict_conf_mat
 
 def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1, max_it=5, ignore_index=0):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''

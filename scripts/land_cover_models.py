@@ -552,7 +552,6 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     if create_shp:
         if verbose > 0:
             print('Now creating polygons of prediction')
-        name_file = f'{model_name}_{tile_name}_LC-prediction'
         shape_gen = ((shapely.geometry.shape(s), v) for s, v in rasterio.features.shapes(mask_tile.to_numpy(), transform=mask_tile.rio.transform()))  # create generator with shapes
         gdf = gpd.GeoDataFrame(dict(zip(["geometry", "class"], zip(*shape_gen))), crs=mask_tile.rio.crs)
         gdf['Class name'] = 'A'
@@ -568,6 +567,10 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
             assert (ds_dissolved_tile['class'].y == mask_tile.y).all()
             mask_tile[:, :] = ds_dissolved_tile['class'][:, :]
         if save_shp:
+            if dissolve_small_pols:
+                name_file = f'{model_name}_{tile_name}_LC-prediction_dissolved_{area_threshold}m2'
+            else:
+                name_file = f'{model_name}_{tile_name}_LC-prediction'
             save_path = os.path.join(save_folder, name_file)
             gdf.to_file(save_path)
             if verbose > 0:
@@ -583,7 +586,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     return mask_tile, gdf, shape_predicted_tile_part
 
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
-                             patch_size=512, batch_size=10, save_shp=False, save_raster=False,
+                             patch_size=512, batch_size=10, save_shp=False, save_raster=False, save_folder=None,
                              dissolve_small_pols=False, area_threshold=100, skip_factor=None):
     '''Wrapper function that predicts & reconstructs full tile.'''
     ## Get list of all image tiles to predict
@@ -609,13 +612,18 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         print('Warning: area_threshold is > 0, but dissolve_small_pols is False, so NOT dissolving small polygons.')
         assert False
     if dissolve_small_pols:
-        print('Dissolving small polygons. WARNING: this takes considerable overhead computing time')
+        print('Dissolving small polygons. WARNING: this takes considerable overhead computinsave_rasterg time')
 
+    if save_shp:
+        if save_folder is None:
+            save_folder = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205_dissolved_1000m2'
+            print(f'No save folder given, so saving to {save_folder}')
+                    
     ## Loop across tiles:
-    i_tile = 0
+
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
         mask_tile, mask_shp, shape_predicted_tile = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
-                                                      save_shp=save_shp, save_raster=save_raster, 
+                                                      save_shp=save_shp, save_raster=save_raster, save_folder=save_folder,
                                                       model_name='LCU_2022-11-30-1205',
                                                       create_shp=True,
                                                       dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold)
@@ -640,7 +648,6 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
             dict_df_stats[tilename], dict_acc[tilename], _, __ = tmp 
             dict_conf_mat[tilename] = conf_mat
     
-        i_tile += 1
         # if i_tile == 1:
         #     break
 
