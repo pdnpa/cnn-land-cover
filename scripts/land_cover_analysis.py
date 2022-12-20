@@ -958,14 +958,35 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes
 
-def compute_confusion_mat_from_dirs(dir_mask_true, dir_mask_pred_shp, 
+def compute_confusion_mat_from_dirs(dir_mask_true,  
                                     lc_class_name_list, unique_labels_array,
+                                    dir_mask_pred_shp=None, dir_mask_pred_tif=None,
+                                    path_mapping_pred_dict=None,
                                     col_name_shp_file='class', shape_predicted_tile=(7680, 7680),
-                                    skip_factor=None, mask_suffix='_lc_2022_mask'):
+                                    skip_factor=None, mask_suffix='_lc_2022_mask', verbose=1):
 
     list_mask_true = get_all_tifs_from_dir(dir_mask_true)
-    list_names_masks_pred = os.listdir(dir_mask_pred_shp)
-    list_files_masks_pred = [os.path.join(dir_mask_pred_shp, xx, f'{xx}.shp') for xx in list_names_masks_pred]
+    if dir_mask_pred_shp is not None and dir_mask_pred_tif is None:
+        print('Loading predicted mask shp files')
+        list_names_masks_pred = os.listdir(dir_mask_pred_shp)
+        list_files_masks_pred = [os.path.join(dir_mask_pred_shp, xx, f'{xx}.shp') for xx in list_names_masks_pred]
+        load_pred_as_shp = True 
+    elif dir_mask_pred_tif is not None and dir_mask_pred_shp is None:
+        print('Loading predicted mask tif files')
+        list_files_masks_pred = get_all_tifs_from_dir(dir_mask_pred_tif)
+        load_pred_as_shp = False
+    else:
+        raise ValueError('Either dir_mask_pred_shp or dir_mask_pred_tif must be specified')
+
+    if path_mapping_pred_dict is not None:
+        if verbose > 0:
+            print('Loading dict mapping predicted labels to original labels')
+        dict_mapping_pred = pickle.load(open(path_mapping_pred_dict, 'rb'))
+        dict_mapping_pred = dict_mapping_pred['dict_label_mapping']
+        unique_original_labels = np.array(list(dict_mapping_pred.keys()))
+        remap_pred_labels = True 
+    else:
+        remap_pred_labels = False
 
     dict_acc = {} 
     dict_conf_mat = {}
@@ -978,9 +999,20 @@ def compute_confusion_mat_from_dirs(dir_mask_true, dir_mask_pred_shp,
         corresponding_shp_path = [xx for xx in list_files_masks_pred if tilename in xx]
         assert len(corresponding_shp_path) == 1
         corresponding_shp_path = corresponding_shp_path[0]
-        mask_pred_shp = load_pols(corresponding_shp_path)
-        ds_pred_tile = convert_shp_mask_to_raster(df_shp=mask_pred_shp, col_name=col_name_shp_file)
-        np_pred_tile = ds_pred_tile[col_name_shp_file].to_numpy()
+        
+        if load_pred_as_shp:
+            mask_pred_shp = load_pols(corresponding_shp_path)
+            ds_pred_tile = convert_shp_mask_to_raster(df_shp=mask_pred_shp, col_name=col_name_shp_file)
+            np_pred_tile = ds_pred_tile[col_name_shp_file].to_numpy()
+        else:
+            np_pred_tile = np.squeeze(load_tiff(corresponding_shp_path, datatype='np'))
+            if remap_pred_labels:
+                ## Remap if needed:
+                    
+                new_mask = np.zeros_like(np_pred_tile)  # takes up more RAM (instead of reassigning mask_patches.. But want to make sure there are no errors when changing labels). Although maybe it's okay because with labels >= 0 you're always changing down so no chance of getting doubles I think.
+                for label in unique_original_labels:
+                    new_mask[np_pred_tile == label] = dict_mapping_pred[label]
+                np_pred_tile = new_mask
 
         ## Cut off no-class edge
         assert mask_tile_true.shape == np_pred_tile.shape, f'Predicted mask shape {np_pred_tile.shape} does not match true mask shape {mask_tile_true.shape}'
