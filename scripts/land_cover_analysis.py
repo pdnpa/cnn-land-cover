@@ -882,6 +882,7 @@ def concat_list_of_batches(batches):
 
 def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_list, 
                                          unique_labels_array, skip_factor=None):
+    '''Compute confusion matrix given two np or da masks/matrices.'''
     if type(mask_true) == xr.DataArray:
         mask_true = mask_true.to_numpy()
     if type(mask_pred) == xr.DataArray:
@@ -908,8 +909,10 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
 
 def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=None,
                                      dim_truth=0, normalise_hm=True):
-
+    '''Given a confusion matrix, compute precision/sensitivity/accuracy etc stats'''
     if model is not None:
+        if conf_mat is not None:
+            print('WARNING: using models confusion matrix even though conf_mat was given')
         conf_mat = model.test_confusion_mat 
         class_name_list = model.dict_training_details['class_name_list']
         n_classes = model.dict_training_details['n_classes']
@@ -964,7 +967,9 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
                                     path_mapping_pred_dict=None,
                                     col_name_shp_file='class', shape_predicted_tile=(7680, 7680),
                                     skip_factor=None, mask_suffix='_lc_2022_mask', verbose=1):
-
+    '''Compute confusion mat & stats per tile, for a dir of tiles. 
+    Assuming that dir_mask_true is a dir containing TIFs. 
+    Assuming that if dir_mask_pred_shp is given, this is a dir of shp files'''
     list_mask_true = get_all_tifs_from_dir(dir_mask_true)
     if dir_mask_pred_shp is not None and dir_mask_pred_tif is None:
         print('Loading predicted mask shp files')
