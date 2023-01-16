@@ -618,9 +618,18 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         if save_folder is None:
             save_folder = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205_dissolved_1000m2'
             print(f'No save folder given, so saving to {save_folder}')
-                    
-    ## Loop across tiles:
+    
+    ## Save meta data:
+    if save_shp or save_raster:
+        with open(os.path.join(save_folder, 'prediction_meta_data.txt'), 'w') as f:
+            f.write(f'Prediction of {model} on {len(list_tiff_tiles)}.\n')
+            f.write(f'skip_factor: {skip_factor}\n')
+            f.write(f'dissolve_small_pols: {dissolve_small_pols}\n')
+            f.write(f'area threshold: {area_threshold}\n')
+            f.write(f'dir_im: {dir_im}\n')
+            f.write(f'dir_mask_eval: {dir_mask_eval}\n')
 
+    ## Loop across tiles:
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
         mask_tile, mask_shp, shape_predicted_tile = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
                                                       save_shp=save_shp, save_raster=save_raster, save_folder=save_folder,
