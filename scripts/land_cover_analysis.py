@@ -138,7 +138,10 @@ def create_df_with_tiff_coords(tiff_paths, verbose=0):
 def load_pols(pol_path):
     '''Load shape file'''
     df_pols = gpd.read_file(pol_path)
-    assert_epsg(df_pols.crs.to_epsg())
+    if df_pols.crs is not None:
+        assert_epsg(df_pols.crs.to_epsg())
+    else:
+        print('WARNING: no crs found in shape file. Continuing without crs check.')
     return df_pols 
 
 def load_landcover(pol_path, col_class_ind='LC_N_80', col_class_names='LC_D_80'):
@@ -226,6 +229,7 @@ def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_n
 
 def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_name='class_ind'):
     '''Add column with main category indices, based on class codes'''
+    assert col_code_name in df_lc.columns, df_lc.columns
     mapping_dict = {'C': 1,
                     'D': 2,
                     'E': 3,
@@ -236,7 +240,7 @@ def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_na
 
     class_ind_col = np.zeros(len(df_lc[col_code_name]), dtype=int)
     for code, new_ind in mapping_dict.items():
-        inds_code = np.where(df_lc[col_code_name] == code)[0]
+        inds_code = np.where(df_lc[col_code_name].apply(lambda x: x[0]) == code)[0]  # compare first letter
         class_ind_col[inds_code] = new_ind 
     
     df_lc[col_ind_name] = class_ind_col
@@ -1002,7 +1006,7 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
         mask_tile_true = np.squeeze(load_tiff(tilepath, datatype='np'))
 
         corresponding_shp_path = [xx for xx in list_files_masks_pred if tilename in xx]
-        assert len(corresponding_shp_path) == 1
+        assert len(corresponding_shp_path) == 1, f'Tile {tilename}, Length: {len(corresponding_shp_path)}, {corresponding_shp_path}'
         corresponding_shp_path = corresponding_shp_path[0]
         
         if load_pred_as_shp:
@@ -1125,7 +1129,7 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
                     gdf.at[ind_pol, col_name] = gdf_l.iloc[ind_nearest_pol][col_name]
             
         ## Dissolve all polygons with same class and explode multipols:
-        gdf = gdf.dissolve(by='class', as_index=False)  # this takes most time.
+        gdf = gdf.dissolve(by=class_col, as_index=False)  # this takes most time.
         gdf = gdf.explode().reset_index(drop=True)
         gdf = gdf.assign(area=gdf['geometry'].area)
 
