@@ -11,15 +11,15 @@ import pytorch_lightning as pl
 
 path_dict = loadpaths.loadpaths()
 lca.check_torch_ready(check_gpu=True, assert_versions=True)
-pl.seed_everything(86, workers=True)
+# pl.seed_everything(86, workers=True)
 
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 10
+n_max_epochs = 15
 optimise_learning_rate = False
 learning_rate = 1e-3
-loss_function = 'focal_loss'
+loss_function = 'cross_entropy'
 save_full_model = True
 use_valid_ds = True
 path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
@@ -34,9 +34,11 @@ path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dict
 # with open('/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/10_training_tiles_from_eval.json', 'r') as f:
 #     dict_tile_names_sample = json.load(f)
     
-dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/']#,
-                #   '/home/tplas/data/gis/most recent APGB 12.5cm aerial/urban_tiles/images/']
-dir_mask_patches = None 
+# dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/']#,
+#                 #   '/home/tplas/data/gis/most recent APGB 12.5cm aerial/urban_tiles/images/']
+# dir_mask_patches = None 
+dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'
+dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks/'
 
 ## Dirs test data:
 dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
@@ -45,20 +47,22 @@ dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eva
 ## Define model:
 n_classes = 7
 LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, loss_function=loss_function)  # load model 
-LCU.change_description(new_description='13 training tiles CDEof and urban.', add=True)
+LCU.change_description(new_description='11 training tiles CDE', add=True)
 
 ## Create train & validation dataloader:
+print('\nCreating train dataloader...')
 train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
                               mask_suffix='_lc_80s_mask.npy',
                             #   list_tile_names=dict_tile_names_sample['sample'],
                               preprocessing_func=LCU.preprocessing_func,
-                              shuffle_order_patches=True, relabel_masks=True,
+                              shuffle_order_patches=True, relabel_masks=False,
                               subsample_patches=False, path_mapping_dict=path_mapping_dict)
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 
 if use_valid_ds:
     ## Create validation set:
+    print('\nCreating validation dataloader...')
     valid_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                                 mask_suffix='_lc_2022_mask.npy',
                             #   list_tile_names=dict_tile_names_sample['remainder'],
@@ -70,6 +74,7 @@ if use_valid_ds:
     valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus)
 
 ## Create test dataloader:
+print('\nCreating test dataloader...')
 test_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                             mask_suffix='_lc_2022_mask.npy',
                             #   list_tile_names=dict_tile_names_sample['remainder'],
@@ -93,7 +98,7 @@ timestamp_start = datetime.datetime.now()
 print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
 
 ## Train using PL API - saves automatically.
-trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, auto_lr_find='lr')  # run on GPU; and set max_epochs.
+trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
 # # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
 # trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
 
@@ -124,5 +129,3 @@ trainer.test(model=LCU, dataloaders=test_dl)
 if save_full_model is False:
     LCU.base = None 
 LCU.save_model()  
-
-#TODO save name to model

@@ -122,6 +122,7 @@ class DataSetPatches(torch.utils.data.Dataset):
     def create_df_patches(self):
         '''Create dataframe with all patch locations'''
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
+                                        'tile_name': [x[:6] for x in self.list_patch_names],
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys})
 
@@ -230,6 +231,7 @@ class DataSetPatchesTwoMasks(DataSetPatches):
         '''Override to include mask_2_filepath'''
         self.list_mask_2_npys = [os.path.join(self.mask_dir_2, x.split('/')[-1].rstrip('.npy') + self.mask_suffix_2) for x in self.list_im_npys]
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
+                                        'tile_name': [x[:6] for x in self.list_patch_names],
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys,
                                         'mask_2_filepath': self.list_mask_2_npys})
@@ -289,7 +291,7 @@ class LandCoverUNet(pl.LightningModule):
         # self.seg_val_metric = pl.metrics.Accuracy()  # https://devblog.pytorchlightning.ai/torchmetrics-pytorch-metrics-built-to-scale-7091b1bec919
 
         self.model_name = 'LCU (not saved)'
-        self.description = 'LandCoverUNet class using FocalClass2'
+        self.description = f'LandCoverUNet class using {self.loss}'
         self.filename = None
         self.filepath = None
 
@@ -353,13 +355,18 @@ class LandCoverUNet(pl.LightningModule):
         loss = self.loss(output, y)
         self.log('test_loss', loss)  # to be the same metric that it was trained on.. Maybe redundant? 
     
-        self.log('test_ce_loss', self.ce_loss(output, y))
-        self.log('test_focal_loss', self.focal_loss(output, y))
-        self.log('test_iou_loss', self.iou_loss(output, y))
-        ## TODO: accuracy per class, iou per clas, ... ? 
-
+        if hasattr(self, 'ce_loss'):
+            self.log('test_ce_loss', self.ce_loss(output, y))
+        if hasattr(self, 'focal_loss'):
+            self.log('test_focal_loss', self.focal_loss(output, y))
+        if hasattr(self, 'iou_loss'):
+            self.log('test_iou_loss', self.iou_loss(output, y))
+        
         if self.calculate_test_confusion_mat:
-            det_output = lca.change_tensor_to_max_class_prediction(pred=output, expected_square_size=512 / self.skip_factor_eval)  # change soft maxed output to arg max
+            if self.skip_factor_eval is None:
+                det_output = lca.change_tensor_to_max_class_prediction(pred=output, expected_square_size=512)  # change soft maxed output to arg max
+            else:   
+                det_output = lca.change_tensor_to_max_class_prediction(pred=output, expected_square_size=512 / self.skip_factor_eval)  # change soft maxed output to arg max
             assert det_output.shape == y.shape
             assert output.ndim == 4
             n_classes = output.shape[1]
@@ -369,7 +376,6 @@ class LandCoverUNet(pl.LightningModule):
                     self.test_confusion_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
             overall_accuracy = self.test_confusion_mat.diagonal().sum() / self.test_confusion_mat.sum() 
             self.log('test_overall_accuracy', overall_accuracy)
-
 
     def validation_step(self, batch, batch_idx):
         '''Done during training (with unseen data), eg after each epoch.

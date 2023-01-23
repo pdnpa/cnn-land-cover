@@ -556,7 +556,7 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
                                        dir_im_patches='', dir_mask_patches='', save_files=False):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
-    print(f'WARNING: this will save approximately {len(list_tiff_files) / 5 * 1.3}GB of data')
+    print(f'WARNING: this will save approximately {np.round(len(list_tiff_files) / 5 * 1.3)}GB of data')
 
     for i_tile, tilepath in tqdm(enumerate(list_tiff_files)):
         tile_name = tilepath.split('/')[-1].rstrip('.tif')

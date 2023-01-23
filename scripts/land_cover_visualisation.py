@@ -283,7 +283,7 @@ def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot,
     for i_ind in range(n_pics):
         ax_ims[i_ind] = [fig.add_subplot(gs_ims[i_ind, xx]) for xx in range(4 if bool_2_masks else 3)]
         plot_image_mask_pred(image=ims_plot[i_ind, :, :, :], mask=masks_plot[i_ind, :, :],
-                             pred=preds_plot[i_ind, :, :], mask_2=masks_2_plot[i_ind, :, :],
+                             pred=preds_plot[i_ind, :, :], mask_2=None if masks_2_plot is None else masks_2_plot[i_ind, :, :],
                              ax_list=ax_ims[i_ind],
                              lc_class_name_list=lc_class_name_list, unique_labels_array=unique_labels_array,
                              plot_colorbar=(i_ind == 0), cax=ax_cbar)
@@ -602,6 +602,8 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         tab.auto_set_font_size(False)
         tab.set_fontsize(10)
         ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=-0.2, y=1.15, clip_on=False)
+        if conf_mat is None:
+            conf_mat = model.test_confusion_mat
         ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6)), 1)} km^2', x=-0.2, y=1.27, clip_on=False)
         naked(ax_stats)
 
