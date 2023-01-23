@@ -624,6 +624,9 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         if save_folder is None:
             save_folder = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205_dissolved_1000m2'
             print(f'No save folder given, so saving to {save_folder}')
+        elif not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+            print(f'Saving to {save_folder}')
     
     ## Save meta data:
     if save_shp or save_raster:

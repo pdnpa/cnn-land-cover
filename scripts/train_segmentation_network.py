@@ -16,10 +16,10 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 15
+n_max_epochs = 60
 optimise_learning_rate = False
 learning_rate = 1e-3
-loss_function = 'cross_entropy'
+loss_function = 'focal_loss'
 save_full_model = True
 use_valid_ds = True
 path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
