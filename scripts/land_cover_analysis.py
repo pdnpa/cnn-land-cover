@@ -946,7 +946,7 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
         dens_true_arr[i_c] = conf_mat_norm[i_c, :].sum()  # either density (when normalised) or total area
         dens_pred_arr[i_c] = conf_mat_norm[:, i_c].sum()
         if dens_true_arr[i_c] > 0:
-            sens_arr[i_c] = conf_mat_norm[i_c, i_c] /  dens_true_arr[i_c]  # sum of true pos + false neg
+            sens_arr[i_c] = conf_mat_norm[i_c, i_c] / dens_true_arr[i_c]  # sum of true pos + false neg
         else:
             sens_arr[i_c] = np.nan 
         if dens_pred_arr[i_c] > 0: 
@@ -977,7 +977,8 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
     list_mask_true = get_all_tifs_from_dir(dir_mask_true)
     if dir_mask_pred_shp is not None and dir_mask_pred_tif is None:
         print('Loading predicted mask shp files')
-        list_names_masks_pred = os.listdir(dir_mask_pred_shp)
+        list_names_masks_pred = [x for x in os.listdir(dir_mask_pred_shp) if x != 'merged_tiles']
+        print(f'Found {len(list_names_masks_pred)} predicted mask shp files')
         list_files_masks_pred = [os.path.join(dir_mask_pred_shp, xx, f'{xx}.shp') for xx in list_names_masks_pred]
         load_pred_as_shp = True 
     elif dir_mask_pred_tif is not None and dir_mask_pred_shp is None:
@@ -1158,3 +1159,90 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
             sort_ascending = False  # if no more changes, but still small pols left, then sort by descending area to dissolve into the largest polygons first, to resolve cases where they touch by a single pixel
 
     return gdf
+
+def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/repos/cnn-land-cover/tmp_fgh_layer/tmp_fgh_layer.shp', 
+                                           tile_predictions_folder='/home/tplas/predictions_LCU_2022-11-30-1205_dissolved1000m2/', 
+                                           new_tile_predictions_override_folder=None, verbose=0):
+    ## Load FGH layer & get list of tile paths, and new directory for tile predictions with FGH override
+    df_fgh = gpd.read_file(filepath_manual_layer)
+
+    if new_tile_predictions_override_folder is None:
+        new_tile_predictions_override_folder = tile_predictions_folder.rstrip('/') + '_FGH-override/'
+    if not os.path.exists(new_tile_predictions_override_folder):
+        os.mkdir(new_tile_predictions_override_folder)
+
+    ## Collect all filepaths:
+    subdirs_tiles = [os.path.join(tile_predictions_folder, x) for x in os.listdir(tile_predictions_folder) if os.path.isdir(os.path.join(tile_predictions_folder, x))]
+    dict_shp_files = {} 
+    dict_new_shp_files = {}
+    for tile_dir in subdirs_tiles:
+        ## Get tile name
+        tilename = tile_dir.split('/')[-1].split('_')[2]
+        assert len(tilename) == 6
+
+        ## Get path to shp file
+        tmp_list_shp_files = [os.path.join(tile_dir, x) for x in os.listdir(tile_dir) if x[-4:] == '.shp']
+        assert len(tmp_list_shp_files) == 1 
+        dict_shp_files[tilename] = tmp_list_shp_files[0]
+
+        ## Set path for new shp file to be saved
+        new_dir = os.path.join(new_tile_predictions_override_folder, tile_dir.split('/')[-1] + '_FGH-override')
+        if not os.path.exists(new_dir):
+            os.mkdir(new_dir)
+
+        ## Load shp file to see how many pols there are (takes some extra time)
+        dict_new_shp_files[tilename] = os.path.join(new_dir, new_dir.split('/')[-1] + '.shp')
+        tmp_pols = load_pols(dict_shp_files[tilename])
+        if len(tmp_pols) > 20:
+            print(f'Loaded {len(tmp_pols)} polygons for tile {tilename}')
+
+    ## Loop over tiles and apply FGH override
+    mapping_dict = {'Wood and Forest Land': 'C', 'Moor and Heath Land': 'D', 
+                    'Agro-Pastoral Land': 'E', 'NO CLASS': 'I'}
+    for tilename, tile_pred_path in tqdm(dict_shp_files.items()):
+        if verbose > 0:
+            print(tilename)
+        df_pred = gpd.read_file(tile_pred_path)
+        df_pred = df_pred.copy()
+        df_pred = df_pred.drop(['class', 'area'], axis=1)
+        if len(df_pred) == 1:  # just to verify that what's happening is what I think is happening
+            assert 'polygon_id' not in df_pred.columns
+        else:
+            df_pred = df_pred.drop(['polygon_id'], axis=1)
+        df_pred['lc_label'] = df_pred['Class name'].map(mapping_dict)
+        df_pred = df_pred.drop(['Class name'], axis=1)
+        # df_pred = df_pred.explode().reset_index(drop=True)  # explode multi-polygons into separate polygons
+        df_diff = gpd.overlay(df_pred, df_fgh, how='difference')  # Get df pred polygons that are not in df fgh 
+        df_diff = df_diff.explode().reset_index(drop=True)
+        df_intersect = gpd.overlay(df_pred, df_fgh, how='intersection')  # Get overlap between df pred and df fgh
+        df_intersect['lc_label'] = df_intersect['lc_label_2']
+        df_intersect = df_intersect.drop(['lc_label_1', 'lc_label_2'], axis=1)
+        df_intersect = df_intersect.explode().reset_index(drop=True)
+        df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
+        df_new = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
+                                                    col_ind_name='class')  # add numeric main label column
+        df_new.crs = df_pred.crs
+        # df_new = df_new.explode().reset_index(drop=True)
+        
+        new_tile_path = dict_new_shp_files[tilename]
+        df_new.to_file(new_tile_path)
+    
+    return new_tile_predictions_override_folder
+
+def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True):
+
+    subdirs_tiles = [os.path.join(dir_indiv_tile_shp, x) for x in os.listdir(dir_indiv_tile_shp) if os.path.isdir(os.path.join(dir_indiv_tile_shp, x))]
+    for i_tile, pred_dir in tqdm(enumerate(subdirs_tiles)):
+        if i_tile == 0:
+            df_all = load_pols(pred_dir)
+        else:
+            df_tmp = load_pols(pred_dir)
+            df_all = pd.concat([df_all, df_tmp], ignore_index=True)
+    
+    if save_merged_shp_file:
+        dir_path_merged = os.path.join(dir_indiv_tile_shp, 'merged_tiles')
+        if not os.path.exists(dir_path_merged):
+            os.mkdir(dir_path_merged)
+        df_all.to_file(os.path.join(dir_path_merged, 'merged_tiles.shp'))
+
+    return df_all
