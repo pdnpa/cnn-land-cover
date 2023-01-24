@@ -12,13 +12,13 @@ from pytorch_lightning import loggers as pl_loggers
 
 path_dict = loadpaths.loadpaths()
 lca.check_torch_ready(check_gpu=True, assert_versions=True)
-tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/lightning_logs/')
+tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
 # pl.seed_everything(86, workers=True)
 
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 60
+n_max_epochs = 1
 optimise_learning_rate = False
 learning_rate = 1e-3
 loss_function = 'focal_loss'

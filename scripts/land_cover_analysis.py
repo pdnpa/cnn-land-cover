@@ -1,4 +1,5 @@
 import os, sys, copy, datetime, pickle
+import time, datetime
 import numpy as np
 from numpy.core.multiarray import square
 from numpy.testing import print_assert_equal
@@ -1161,10 +1162,12 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
     return gdf
 
 def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
-                                           tile_predictions_folder='/home/tplas/predictions_LCU_2022-11-30-1205_dissolved1000m2/', 
+                                           tile_predictions_folder='/home/tplas/predictions/predictions_LCU_2022-11-30-1205_dissolved1000m2/', 
                                            new_tile_predictions_override_folder=None, verbose=0):
     ## Load FGH layer & get list of tile paths, and new directory for tile predictions with FGH override
     df_fgh = gpd.read_file(filepath_manual_layer)
+    date_fgh_modified = str(datetime.datetime.strptime(time.ctime(os.path.getmtime(filepath_manual_layer)), '%a %b %d %H:%M:%S %Y').date())
+    df_fgh['source'] = f'OS NGD retrieved {date_fgh_modified}'  # set source OS NGD 
 
     if new_tile_predictions_override_folder is None:
         new_tile_predictions_override_folder = tile_predictions_folder.rstrip('/') + '_FGH-override/'
@@ -1204,6 +1207,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
             print(tilename)
         df_pred = gpd.read_file(tile_pred_path)
         df_pred = df_pred.copy()
+        ## Get rid of columns that are not needed:
         df_pred = df_pred.drop(['class', 'area'], axis=1)
         if len(df_pred) == 1:  # just to verify that what's happening is what I think is happening
             assert 'polygon_id' not in df_pred.columns
@@ -1211,22 +1215,31 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
             df_pred = df_pred.drop(['polygon_id'], axis=1)
         df_pred['lc_label'] = df_pred['Class name'].map(mapping_dict)
         df_pred = df_pred.drop(['Class name'], axis=1)
-        # df_pred = df_pred.explode().reset_index(drop=True)  # explode multi-polygons into separate polygons
+        df_pred['source'] = 'model prediction'  # set source 
+    
+        ## Merge with FGH layer:
         df_diff = gpd.overlay(df_pred, df_fgh, how='difference')  # Get df pred polygons that are not in df fgh 
         df_diff = df_diff.explode().reset_index(drop=True)
         df_intersect = gpd.overlay(df_pred, df_fgh, how='intersection')  # Get overlap between df pred and df fgh
-        df_intersect['lc_label'] = df_intersect['lc_label_2']
+        df_intersect['lc_label'] = df_intersect['lc_label_2']  #  FGH layer has priority (and was 2nd arg in overlay() above)
+        df_intersect['source'] = df_intersect['source_2']
         df_intersect = df_intersect.drop(['lc_label_1', 'lc_label_2'], axis=1)
-        df_intersect = df_intersect.explode().reset_index(drop=True)
+        df_intersect = df_intersect.drop(['source_1', 'source_2'], axis=1)
+        df_intersect = df_intersect.explode().reset_index(drop=True)  # in case multiple polygons are created by intersection
         df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
         df_new = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
                                                     col_ind_name='class')  # add numeric main label column
-        df_new.crs = df_pred.crs
-        # df_new = df_new.explode().reset_index(drop=True)
+        df_new.crs = df_pred.crs  # set crs
+
+        ## Dissolve again because intersections can break up FGH polygons, which then need to be dissolved again
+        df_new = df_new.dissolve(by='lc_label', as_index=False)  
+        df_new = df_new.explode().reset_index(drop=True)
         
+        ## Save:
         new_tile_path = dict_new_shp_files[tilename]
         df_new.to_file(new_tile_path)
     
+    print('\n#####\n\nDone with FGH override\n\n#####\n')
     return new_tile_predictions_override_folder
 
 def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True):

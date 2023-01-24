@@ -421,7 +421,7 @@ class LandCoverUNet(pl.LightningModule):
         if verbose > 0:
             print(f'LCU model saved as {self.filename} at {self.filepath}')
 
-def load_model(folder='', filename='', verbose=1):
+def load_model(folder='/home/tplas/models', filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)
@@ -593,10 +593,14 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
 
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, batch_size=10, save_shp=False, save_raster=False, save_folder=None,
-                             dissolve_small_pols=False, area_threshold=100, skip_factor=None):
+                             dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
+                             subsample_tiles_for_testing=False):
     '''Wrapper function that predicts & reconstructs full tile.'''
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
+    if subsample_tiles_for_testing:
+        print('WARNING: subsampling 2 tiles for testing')
+        list_tiff_tiles = list_tiff_tiles[:2]
     print(f'Loaded {len(list_tiff_tiles)} tiffs from subdirs of {dir_im}')
     unique_labels_array = np.arange(7)  # hard coded because dict_treaining_details needs to be fixed
 
