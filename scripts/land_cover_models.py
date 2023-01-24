@@ -409,7 +409,7 @@ class LandCoverUNet(pl.LightningModule):
         #         'lr_scheduler': scheduler, # Changed scheduler to lr_scheduler
         #         'monitor': 'val_loss'}
         
-    def save_model(self, folder='', verbose=1):
+    def save_model(self, folder='/home/tplas/models/', verbose=1):
         '''Save model'''
         timestamp = lca.create_timestamp()
         self.filename = f'LCU_{timestamp}.data'

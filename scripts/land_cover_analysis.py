@@ -1160,7 +1160,7 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
 
     return gdf
 
-def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/repos/cnn-land-cover/tmp_fgh_layer/tmp_fgh_layer.shp', 
+def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
                                            tile_predictions_folder='/home/tplas/predictions_LCU_2022-11-30-1205_dissolved1000m2/', 
                                            new_tile_predictions_override_folder=None, verbose=0):
     ## Load FGH layer & get list of tile paths, and new directory for tile predictions with FGH override

@@ -8,9 +8,11 @@ import land_cover_visualisation as lcv
 import land_cover_models as lcm
 import torch
 import pytorch_lightning as pl
+from pytorch_lightning import loggers as pl_loggers
 
 path_dict = loadpaths.loadpaths()
 lca.check_torch_ready(check_gpu=True, assert_versions=True)
+tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/lightning_logs/')
 # pl.seed_everything(86, workers=True)
 
 ## Parameters:
@@ -98,7 +100,7 @@ timestamp_start = datetime.datetime.now()
 print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
 
 ## Train using PL API - saves automatically.
-trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
+trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, logger=tb_logger)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
 # # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
 # trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
 

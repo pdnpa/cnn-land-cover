@@ -1,6 +1,4 @@
 
 .ipynb_checkpoints/
-
 __pycache__/
-lightning_logs/
-*.data
+*.code-workspace
