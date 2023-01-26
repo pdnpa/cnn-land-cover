@@ -2,3 +2,5 @@
 .ipynb_checkpoints/
 __pycache__/
 *.code-workspace
+notebooks/lightning_logs/
+scripts/lightning_logs/
