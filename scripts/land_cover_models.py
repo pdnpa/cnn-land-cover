@@ -488,15 +488,18 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
     elif len(batch) == 2:
         return (batch[0], batch[1], predicted_labels)
 
-def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
+def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, padding=0,
                         batch_size=10, save_raster=False, save_shp=False,
-                        create_shp=False, model_name=None, verbose=1,
+                        create_shp=False, verbose=1,
                         dissolve_small_pols=False, area_threshold=100,
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
     if trainer is None:
         trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1, enable_progress_bar=False)  # run on GPU; and set max_epochs.
     if save_shp or dissolve_small_pols:
         create_shp = True  # is needed to save or dissolve
+    if padding > 0:
+        assert padding % 2 == 0, 'Padding should be even number'
+
     ## Load tile
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
     im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
@@ -509,9 +512,14 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     ## Split up tile in main + right side + bottom
     assert len(im_tile.x) == len(im_tile.y)
     n_pix = len(im_tile.x)
-    n_patches_per_side = int(np.floor(n_pix / patch_size))
-    n_pix_fit = n_patches_per_side * patch_size
-    assert n_pix_fit % batch_size == 0
+    step_size = patch_size - padding  # effective step size
+    if n_pix % step_size == 0:
+        print('houston, we have a problem')
+    n_patches_per_side = int(np.floor(n_pix / step_size))
+    n_pix_fit = n_patches_per_side * step_size + padding
+    # print(n_pix, n_pix_fit, n_patches_per_side, step_size)
+    if padding == 0:
+        assert n_pix_fit % step_size == 0
     
     im_main = im_tile.where(im_tile.ind_x < n_pix_fit, drop=True)
     im_main = im_main.where(im_tile.ind_y < n_pix_fit, drop=True)
@@ -521,7 +529,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
         print('Divided tile')
     
     ## Create patches
-    patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, patch_size=patch_size)
+    patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, 
+                                                  patch_size=patch_size, padding=padding)
     patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float', verbose=0)
     patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im[0], f_preprocess=model.preprocessing_func)
     assert patches_im.shape[0] == n_patches_per_side ** 2
@@ -540,20 +549,38 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     ## set dtype to something appropriate (uint8?) 
 
     ## [Handle edges, by patching from the other side; or using next tile]
-    ## For no, shape_predicted_tile_part is returned to indicate the shape of the predicted part of the tile
+    ## For now, shape_predicted_tile_part is returned to indicate the shape of the predicted part of the tile
 
     ## Reconstruct full tile
     assert pred_masks.shape[0] == patches_im.shape[0] and pred_masks.shape[0] == n_patches_per_side ** 2
     assert pred_masks.shape[-2:] == patches_im.shape[-2:] and pred_masks.shape[-2] == patch_size
-    temp_shape = (n_patches_per_side, n_patches_per_side, patch_size, patch_size)  # need for unpatchifying below:
-    reconstructed_tile_mask = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), im_main.shape[-2:]) # won't work if im_tile has a remainder
+    temp_shape = (n_patches_per_side, n_patches_per_side, step_size, step_size)  # need for unpatchifying below:
+    print('Shapes pre pad-removal', pred_masks.shape, temp_shape, im_main.shape)
+    if padding > 0:  # need to remove padding
+        half_pad = int(padding / 2) # should be even (asserted above)
+        pred_masks = pred_masks[:, half_pad:-half_pad, :]
+        pred_masks = pred_masks[:, :, half_pad:-half_pad]
+        print('Shapes post pad-removal', pred_masks.shape, temp_shape, im_main.shape)
+    
+    assert np.product(temp_shape) == np.product(pred_masks.shape)
+    assert np.product(temp_shape) + (4 * n_patches_per_side * half_pad * step_size) + (4 * half_pad ** 2) == np.product(im_main.shape[-2:])  # innner part + 4 edges + 4 corners
+
+    if padding == 0:    
+        reconstructed_tile_mask = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), im_main.shape[-2:]) # won't work if im_tile has a remainder
+    elif padding > 0:
+        reconstructed_tile_mask_inner = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), (im_main.shape[-2] - padding, im_main.shape[-2] - padding)) 
+        reconstructed_tile_mask = np.zeros(im_main.shape[-2:])
+        reconstructed_tile_mask[half_pad:-half_pad, :][:, half_pad:-half_pad] = reconstructed_tile_mask_inner
+    
     assert reconstructed_tile_mask.ndim == 2
     shape_predicted_tile_part = reconstructed_tile_mask.shape
+    assert shape_predicted_tile_part == im_main.shape[-2:]
+
     ## Add back geo coord:
     mask_tile[:shape_predicted_tile_part[0], :shape_predicted_tile_part[1]] = reconstructed_tile_mask
-    
+
     ## Save & return
-    assert model_name is not None, 'add model name to LCU upon saving.. '
+    model_name = model.model_name
     tile_name = tilepath.split('/')[-1].rstrip('.tif')
     if create_shp:
         if verbose > 0:
@@ -581,7 +608,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
             gdf.to_file(save_path)
             if verbose > 0:
                 print(f'Saved {name_file} with {len(gdf)} polygons to {save_path}')
-            ## zip:
+            ## zip:model_name
             ## shutil.make_archive(output_filename, 'zip', dir_name)
     else:
         gdf = None
@@ -592,10 +619,12 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512,
     return mask_tile, gdf, shape_predicted_tile_part
 
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
-                             patch_size=512, batch_size=10, save_shp=False, save_raster=False, save_folder=None,
+                             patch_size=512, padding=0, save_shp=False, save_raster=False, save_folder=None,
                              dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
                              subsample_tiles_for_testing=False):
     '''Wrapper function that predicts & reconstructs full tile.'''
+    if padding > 0:
+        assert padding % 2 == 0, 'Padding should be even number'
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
     if subsample_tiles_for_testing:
@@ -646,8 +675,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
         mask_tile, mask_shp, shape_predicted_tile = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
                                                       save_shp=save_shp, save_raster=save_raster, save_folder=save_folder,
-                                                      model_name='LCU_2022-11-30-1205',
-                                                      create_shp=True,
+                                                      create_shp=True, patch_size=patch_size, padding=padding,
                                                       dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold)
 
         if dir_mask_eval is not None:

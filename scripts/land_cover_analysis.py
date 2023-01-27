@@ -484,8 +484,15 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
 
     return cube 
 
-def create_image_mask_patches(image, mask=None, patch_size=512):
-    '''Given a loaded image (as DataArray) and mask (as np array), create patches (ie sub images/masks)'''
+def create_image_mask_patches(image, mask=None, patch_size=512, padding=0):
+    '''Given a loaded image (as DataArray) and mask (as np array), create patches (ie sub images/masks)
+    
+    patch_size: size of patches to create (in pixels)
+    padding: number of pixels to add to each side of patch (to avoid edge effects)
+        - This is the number of pixels that will be overlapped between patches
+        - This means that if eg padding=10, then the area of overlap with be 10 pixels. 
+        - But as those pixels in the overlap also need to be predicted, the effective context buffer is 5 pixels on each side.
+    '''
     assert type(image) == xr.DataArray, 'expecting image to be a xr.DataArray'
     assert image.ndim == 3, 'expecting band by x by y dimensions'
     assert patch_size < len(image.x) and patch_size < len(image.y)
@@ -496,15 +503,17 @@ def create_image_mask_patches(image, mask=None, patch_size=512):
         assert mask.shape == (1, len(image.x), len(image.y)), mask.shape
         mask = np.squeeze(mask)  # get rid of extra dim 
 
-    n_exp_patches = int(np.floor(len(image.x) / patch_size))
-
+    step_size = patch_size - padding  # effective step size
+    n_exp_patches = int(np.floor(len(image.x) / step_size))  # number of expected patches in each direction
+    # print(f'Expected number of patches: {n_exp_patches} (patch size: {patch_size}, step size: {step_size}')
     ## Create patches of patch_size x patch_size (x n_bands)
-    patches_img = patchify.patchify(image.to_numpy(), (3, patch_size, patch_size), step=patch_size)
-    assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)
+    patches_img = patchify.patchify(image.to_numpy(), (3, patch_size, patch_size), step=step_size)
+    # print(patches_img.shape, image.to_numpy().shape)
+    assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size), f'patches_img has shape {patches_img.shape}, but expected {(1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)}'
     assert type(patches_img) == np.ndarray 
     
     if mask is not None:
-        patches_mask = patchify.patchify(mask, (patch_size, patch_size), step=patch_size)
+        patches_mask = patchify.patchify(mask, (patch_size, patch_size), step=step_size)
         assert patches_mask.shape == (n_exp_patches, n_exp_patches, patch_size, patch_size)
         assert type(patches_mask) == np.ndarray
     else:
