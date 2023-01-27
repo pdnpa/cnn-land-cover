@@ -504,7 +504,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
     im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
                                      'ind_y': ('y', np.arange(len(im_tile.y)))})
-    ## TODO: catch geo coords / ref
+    ## TODO: catch geo coords / ref for mask_tile, or not necessary?
     ## Copy of full tile
     mask_tile = copy.deepcopy(im_tile.sel(band=1, drop=True))
     mask_tile[:, :] = 0  # set everything to no class
@@ -513,9 +513,9 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     assert len(im_tile.x) == len(im_tile.y)
     n_pix = len(im_tile.x)
     step_size = patch_size - padding  # effective step size
-    if n_pix % step_size == 0:
-        print('houston, we have a problem')
-    n_patches_per_side = int(np.floor(n_pix / step_size))
+    # if n_pix % step_size == 0:
+        # print('houston, we have a problem')
+    n_patches_per_side = int(np.floor(n_pix / step_size  - padding / step_size))
     n_pix_fit = n_patches_per_side * step_size + padding
     # print(n_pix, n_pix_fit, n_patches_per_side, step_size)
     if padding == 0:
@@ -529,7 +529,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
         print('Divided tile')
     
     ## Create patches
-    patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, 
+    patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, verbose=1 if verbose > 1 else 0,
                                                   patch_size=patch_size, padding=padding)
     patches_im = lca.change_data_to_tensor(patches_im, tensor_dtype='float', verbose=0)
     patches_im = lca.apply_zscore_preprocess_images(im_ds=patches_im[0], f_preprocess=model.preprocessing_func)
@@ -555,12 +555,14 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     assert pred_masks.shape[0] == patches_im.shape[0] and pred_masks.shape[0] == n_patches_per_side ** 2
     assert pred_masks.shape[-2:] == patches_im.shape[-2:] and pred_masks.shape[-2] == patch_size
     temp_shape = (n_patches_per_side, n_patches_per_side, step_size, step_size)  # need for unpatchifying below:
-    print('Shapes pre pad-removal', pred_masks.shape, temp_shape, im_main.shape)
+    if verbose > 1:
+        print('Shapes pre pad-removal', pred_masks.shape, temp_shape, im_main.shape)
+    half_pad = int(padding / 2) # should be even (asserted above)
     if padding > 0:  # need to remove padding
-        half_pad = int(padding / 2) # should be even (asserted above)
         pred_masks = pred_masks[:, half_pad:-half_pad, :]
         pred_masks = pred_masks[:, :, half_pad:-half_pad]
-        print('Shapes post pad-removal', pred_masks.shape, temp_shape, im_main.shape)
+        if verbose > 1:
+            print('Shapes post pad-removal', pred_masks.shape, temp_shape, im_main.shape)
     
     assert np.product(temp_shape) == np.product(pred_masks.shape)
     assert np.product(temp_shape) + (4 * n_patches_per_side * half_pad * step_size) + (4 * half_pad ** 2) == np.product(im_main.shape[-2:])  # innner part + 4 edges + 4 corners
