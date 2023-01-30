@@ -495,8 +495,8 @@ def create_image_mask_patches(image, mask=None, patch_size=512, padding=0, verbo
     '''
     assert type(image) == xr.DataArray, 'expecting image to be a xr.DataArray'
     assert image.ndim == 3, 'expecting band by x by y dimensions'
-    assert patch_size < len(image.x) and patch_size < len(image.y)
-    assert len(image.x) == len(image.y)
+    assert patch_size < len(image.x) and patch_size < len(image.y), 'patch size must be smaller than image size'
+    assert len(image.x) == len(image.y), 'expecting square image'
 
     if mask is not None:
         assert type(mask) == np.ndarray 
@@ -505,14 +505,12 @@ def create_image_mask_patches(image, mask=None, patch_size=512, padding=0, verbo
 
     step_size = patch_size - padding  # effective step size
     n_exp_patches = int(np.floor((len(image.x) - padding) / step_size))  # number of expected patches in each direction
-    
-    print((len(image.x) - padding) / step_size, np.floor((len(image.x) - padding) / step_size))
+    assert step_size * n_exp_patches + padding == len(image.x), f'Expected number of patches {n_exp_patches} with step size: {step_size}, padding: {padding} does not match image size {len(image.x)}'
     if verbose > 0:
         print(f'Expected number of patches: {n_exp_patches} (patch size: {patch_size}, step size: {step_size}, padding: {padding}, image size {len(image.x)}')
-    # print(f'Expected number of patches: {n_exp_patches} (patch size: {patch_size}, step size: {step_size}')
+    
     ## Create patches of patch_size x patch_size (x n_bands)
     patches_img = patchify.patchify(image.to_numpy(), (3, patch_size, patch_size), step=step_size)
-    # print(patches_img.shape, image.to_numpy().shape)
     assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size), f'patches_img has shape {patches_img.shape}, but expected {(1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)}'
     assert type(patches_img) == np.ndarray 
     
