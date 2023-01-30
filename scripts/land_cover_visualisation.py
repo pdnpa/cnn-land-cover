@@ -565,7 +565,7 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
 
 def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None,
-                           dim_truth=0, normalise_hm=True):
+                           dim_truth=0, normalise_hm=True, skip_factor=1):
 
     df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes = \
         lca.compute_stats_from_confusion_mat(model=model, conf_mat=conf_mat, class_name_list=class_name_list,
@@ -604,7 +604,8 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=-0.2, y=1.15, clip_on=False)
         if conf_mat is None:
             conf_mat = model.test_confusion_mat
-        ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6)), 1)} km^2', x=-0.2, y=1.27, clip_on=False)
+        ## Total area: counts pixels & divides by resolution. Then scale by skip-factor squared to account for skipped pixelss
+        ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6) * (skip_factor ** 2)), 1)} km^2', x=-0.2, y=1.27, clip_on=False)  # because each tile is 8000^2 pixels = 1km^2
         naked(ax_stats)
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, (ax_hm, ax_stats)

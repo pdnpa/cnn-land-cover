@@ -523,10 +523,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     
     im_main = im_tile.where(im_tile.ind_x < n_pix_fit, drop=True)
     im_main = im_main.where(im_tile.ind_y < n_pix_fit, drop=True)
-
-    ## Cut off top & right side. Patch mirrored matrix and just do first row? 
-    if verbose > 0:
-        print('Divided tile')
+    if verbose > 0:  # print all shapes
+        print(f'Original tile shape: {im_tile.shape}, n_pix_fit: {n_pix_fit}, n_patches_per_side: {n_patches_per_side}, step_size: {step_size}, padding: {padding}')
     
     ## Create patches
     patches_im, _ = lca.create_image_mask_patches(image=im_main, mask=None, verbose=1 if verbose > 1 else 0,
@@ -572,6 +570,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     elif padding > 0:
         reconstructed_tile_mask_inner = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), (im_main.shape[-2] - padding, im_main.shape[-2] - padding)) 
         reconstructed_tile_mask = np.zeros(im_main.shape[-2:])
+        if verbose > 1:
+            print('Shapes post unpatchify', reconstructed_tile_mask.shape, reconstructed_tile_mask_inner.shape)
         reconstructed_tile_mask[half_pad:-half_pad, :][:, half_pad:-half_pad] = reconstructed_tile_mask_inner
     
     assert reconstructed_tile_mask.ndim == 2

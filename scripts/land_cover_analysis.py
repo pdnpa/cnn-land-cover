@@ -981,7 +981,8 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
                                     lc_class_name_list, unique_labels_array,
                                     dir_mask_pred_shp=None, dir_mask_pred_tif=None,
                                     path_mapping_pred_dict=None,
-                                    col_name_shp_file='class', shape_predicted_tile=(7680, 7680),
+                                    col_name_shp_file='class', 
+                                    patch_size=512, padding=0, 
                                     skip_factor=None, mask_suffix='_lc_2022_mask', verbose=1):
     '''Compute confusion mat & stats per tile, for a dir of tiles. 
     Assuming that dir_mask_true is a dir containing TIFs. 
@@ -1030,16 +1031,16 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
             np_pred_tile = np.squeeze(load_tiff(corresponding_shp_path, datatype='np'))
             if remap_pred_labels:
                 ## Remap if needed:
-                    
                 new_mask = np.zeros_like(np_pred_tile)  # takes up more RAM (instead of reassigning mask_patches.. But want to make sure there are no errors when changing labels). Although maybe it's okay because with labels >= 0 you're always changing down so no chance of getting doubles I think.
                 for label in unique_original_labels:
                     new_mask[np_pred_tile == label] = dict_mapping_pred[label]
                 np_pred_tile = new_mask
 
-        ## Cut off no-class edge
-        assert mask_tile_true.shape == np_pred_tile.shape, f'Predicted mask shape {np_pred_tile.shape} does not match true mask shape {mask_tile_true.shape}'
-        np_pred_tile = np_pred_tile[:shape_predicted_tile[0], :shape_predicted_tile[1]]
-        mask_tile_true = mask_tile_true[:shape_predicted_tile[0], :shape_predicted_tile[1]]
+        ## Cut off no-class edges: 
+        assert mask_tile_true.shape == np_pred_tile.shape, f'Predicted mask shape {np_pred_tile.shape} does not match true mask shape {mask_tile_true.shape}'  # this should be 8000 x 8000
+        start_pred, end_pred = get_padding_edges_from_sizes(image_size=mask_tile_true.shape[0], patch_size=patch_size, padding=padding)
+        np_pred_tile = np_pred_tile[start_pred:end_pred, :][:, start_pred:end_pred]
+        mask_tile_true = mask_tile_true[start_pred:end_pred, :][:, start_pred:end_pred]
 
         ## Compute confusion matrix:
         conf_mat = compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=np_pred_tile, 
@@ -1053,6 +1054,17 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
         dict_conf_mat[tilename] = conf_mat
 
     return dict_acc, dict_df_stats, dict_conf_mat
+
+def get_padding_edges_from_sizes(image_size=8000, patch_size=512, padding=42):
+    step_size = patch_size - padding  # effective step size
+    n_patches_per_side = int(np.floor(image_size / step_size - padding / step_size))
+    n_pix_fit = n_patches_per_side * step_size + padding
+    if padding == 0:
+        assert n_pix_fit % step_size == 0
+    half_pad = padding // 2
+    start_prediction = half_pad
+    end_prediction = n_pix_fit - half_pad
+    return start_prediction, end_prediction
 
 def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1, max_it=5, ignore_index=0):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''

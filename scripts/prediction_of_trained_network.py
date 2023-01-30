@@ -11,15 +11,15 @@ path_dict = loadpaths.loadpaths()
 lca.check_torch_ready(check_gpu=True, assert_versions=True)
 
 ##Parameters:
-datapath_model = 'LCU_2023-01-24-1513.data'
+datapath_model = 'LCU_2023-01-23-2018.data'
 save_shp_prediction = True
 dissolve_small_pols = True
 dissolve_threshold = 1000
 override_with_fgh_layer = True
 skip_factor = 16
-padding = 100
+padding = 44
 parent_save_folder = '/home/tplas/predictions/'
-subsample_tiles_for_testing = True
+subsample_tiles_for_testing = False
 
 ## Load model:
 LCU = lcm.load_model(filename=datapath_model)
@@ -28,7 +28,7 @@ if dissolve_small_pols:
     dissolved_name = '_dissolved' + str(dissolve_threshold) + 'm2'
 else:
     dissolved_name = ''
-save_folder = os.path.join(parent_save_folder, 'predictions_' + LCU.model_name + dissolved_name)
+save_folder = os.path.join(parent_save_folder, 'predictions_' + LCU.model_name + dissolved_name + f'_padding{padding}')
 
 ## Predict full tiles of test set:
 tmp_results = lcm.tile_prediction_wrapper(model=LCU, save_shp=save_shp_prediction,
