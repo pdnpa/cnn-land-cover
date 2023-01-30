@@ -17,6 +17,7 @@ dissolve_small_pols = True
 dissolve_threshold = 1000
 override_with_fgh_layer = True
 skip_factor = 16
+padding = 100
 parent_save_folder = '/home/tplas/predictions/'
 subsample_tiles_for_testing = True
 
@@ -35,6 +36,7 @@ tmp_results = lcm.tile_prediction_wrapper(model=LCU, save_shp=save_shp_predictio
                             dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022/',
                             save_folder=save_folder, dissolve_small_pols=dissolve_small_pols, 
                             area_threshold=dissolve_threshold, skip_factor=skip_factor,
+                            padding=padding,
                             subsample_tiles_for_testing=subsample_tiles_for_testing)
 
 ## Save results as pickle:

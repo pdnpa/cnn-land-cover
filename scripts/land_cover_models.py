@@ -626,7 +626,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
                              subsample_tiles_for_testing=False):
     '''Wrapper function that predicts & reconstructs full tile.'''
     if padding > 0:
-        assert padding % 2 == 0, 'Padding should be even number'
+        assert type(padding) == int and padding % 2 == 0, 'Padding should be even number'
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
     if subsample_tiles_for_testing:
@@ -669,7 +669,9 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
             f.write(f'Prediction of {model} on {len(list_tiff_tiles)}.\n')
             f.write(f'skip_factor: {skip_factor}\n')
             f.write(f'dissolve_small_pols: {dissolve_small_pols}\n')
-            f.write(f'area threshold: {area_threshold}\n')
+            f.write(f'area_threshold: {area_threshold}\n')
+            f.write(f'patch_size: {patch_size}\n')
+            f.write(f'padding: {padding}\n')
             f.write(f'dir_im: {dir_im}\n')
             f.write(f'dir_mask_eval: {dir_mask_eval}\n')
 
@@ -688,8 +690,10 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
 
             ## Cut off no-class edge
             assert mask_tile_true.shape == mask_tile.shape, f'Predicted mask shape {mask_tile.shape} does not match true mask shape {mask_tile_true.shape}'
-            mask_tile = mask_tile[:shape_predicted_tile[0], :shape_predicted_tile[1]]
-            mask_tile_true = mask_tile_true[:shape_predicted_tile[0], :shape_predicted_tile[1]]
+            half_pad = padding // 2
+            mask_tile = mask_tile[half_pad:(shape_predicted_tile[0] - half_pad), :][:, half_pad:(shape_predicted_tile[1] - half_pad)]
+            assert np.sum(mask_tile == 0) == 0, 'Padding not removed correctly OR predicted mask contains no-class pixels'
+            mask_tile_true = mask_tile_true[half_pad:(shape_predicted_tile[0] - half_pad), :][:, half_pad:(shape_predicted_tile[1] - half_pad)]
 
             ## Compute confusion matrix:
             conf_mat = lca.compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=mask_tile, 
@@ -699,9 +703,6 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
                                              plot_results=False, normalise_hm=True)
             dict_df_stats[tilename], dict_acc[tilename], _, __ = tmp 
             dict_conf_mat[tilename] = conf_mat
-    
-        # if i_tile == 1:
-        #     break
 
     return dict_acc, dict_df_stats, dict_conf_mat
 
