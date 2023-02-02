@@ -161,31 +161,34 @@ def load_landcover(pol_path, col_class_ind='LC_N_80', col_class_names='LC_D_80')
     return df_lc, dict_classes  
 
 def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'], 
-                                    col_class_ind='LC_N_80', col_class_names='LC_D_80'):
+                                    col_class_ind='LC_N_80', col_class_names='LC_D_80',
+                                    add_main_classes_at_end=False):
     '''Get mapping between LC class inds and names'''
     _, dict_ind_to_name = load_landcover(pol_path=pol_path, col_class_ind=col_class_ind, 
                                          col_class_names=col_class_names)
     dict_ind_to_name[0] = 'NO CLASS'
     dict_name_to_ind = {v: k for k, v in dict_ind_to_name.items()}
 
-    dict_ind_to_name[40] = 'Wood and Forest Land'
-    dict_ind_to_name[41] = 'Moor and Heath Land'
-    dict_ind_to_name[42] = 'Agro-Pastoral Land'
-    dict_ind_to_name[43] = 'Water and Wetland'
-    dict_ind_to_name[44] = 'Rock and Coastal Land'
-    dict_ind_to_name[45] = 'Developed Land'
+    if add_main_classes_at_end:  # not exactly sure what this is used for .. to be determined 
+        print('WARNING: adding main classes at end of dict')
+        dict_ind_to_name[40] = 'Wood and Forest Land'
+        dict_ind_to_name[41] = 'Moor and Heath Land'
+        dict_ind_to_name[42] = 'Agro-Pastoral Land'
+        dict_ind_to_name[43] = 'Water and Wetland'
+        dict_ind_to_name[44] = 'Rock and Coastal Land'
+        dict_ind_to_name[45] = 'Developed Land'
 
     return dict_ind_to_name, dict_name_to_ind
 
 def get_mapping_class_names_to_shortcut():
     mapping_dict_to_full = {'C': 'Wood and Forest Land',
-                    'D': 'Moor and Heath Land',
-                    'E': 'Agro-Pastoral Land',
-                    'F': 'Water and Wetland',
-                    'G': 'Rock and Coastal Land',
-                    'H': 'Developed Land',
-                    'I': 'Unclassified Land',
-                    '0': 'NO CLASS'}
+                            'D': 'Moor and Heath Land',
+                            'E': 'Agro-Pastoral Land',
+                            'F': 'Water and Wetland',
+                            'G': 'Rock and Coastal Land',
+                            'H': 'Developed Land',
+                            'I': 'Unclassified Land',
+                            '0': 'NO CLASS'}
 
     mapping_dict_to_shortcut = {v: k for k, v in mapping_dict_to_full.items()}
     return mapping_dict_to_full, mapping_dict_to_shortcut
@@ -564,7 +567,7 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
     return all_patches_img, all_patches_mask
 
 def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
-                                       mask_fn_suffix='_lc_80s_mask.tif', patch_size=512,
+                                       mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
                                        dir_im_patches='', dir_mask_patches='', save_files=False):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
@@ -578,8 +581,24 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
  
         image_tile = load_tiff(tiff_file_path=tilepath, datatype='da')
         mask_tif = load_tiff(tiff_file_path=maskpath, datatype='np')
+        image_tile = image_tile.assign_coords({'ind_x': ('x', np.arange(len(image_tile.x))),
+                                               'ind_y': ('y', np.arange(len(image_tile.y)))})
+
+        step_size = patch_size - padding  # effective step size
+        n_pix = len(image_tile.x)
+        n_patches_per_side = int(np.floor(n_pix / step_size  - padding / step_size))
+        n_pix_fit = n_patches_per_side * step_size + padding
+        if padding == 0:
+            assert n_pix_fit % step_size == 0
+        
+        image_tile = image_tile.where(image_tile.ind_x < n_pix_fit, drop=True)
+        image_tile = image_tile.where(image_tile.ind_y < n_pix_fit, drop=True)
+        assert mask_tif.ndim == 3 and mask_tif.shape[0] == 1, f'Mask has wrong number of dimensions: {mask_tif.ndim}'
+        mask_tif = mask_tif[:, :n_pix_fit, :n_pix_fit]
+        assert image_tile.shape[-2:] == mask_tif.shape[-2:], f'Image and mask have different shapes: {image_tile.shape} and {mask_tif.shape}'
+    
         patches_img, patches_mask = create_image_mask_patches(image=image_tile, mask=mask_tif, 
-                                                              patch_size=patch_size)
+                                                              patch_size=patch_size, padding=padding)
         n_patches = patches_mask.shape[0]
         assert n_patches < 1000, 'if more than 1e3 patches, change zfill in lines below '
         for i_patch in range(n_patches):
@@ -706,7 +725,7 @@ def undo_zscore_single_image(im_ds, f_preprocess):
 def create_empty_label_mapping_dict():
     '''Create empty dict with right format for label mapping'''
 
-    dict_ind_to_name, _ = get_lc_mapping_inds_names_dicts()  # get labels of PD
+    dict_ind_to_name, _ = get_lc_mapping_inds_names_dicts(add_main_classes_at_end=False)  # get labels of PD
 
     ## Add labels to dict that don't exist PD (for sake of completeness):
     dict_ind_to_name[10] = 'Unenclosed Lowland Rough Grassland'
@@ -723,7 +742,7 @@ def create_empty_label_mapping_dict():
     dict_ind_to_name[31] = 'Coastal Mudflats'
 
     n_classes = 39  # hard code to ensure asserts return expected behaviour
-    assert len(dict_ind_to_name) == n_classes
+    assert len(dict_ind_to_name) == n_classes, f'Expected {n_classes} classes but got {len(dict_ind_to_name)}'
     assert len(np.unique(list(dict_ind_to_name.values()))) == n_classes
     assert (np.sort(np.array(list(dict_ind_to_name.keys()))) == np.arange(n_classes)).all()
 
@@ -757,19 +776,41 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
 
     if mapping_type == 'identity':
         pass 
-    elif mapping_type == 'main_categories':
+    else:
         dict_new_names = {}
-        
-        list_old_inds_new_name = [  
-                                    ([0, 38], 'NO CLASS'),
-                                    ([1, 2, 3, 4, 5], 'Wood and Forest Land'),
-                                    ([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], 'Moor and Heath Land'),
-                                    ([18, 19, 20], 'Agro-Pastoral Land'),
-                                    ([21, 22, 23, 24, 25], 'Water and Wetland'),
-                                    ([26, 27, 28, 29, 30, 31], 'Rock and Coastal Land'),
-                                    ([32, 33, 34, 35, 36, 37], 'Developed Land')
-                                 ]
+        create_mapping_with_loop = True 
 
+        if mapping_type == 'main_categories':
+            list_old_inds_new_name = [  
+                                        ([0, 38], 'NO CLASS'),
+                                        ([1, 2, 3, 4, 5], 'Wood and Forest Land'),
+                                        ([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], 'Moor and Heath Land'),
+                                        ([18, 19, 20], 'Agro-Pastoral Land'),
+                                        ([21, 22, 23, 24, 25], 'Water and Wetland'),
+                                        ([26, 27, 28, 29, 30, 31], 'Rock and Coastal Land'),
+                                        ([32, 33, 34, 35, 36, 37], 'Developed Land')
+                                    ]
+            create_mapping_with_loop = False
+
+        elif mapping_type == 'C_subclasses_only':
+            list_stay = [1, 2, 3, 4, 5] # these classes stay the same, everything else goes ot no-class. 
+        elif mapping_type == 'D_subclasses_only':
+            list_stay = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] # these classes stay the same, everything else goes ot no-class.
+        elif mapping_type == 'E_subclasses_only':
+            list_stay = [18, 19, 20] # these classes stay the same, everything else goes ot no-class. 
+        else:
+            raise ValueError(f'Unknown mapping type {mapping_type}')
+
+        if create_mapping_with_loop:
+            list_old_inds_new_name = []
+            list_out = [x for x in dict_mapping['dict_old_names'].keys() if x not in list_stay]  # all other classes
+            list_old_inds_new_name.append((list_out, 'NO CLASS'))
+            for kk in dict_mapping['dict_old_names'].keys():
+                if kk in list_stay:
+                    list_old_inds_new_name.append(([kk], dict_mapping['dict_old_names'][kk]))
+
+            
+        
         for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):
             
             dict_mapping, dict_new_names = change_lc_label_in_dict(dict_mapping=dict_mapping, dict_new_names=dict_new_names,

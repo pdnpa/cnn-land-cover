@@ -513,11 +513,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     assert len(im_tile.x) == len(im_tile.y)
     n_pix = len(im_tile.x)
     step_size = patch_size - padding  # effective step size
-    # if n_pix % step_size == 0:
-        # print('houston, we have a problem')
     n_patches_per_side = int(np.floor(n_pix / step_size  - padding / step_size))
     n_pix_fit = n_patches_per_side * step_size + padding
-    # print(n_pix, n_pix_fit, n_patches_per_side, step_size)
     if padding == 0:
         assert n_pix_fit % step_size == 0
     
@@ -545,9 +542,6 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     pred_masks = lca.change_tensor_to_max_class_prediction(pred=pred_masks)
 
     ## set dtype to something appropriate (uint8?) 
-
-    ## [Handle edges, by patching from the other side; or using next tile]
-    ## For now, shape_predicted_tile_part is returned to indicate the shape of the predicted part of the tile
 
     ## Reconstruct full tile
     assert pred_masks.shape[0] == patches_im.shape[0] and pred_masks.shape[0] == n_patches_per_side ** 2
