@@ -59,6 +59,7 @@ train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches,
                               preprocessing_func=LCU.preprocessing_func,
                               shuffle_order_patches=True, relabel_masks=True,
                               subsample_patches=False, path_mapping_dict=path_mapping_dict)
+train_ds.remove_no_class_patches()  # remove all patches that have no class                              
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 

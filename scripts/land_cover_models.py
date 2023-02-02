@@ -142,6 +142,23 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.df_patches = self.df_patches.sort_values('patch_name')
         self.df_patches = self.df_patches.reset_index(drop=True)
             
+    def remove_no_class_patches(self):
+
+        ## Loop through df_patches, load patches.
+        ## Check if any class present (that isn't no class). If not, remove from df_patches
+        n_patches = len(self.df_patches)
+        list_patches_stay = []
+        for ind in tqdm(range(n_patches)):
+            _, mask = self.__getitem__(ind)
+            if mask.sum() == 0:
+                # self.df_patches = self.df_patches.drop(ind)
+                pass 
+            else:
+                list_patches_stay.append(ind)
+        self.df_patches = self.df_patches.iloc[np.array(list_patches_stay)]
+        self.df_patches = self.df_patches.reset_index(drop=True)
+        print(f'Removed {n_patches - len(self.df_patches)} patches with no class')
+
     def create_label_mapping(self):
         '''Prep the transformation of class inds'''
         if self.path_mapping_dict is None:
