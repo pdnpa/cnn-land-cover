@@ -136,7 +136,7 @@ def remove_both_ticklabels(ax):  # remove labels but keep ticks
     remove_yticklabels(ax)
 
 ## Plotting images:
-def plot_image_simple(im, ax=None, name_file=None):
+def plot_image_simple(im, ax=None, name_file=None, use_im_extent=False):
     '''Plot image (as np array or xr DataArray)'''
     if ax is None:
         ax = plt.subplot(111)
@@ -145,7 +145,12 @@ def plot_image_simple(im, ax=None, name_file=None):
     else:
         plot_im = im
     print(plot_im.shape, type(plot_im))
-    rasterio.plot.show(plot_im, ax=ax, cmap='viridis')
+    if use_im_extent:
+        extent = [im.x.min(), im.x.max(), im.y.min(), im.y.max()]
+    else:
+        extent = None
+    rasterio.plot.show(plot_im, ax=ax, cmap='viridis', 
+                       extent=extent)
     naked(ax)
     if name_file is None:
         pass 
