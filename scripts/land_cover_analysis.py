@@ -160,6 +160,47 @@ def load_landcover(pol_path, col_class_ind='LC_N_80', col_class_names='LC_D_80')
         
     return df_lc, dict_classes  
 
+def load_landcover_detailed(pol_path, high_level_col='Class_high', low_level_col='Class_low',
+                            manual_annotation_hl_names=['C', 'D', 'E'], 
+                            path_tile_outlines='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'):
+    df_lc = load_pols(pol_path)
+    assert high_level_col in df_lc.columns and low_level_col in df_lc.columns
+    n_original_pols = len(df_lc)
+    ## Assuming that only rows with low level classes of more than 1 char are relevant:
+    df_lc = df_lc[df_lc[low_level_col].str.len() > 1]
+    print(f'Loaded {n_original_pols} pols, but only {len(df_lc)} have low-level annotations')
+    df_lc = df_lc.reset_index(drop=True)
+
+    ## Create tmp DF with only polygons that have been manually annotated
+    df_lc_manual = df_lc[df_lc[high_level_col].isin(manual_annotation_hl_names)] 
+    df_lc_manual = df_lc_manual.reset_index(drop=True) 
+    print(f'Loaded {len(df_lc_manual)} pols with manual annotations')
+
+    df_outlines = load_pols(path_tile_outlines) 
+    df_lc = test_validity_geometry_column(df=df_lc)
+    df_outlines = test_validity_geometry_column(df=df_outlines)
+    df_lc_manual = test_validity_geometry_column(df=df_lc_manual)
+
+    ## Get manual polygons for each tile
+    dict_intersect = get_pols_for_tiles(df_pols=df_lc_manual, df_tiles=df_outlines, col_name='PLAN_NO',
+                                        extract_main_categories_only=False, col_ind_name=low_level_col, col_class_name=low_level_col)
+    
+    ## Use this to get the names of the tiles that have manual annotations
+    list_tiles_with_manual_pols = []
+    for tile_name, gdf in dict_intersect.items():
+        if len(gdf) > 0:
+            list_tiles_with_manual_pols.append(tile_name)
+    print(f'Found {len(list_tiles_with_manual_pols)} tiles with manual annotations, with names: {list_tiles_with_manual_pols}')
+    
+    ## Then get all polygons for these tiles
+    dict_intersect_all = get_pols_for_tiles(df_pols=df_lc, df_tiles=df_outlines, col_name='PLAN_NO',
+                                        extract_main_categories_only=False, col_ind_name=low_level_col, col_class_name=low_level_col)
+    df_concat_manual = pd.concat([dict_intersect_all[tile_name] for tile_name in list_tiles_with_manual_pols])
+    
+    return df_lc, df_lc_manual, dict_intersect, df_concat_manual
+
+
+
 def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'], 
                                     col_class_ind='LC_N_80', col_class_names='LC_D_80',
                                     add_main_classes_at_end=False):
@@ -270,7 +311,8 @@ def test_validity_geometry_column(df):
         return df
 
 
-def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False):
+def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False,
+                       col_ind_name='LC_N_80', col_class_name='LC_D_80' ):
     '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.'''
 
     n_tiles = len(df_tiles)
@@ -292,8 +334,8 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
                 if df_relevant_pols.iloc[i_pol]['Class_Code'] is None: 
                     print(f'{name_tile} contains a polygon with missing Class_Code label')
             else:
-                list_class_id.append(df_relevant_pols.iloc[i_pol]['LC_N_80'])
-                list_class_name.append(df_relevant_pols.iloc[i_pol]['LC_D_80'])
+                list_class_id.append(df_relevant_pols.iloc[i_pol][col_ind_name])
+                list_class_name.append(df_relevant_pols.iloc[i_pol][col_class_name])
         if extract_main_categories_only:  # kind of a silly way to do this, but wasnt sure how to soft code these? look into it again if more columns are (potentially ) needed
             dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(Class_Code=list_class_code)  # put all new intersections back into a dataframe
         else:
