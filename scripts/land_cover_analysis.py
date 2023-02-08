@@ -160,16 +160,37 @@ def load_landcover(pol_path, col_class_ind='LC_N_80', col_class_names='LC_D_80')
         
     return df_lc, dict_classes  
 
+def fix_format_class_codes(arr_codes):
+    '''Get array of codes in format of A1a'''
+    assert type(arr_codes) == np.ndarray
+
+    new_arr_codes = []
+    for code in arr_codes:
+        assert type(code) == str
+        if len(code) == 1:
+            new_arr_codes.append(code.upper())
+        elif len(code) == 2:
+            new_arr_codes.append(code[0].upper() + code[1])
+        elif len(code) == 3:
+            new_arr_codes.append(code[0].upper() + code[1] + code[2].lower())
+        else:
+            assert False, 'code has more than 3 chars' 
+    return np.array(new_arr_codes)
+
 def load_landcover_detailed(pol_path, high_level_col='Class_high', low_level_col='Class_low',
                             manual_annotation_hl_names=['C', 'D', 'E'], 
                             path_tile_outlines='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'):
     df_lc = load_pols(pol_path)
     assert high_level_col in df_lc.columns and low_level_col in df_lc.columns
     n_original_pols = len(df_lc)
+
     ## Assuming that only rows with low level classes of more than 1 char are relevant:
     df_lc = df_lc[df_lc[low_level_col].str.len() > 1]
     print(f'Loaded {n_original_pols} pols, but only {len(df_lc)} have low-level annotations')
     df_lc = df_lc.reset_index(drop=True)
+
+    ## Ensure class codes are in the right upper/lower case format
+    df_lc[low_level_col] = fix_format_class_codes(df_lc[low_level_col].values)
 
     ## Create tmp DF with only polygons that have been manually annotated
     df_lc_manual = df_lc[df_lc[high_level_col].isin(manual_annotation_hl_names)] 
@@ -197,9 +218,7 @@ def load_landcover_detailed(pol_path, high_level_col='Class_high', low_level_col
                                         extract_main_categories_only=False, col_ind_name=low_level_col, col_class_name=low_level_col)
     df_concat_manual = pd.concat([dict_intersect_all[tile_name] for tile_name in list_tiles_with_manual_pols])
     
-    return df_lc, df_lc_manual, dict_intersect, df_concat_manual
-
-
+    return df_lc, df_lc_manual, df_concat_manual, list_tiles_with_manual_pols
 
 def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'], 
                                     col_class_ind='LC_N_80', col_class_names='LC_D_80',
@@ -292,6 +311,112 @@ def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_na
 
     return df_lc
 
+def create_mapping_label_names_to_codes():
+    dict_name_to_code = {'NO CLASS': '0',
+                        'Broadleaved High Forest': 'C1',
+                        'Coniferous High Forest': 'C2',
+                        'Mixed High Forest': 'C3',
+                        'Scrub': 'C4',
+                        'Clear Felled/New Plantings in Forest Areas': 'C5',
+                        'Upland Heath': 'D1',
+                        'Upland Grass Moor': 'D2b',
+                        'Blanket Peat Grass Moor': 'D2d',
+                        'Bracken': 'D3',
+                        'Unenclosed Lowland Rough Grassland': 'D4a',
+                        'Unenclosed Lowland Heath': 'D4b',
+                        'Upland Heath/Grass Mosaic': 'D6a',
+                        'Upland Heath/Bracken Mosaic': 'D6b',
+                        'Upland Heath/Blanket Peat Mosaic': 'D6c',
+                        'Eroded Bare Peat': 'D7a',
+                        'Eroded Bare Mineral Soil': 'D7b',
+                        'Coastal Heath': 'D8',
+                        'Cultivated Land': 'E1',
+                        'Improved Pasture': 'E2a',
+                        'Rough Pasture': 'E2b',
+                        'Open Water, Coastal': 'F1',
+                        'Open Water, Inland': 'F2',
+                        'Wetland, Peat Bog': 'F3a',
+                        'Wetland, Freshwater Marsh': 'F3b',
+                        'Wetland, Saltmarsh': 'F3c',
+                        'Inland Bare Rock': 'G2a',
+                        'Coastal Bare Rock': 'G2b',
+                        'Coastal Dunes': 'G3a',
+                        'Coastal Sand Beach': 'G3b',
+                        'Coastal Shingle Beach': 'G3c',
+                        'Coastal Mudflats': 'G3d',
+                        'Urban': 'H1a',
+                        'Major Transport Routes': 'H1b',
+                        'Quarries and Mineral Workings': 'H2a',
+                        'Derelict Land': 'H2b',
+                        'Isolated Farmsteads (>0.25 ha)': 'H3a',
+                        'Other Isolated Rural Developments (>0.25 ha)': 'H3b',
+                        'Unclassified Land': 'I'}
+
+    return dict_name_to_code
+
+def create_df_mapping_labels_2022_to_80s():
+    tmp = create_empty_label_mapping_dict()
+    dict_old_names = tmp['dict_old_names']
+    dict_old_names_to_labels = create_mapping_label_names_to_codes()
+
+    dict_2022_schema = {} 
+    dict_80s_schema = {}
+    dict_2022_names_to_labels = {}
+    it = 0
+    ## Loop through all 80s classes and insert 2022 additions where applicable:
+    for key, val in dict_old_names.items():
+        if val == 'Scrub':
+            print('adding scrub')
+            dict_2022_schema[it] = val  ## add new scrub classes
+            dict_2022_schema[it + 1] = 'Scrub Pasture'
+            dict_2022_schema[it + 2] = 'Woodland/Scrub Edge'
+            dict_2022_names_to_labels[val] = 'C4a'
+            dict_2022_names_to_labels['Scrub Pasture'] = 'C4b'
+            dict_2022_names_to_labels['Woodland/Scrub Edge'] = 'C4c'
+            for ii in range(3):  # all to be mapped back to 80s as Scrub
+                dict_80s_schema[it + ii] = val 
+            it = it + 3 
+        elif val == 'Wetland, Saltmarsh':
+            print('adding wetland')
+            dict_2022_schema[it] = 'Wetland, Saltmarsh'
+            dict_2022_schema[it + 1] = 'Wetland, Wet Grassland and Rush Pasture'
+            dict_2022_names_to_labels[val] = 'F3c'
+            dict_2022_names_to_labels['Wetland, Wet Grassland and Rush Pasture'] = 'F3d'
+            dict_80s_schema[it] = val 
+            dict_80s_schema[it + 1] = 'Rough Pasture'   # map back as rough pasture
+            it = it + 2
+        elif val == 'Major Transport Routes':
+            print('adding transport')
+            dict_2022_schema[it] = val
+            dict_2022_schema[it + 1] = 'Minor Transport Routes'
+            dict_2022_schema[it + 2] = 'Urban Greenspace'
+            dict_2022_names_to_labels[val] = 'H3b'
+            dict_2022_names_to_labels['Minor Transport Routes'] = 'H3c'
+            dict_2022_names_to_labels['Urban Greenspace'] = 'H3d'
+            for ii in range(2):
+                dict_80s_schema[it + ii] = val  # map minor transport route back as major transport route 
+            dict_80s_schema[it + 2] = 'Urban'  # map urban greenspace back as urban
+            it = it + 3 
+        else:
+            dict_2022_schema[it] = val
+            dict_80s_schema[it] = val
+            dict_2022_names_to_labels[val] = dict_old_names_to_labels[val]
+            it += 1 
+
+    assert len(dict_2022_schema) == len(dict_80s_schema)
+
+    df_schema = pd.DataFrame({'description_2022': list(dict_2022_schema.values()),
+                            'description_80s': list(dict_80s_schema.values())})    
+        
+    df_schema = df_schema.assign(code_80s=[dict_old_names_to_labels[name] for name in df_schema['description_80s'].values])
+    df_schema = df_schema.assign(code_2022=[dict_2022_names_to_labels[name] for name in df_schema['description_2022'].values])
+    df_schema = df_schema.assign(index_2022=np.arange(len(df_schema)))
+
+    dict_old_labels_to_inds = {val: id for id, val in enumerate(np.unique(df_schema['code_80s'].values))}
+    df_schema = df_schema.assign(index_80s=[dict_old_labels_to_inds[name] for name in df_schema['code_80s'].values])
+
+    return df_schema
+
 def test_validity_geometry_column(df):
     '''Test if all polygons in geometry column of df are valid. If not, try to fix.'''
     arr_valid = np.array([shapely.validation.explain_validity(df['geometry'].iloc[x]) for x in range(len(df))])
@@ -339,7 +464,7 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
         if extract_main_categories_only:  # kind of a silly way to do this, but wasnt sure how to soft code these? look into it again if more columns are (potentially ) needed
             dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(Class_Code=list_class_code)  # put all new intersections back into a dataframe
         else:
-            dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(LC_N_80=list_class_id, LC_D_80=list_class_name)  # put all new intersections back into a dataframe
+            dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(**{col_ind_name: list_class_id, col_class_name: list_class_name})  # put all new intersections back into a dataframe
 
     return dict_pols
 
