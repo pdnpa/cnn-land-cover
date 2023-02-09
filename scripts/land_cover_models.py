@@ -505,10 +505,12 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
     elif len(batch) == 2:
         return (batch[0], batch[1], predicted_labels)
 
-def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, padding=0,
+def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_size=512, padding=0,
                         batch_size=10, save_raster=False, save_shp=False,
                         create_shp=False, verbose=1,
                         dissolve_small_pols=False, area_threshold=100,
+                        clip_to_main_class=False, main_class_clip_label='C', parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                        tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
     if trainer is None:
         trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1, enable_progress_bar=False)  # run on GPU; and set max_epochs.
@@ -592,6 +594,16 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
     ## Add back geo coord:
     mask_tile[:shape_predicted_tile_part[0], :shape_predicted_tile_part[1]] = reconstructed_tile_mask
 
+    ## Clip to one main class if applicable:
+    if clip_to_main_class:
+        if verbose > 0:
+            print(f'Now clipping to main class {main_class_clip_label}')
+        assert main_class_clip_label in ['C', 'D', 'E'], main_class_clip_label
+        assert type(tilename) == str and len(tilename) == 6, tilename
+        mask_tile = lca.clip_raster_to_main_class_pred(mask_tile, tilename=tilename, class_label=main_class_clip_label,
+                                    parent_dir_tile_mainpred=parent_dir_tile_mainpred,
+                                    tile_outlines_shp_path=tile_outlines_shp_path)
+    
     ## Save & return
     model_name = model.model_name
     tile_name = tilepath.split('/')[-1].rstrip('.tif')
@@ -634,6 +646,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', patch_size=512, paddin
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, padding=0, save_shp=False, save_raster=False, save_folder=None,
                              dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
+                             clip_to_main_class=False, main_class_clip_label='C', parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                             tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                              subsample_tiles_for_testing=False):
     '''Wrapper function that predicts & reconstructs full tile.'''
     if padding > 0:
@@ -688,13 +702,16 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
 
     ## Loop across tiles:
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
+        tilename = tilepath.split('/')[-1].rstrip('.tif')
         mask_tile, mask_shp, shape_predicted_tile = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
                                                       save_shp=save_shp, save_raster=save_raster, save_folder=save_folder,
-                                                      create_shp=True, patch_size=patch_size, padding=padding,
+                                                      create_shp=True, patch_size=patch_size, padding=padding, tilename=tilename,
+                                                      clip_to_main_class=clip_to_main_class, main_class_clip_label=main_class_clip_label, 
+                                                      parent_dir_tile_mainpred=parent_dir_tile_mainpred,
+                                                      tile_outlines_shp_path=tile_outlines_shp_path,                             
                                                       dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold)
 
         if dir_mask_eval is not None:
-            tilename = tilepath.split('/')[-1].rstrip('.tif')
             tile_path_mask = os.path.join(dir_mask_eval, tilename + mask_suffix)
             mask_tile_true = np.squeeze(lca.load_tiff(tile_path_mask, datatype='np'))
             mask_tile = mask_tile.to_numpy()

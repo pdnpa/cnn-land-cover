@@ -367,7 +367,7 @@ def create_df_mapping_labels_2022_to_80s():
     for key, val in dict_old_names.items():
         if val == 'Scrub':
             print('adding scrub')
-            dict_2022_schema[it] = val  ## add new scrub classes
+            dict_2022_schema[it] = val  # add new scrub classes
             dict_2022_schema[it + 1] = 'Scrub Pasture'
             dict_2022_schema[it + 2] = 'Woodland/Scrub Edge'
             dict_2022_names_to_labels[val] = 'C4a'
@@ -383,7 +383,7 @@ def create_df_mapping_labels_2022_to_80s():
             dict_2022_names_to_labels[val] = 'F3c'
             dict_2022_names_to_labels['Wetland, Wet Grassland and Rush Pasture'] = 'F3d'
             dict_80s_schema[it] = val 
-            dict_80s_schema[it + 1] = 'Rough Pasture'   # map back as rough pasture
+            dict_80s_schema[it + 1] = 'Rough Pasture'  # map back as rough pasture
             it = it + 2
         elif val == 'Major Transport Routes':
             print('adding transport')
@@ -434,7 +434,6 @@ def test_validity_geometry_column(df):
                     df['geometry'].iloc[ind] = new_geom
                 print('Done')
         return df
-
 
 def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False,
                        col_ind_name='LC_N_80', col_class_name='LC_D_80' ):
@@ -1473,9 +1472,14 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
     print('\n#####\n\nDone with FGH override\n\n#####\n')
     return new_tile_predictions_override_folder
 
-def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True):
-
+def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, filename=None):
+    if filename is None:
+        filename = 'merged_tiles.shp'
+    else:
+        assert type(filename) == str
+        assert filename[-4:] == '.shp'
     subdirs_tiles = [os.path.join(dir_indiv_tile_shp, x) for x in os.listdir(dir_indiv_tile_shp) if os.path.isdir(os.path.join(dir_indiv_tile_shp, x))]
+    print(f'Merging {len(subdirs_tiles)} tiles found in {dir_indiv_tile_shp}')
     for i_tile, pred_dir in tqdm(enumerate(subdirs_tiles)):
         if i_tile == 0:
             df_all = load_pols(pred_dir)
@@ -1487,6 +1491,79 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True):
         dir_path_merged = os.path.join(dir_indiv_tile_shp, 'merged_tiles')
         if not os.path.exists(dir_path_merged):
             os.mkdir(dir_path_merged)
-        df_all.to_file(os.path.join(dir_path_merged, 'merged_tiles.shp'))
+        df_all.to_file(os.path.join(dir_path_merged, filename))
 
     return df_all
+
+def get_main_class_outline_for_tile(parent_dir_tile_pred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                                    tilename='SK0077', class_label='C'):
+    '''Retrieve main class predictions for a given tile and class label'''
+    ## Get path to shp file
+    path_list = [x for x in os.listdir(parent_dir_tile_pred) if tilename in x]
+    assert len(path_list) == 1, f'Found {len(path_list)} paths for tilename {tilename}'
+    path_shp = os.path.join(parent_dir_tile_pred, path_list[0], path_list[0] + '.shp')
+    assert os.path.exists(path_shp), f'Path {path_shp} does not exist'
+
+    ## Load shp file
+    df_main = load_pols(path_shp)
+    df_main = df_main[df_main['lc_label'] == class_label]
+    if len(df_main) > 0:  # normal case 
+        df_main = df_main.reset_index(drop=True)
+        return df_main
+    elif len(df_main) == 0: 
+        print(f'No polygons found for class {class_label} in tile {tilename}')
+        return None
+
+def get_area_outside_pols_within_tile(df_pols, tilename='SK0077', col_name_tilenames='PLAN_NO',
+                                      tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'):
+    '''Given a tile outline and a set of polygons, returns the area outside the polygons within the tile outline'''
+    ## Get tile outline
+    df_tile_outlines = load_pols(tile_outlines_shp_path)
+    df_tile_outlines = df_tile_outlines[df_tile_outlines[col_name_tilenames] == tilename]
+    assert len(df_tile_outlines) == 1, f'Found {len(df_tile_outlines)} tile outlines for tilename {tilename}'
+    tile_outline = df_tile_outlines.iloc[0].geometry 
+
+    ## Assert that all polygons are within tile outline
+    for i, row in df_pols.iterrows():
+        assert row.geometry.within(tile_outline), f'Polygon {i} is not within tile outline'
+
+    ## Get area outside polygons
+    area_outside_pols = tile_outline.difference(df_pols.unary_union) 
+
+    return area_outside_pols  # returns a MultiPolygon or Polygon
+
+def set_raster_in_pols_to_no_class(raster_im, pol):
+    '''Clip raster to area inside pol and set all values to no class, fill value is 0'''
+    assert type(raster_im) == xr.DataArray, f'Raster image must be of type xarray.DataArray, not {type(raster_im)}'
+    assert type(pol) == shp.geometry.polygon.Polygon or type(pol) == shp.geometry.multipolygon.MultiPolygon, f'Polygon must be of type shapely.geometry.Polygon or shapely.geometry.MultiPolygon, not {type(pol)}'
+       
+    ## Set raster values that are inside pol to no class, fill value is 0
+    clipped_raster = raster_im.rio.clip([pol], drop=False,
+                                         invert=True,  # so that area OUTSIDE of pol is kept and INSIDE of pol is dropped
+                                         all_touched=False)  # If True, all pixels touched by geometries will be burned in. If false, only pixels whose center is within the polygon or that are selected by Bresenham’s line algorithm will be burned in.
+    assert clipped_raster.shape == raster_im.shape, f'Clipped raster shape {clipped_raster.shape} does not match original raster shape {raster_im.shape}'
+    return clipped_raster
+
+def set_all_raster_values_to_no_class(raster_im):
+    '''Set all raster values to no class, fill value is 0'''
+    assert type(raster_im) == xr.DataArray, f'Raster image must be of type xarray.DataArray, not {type(raster_im)}'
+    raster_im.values = np.zeros(raster_im.shape, dtype=raster_im.dtype)
+    return raster_im
+
+def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C',
+                                   parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                                   tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'):
+    '''Clip raster to area in main class prediction within tile'''
+    ## Get main class prediction
+    df_main = get_main_class_outline_for_tile(parent_dir_tile_pred=parent_dir_tile_mainpred, tilename=tilename, class_label=class_label)
+
+    if df_main is None:  # means no polygons found for class label in tile
+        clipped_raster = set_all_raster_values_to_no_class(raster_im)
+    else:
+        ## Get area outside main class prediction
+        area_outside_pols = get_area_outside_pols_within_tile(df_pols=df_main, tilename=tilename, tile_outlines_shp_path=tile_outlines_shp_path)
+
+        ## Set raster values that are inside pol to no class, fill value is 0
+        clipped_raster = set_raster_in_pols_to_no_class(raster_im, area_outside_pols)
+
+    return clipped_raster

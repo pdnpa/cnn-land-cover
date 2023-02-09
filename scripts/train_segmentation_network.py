@@ -18,7 +18,7 @@ tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 5
+n_max_epochs = 20
 optimise_learning_rate = False
 learning_rate = 1e-3
 loss_function = 'focal_loss'
@@ -49,7 +49,7 @@ dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eva
 tmp_path_dict = pickle.load(open(path_mapping_dict, 'rb'))
 n_classes = len(tmp_path_dict['dict_new_names'])
 LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, loss_function=loss_function)  # load model 
-LCU.change_description(new_description='11 training tiles CDE', add=True)
+LCU.change_description(new_description='C only. 11 training tiles CDE', add=True)
 
 ## Create train & validation dataloader:
 print('\nCreating train dataloader...')
