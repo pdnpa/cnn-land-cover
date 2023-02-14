@@ -1273,7 +1273,8 @@ def get_padding_edges_from_sizes(image_size=8000, patch_size=512, padding=42):
     end_prediction = n_pix_fit - half_pad
     return start_prediction, end_prediction
 
-def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', verbose=1, max_it=5, ignore_index=0):
+def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', 
+                                   verbose=1, max_it=5, ignore_index=0, exclude_no_class_from_large_pols=True):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
     assert type(gdf) == gpd.GeoDataFrame
     n_pols_start = len(gdf)
@@ -1288,7 +1289,10 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', v
         if verbose > 0:
             print(f'Current iteration: {current_it}/{max_it}')
         area_array = gdf['geometry'].area
-        inds_pols_greater_th = np.where(np.logical_and(area_array >= area_threshold, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
+        if exclude_no_class_from_large_pols:
+            inds_pols_greater_th = np.where(np.logical_and(area_array >= area_threshold, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
+        else:
+            inds_pols_greater_th = np.where(area_array >= area_threshold)[0] 
         inds_pols_lower_th = np.where(area_array < area_threshold)[0]
         n_pols_start_loop = len(gdf)
         if verbose > 0 and current_it == 0:
@@ -1523,14 +1527,23 @@ def get_area_outside_pols_within_tile(df_pols, tilename='SK0077', col_name_tilen
     assert len(df_tile_outlines) == 1, f'Found {len(df_tile_outlines)} tile outlines for tilename {tilename}'
     tile_outline = df_tile_outlines.iloc[0].geometry 
 
+    ## Handle special cases:
+    if len(df_pols) == 0:  # if no polygons are found, return the tile outline
+        print(f'WARNING: No polygons found within tile outline of tile {tilename}')
+        return tile_outline 
+    elif len(df_pols) == 1:  # this can be the case if the polygon is the entire tile, but the boundaries are not exactly the same
+        assert df_pols.iloc[0].geometry.intersects(tile_outline), f'Polygon does not intersect tile outline of tile {tilename}'  # at least they touch 
+        if df_pols.iloc[0].geometry.within(tile_outline):  # if the polygon is within the tile outline, return the area outside the polygon
+            return tile_outline.difference(df_pols.iloc[0].geometry)
+        else:  # if not, then assume the boundaries are just a bit weird, and return None. 
+            return None 
+
     ## Assert that all polygons are within tile outline
     for i, row in df_pols.iterrows():
-        assert row.geometry.within(tile_outline), f'Polygon {i} is not within tile outline'
+        assert row.geometry.within(tile_outline), f'Polygon {i} is not within tile outline of tile {tilename}. Coordinates: {row.geometry.exterior}, tile outline coordinates: {tile_outline.exterior}'
 
     ## Get area outside polygons
-    area_outside_pols = tile_outline.difference(df_pols.unary_union) 
-
-    return area_outside_pols  # returns a MultiPolygon or Polygon
+    return tile_outline.difference(df_pols.unary_union) # returns a MultiPolygon or Polygon
 
 def set_raster_in_pols_to_no_class(raster_im, pol):
     '''Clip raster to area inside pol and set all values to no class, fill value is 0'''
@@ -1563,7 +1576,10 @@ def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C'
         ## Get area outside main class prediction
         area_outside_pols = get_area_outside_pols_within_tile(df_pols=df_main, tilename=tilename, tile_outlines_shp_path=tile_outlines_shp_path)
 
-        ## Set raster values that are inside pol to no class, fill value is 0
-        clipped_raster = set_raster_in_pols_to_no_class(raster_im, area_outside_pols)
+        if area_outside_pols is None:  # no areas outside pols found, means that all raster values are inside pols
+            clipped_raster = raster_im 
+        else:
+            ## Set raster values that are inside pol to no class, fill value is 0
+            clipped_raster = set_raster_in_pols_to_no_class(raster_im, area_outside_pols)
 
     return clipped_raster

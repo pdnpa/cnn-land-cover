@@ -603,7 +603,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
         mask_tile = lca.clip_raster_to_main_class_pred(mask_tile, tilename=tilename, class_label=main_class_clip_label,
                                     parent_dir_tile_mainpred=parent_dir_tile_mainpred,
                                     tile_outlines_shp_path=tile_outlines_shp_path)
-    
+        # return mask_tile
     ## Save & return
     model_name = model.model_name
     tile_name = tilepath.split('/')[-1].rstrip('.tif')
@@ -617,7 +617,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
         if dissolve_small_pols:
             gdf = lca.filter_small_polygons_from_gdf(gdf=gdf, area_threshold=area_threshold, class_col='class',
-                                                     verbose=verbose)
+                                                     verbose=verbose, exclude_no_class_from_large_pols=False if clip_to_main_class else True)  # if clip is True, then you don't want to exclude no class from large pols because everything that was clipped will be no class
             ## Then convert back to raster so they are consistent: 
             ds_dissolved_tile = lca.convert_shp_mask_to_raster(df_shp=gdf, col_name='class')
             assert ds_dissolved_tile['class'].shape == mask_tile.shape

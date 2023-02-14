@@ -26,7 +26,8 @@ save_full_model = True
 use_valid_ds = False
 evaluate_on_test_ds = False
 # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
-path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
+# path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
+path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-02-09-1449.pkl'
 
 ## Dirs training data:
 # dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
@@ -49,7 +50,7 @@ dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eva
 tmp_path_dict = pickle.load(open(path_mapping_dict, 'rb'))
 n_classes = len(tmp_path_dict['dict_new_names'])
 LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, loss_function=loss_function)  # load model 
-LCU.change_description(new_description='C only. 11 training tiles CDE', add=True)
+LCU.change_description(new_description='D only. 11 training tiles CDE', add=True)
 
 ## Create train & validation dataloader:
 print('\nCreating train dataloader...')
