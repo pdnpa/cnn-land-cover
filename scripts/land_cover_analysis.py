@@ -446,20 +446,36 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
         pol_tile = tile['geometry']  # polygon of tile 
         name_tile = tile[col_name]
         df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
+        n_pols = len(df_relevant_pols)
+        print(f'{name_tile} contains {n_pols} polygons')
         list_pols = []
         list_class_id = []
         list_class_name = []
         list_class_code = []
-        for i_pol in range(len(df_relevant_pols)):  # loop through pols
-            new_pol = df_relevant_pols.iloc[i_pol]['geometry'].intersection(pol_tile)  # create intersection between pol and tile
-            list_pols.append(new_pol)
-            if extract_main_categories_only:
-                list_class_code.append(df_relevant_pols.iloc[i_pol]['Class_Code'])
-                if df_relevant_pols.iloc[i_pol]['Class_Code'] is None: 
-                    print(f'{name_tile} contains a polygon with missing Class_Code label')
-            else:
-                list_class_id.append(df_relevant_pols.iloc[i_pol][col_ind_name])
-                list_class_name.append(df_relevant_pols.iloc[i_pol][col_class_name])
+        if n_pols > 0:
+            for i_pol in range(len(df_relevant_pols)):  # loop through pols
+                new_pol = df_relevant_pols.iloc[i_pol]['geometry'].intersection(pol_tile)  # create intersection between pol and tile
+                list_pols.append(new_pol)
+                if extract_main_categories_only:
+                    list_class_code.append(df_relevant_pols.iloc[i_pol]['Class_Code'])
+                    if df_relevant_pols.iloc[i_pol]['Class_Code'] is None: 
+                        print(f'{name_tile} contains a polygon with missing Class_Code label')
+                else:
+                    list_class_id.append(df_relevant_pols.iloc[i_pol][col_ind_name])
+                    list_class_name.append(df_relevant_pols.iloc[i_pol][col_class_name])
+            ## Get diff with pol_tile, to get the part of the tile that is not covered by any pols and seto 0
+            diff_pol_tile = pol_tile.difference(gpd.GeoSeries(list_pols).unary_union)
+            if not diff_pol_tile.is_empty:
+                list_pols.append(diff_pol_tile)
+                list_class_id.append(0)
+                list_class_name.append('0')
+                list_class_code.append('0')
+        elif n_pols == 0: 
+            ## Create 1 polygon that is pol_tile, filled with 0s 
+            list_pols.append(pol_tile)
+            list_class_id.append(0)
+            list_class_name.append('0')
+            list_class_code.append('0')
         if extract_main_categories_only:  # kind of a silly way to do this, but wasnt sure how to soft code these? look into it again if more columns are (potentially ) needed
             dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(Class_Code=list_class_code)  # put all new intersections back into a dataframe
         else:
@@ -605,6 +621,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     assert len(resolution) == 2 and resolution[0] < 0 and resolution[1] > 0, 'resolution has unexpected size/values'
     
     ## Convert shape to raster:
+    assert len(df_shp) > 0, 'df_shp is empty'
     cube = make_geocube(df_shp, measurements=[col_name],
                         interpolate_na_method=interpolation,
                         # like=ex_tile,  # use resolution of example tiff
@@ -734,7 +751,8 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
 
 def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
                                        mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
-                                       dir_im_patches='', dir_mask_patches='', save_files=False):
+                                       dir_im_patches='', dir_mask_patches='', save_files=False,
+                                       save_im=True, save_mask=True):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
     print(f'WARNING: this will save approximately {np.round(len(list_tiff_files) / 5 * 1.3)}GB of data')
@@ -777,8 +795,10 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
             mask_patch_path = os.path.join(dir_mask_patches, mask_patch_name)
             
             if save_files:
-                np.save(im_patch_path, patches_img[i_patch, :, :, :])
-                np.save(mask_patch_path, patches_mask[i_patch, :, :])
+                if save_im:
+                    np.save(im_patch_path, patches_img[i_patch, :, :, :])
+                if save_mask:
+                    np.save(mask_patch_path, patches_mask[i_patch, :, :])
 
             if i_tile == 0 and i_patch == 0:
                 assert type(patches_img[i_patch]) == np.ndarray
