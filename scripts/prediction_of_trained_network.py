@@ -12,7 +12,7 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 
 ##Parameters:
 # datapath_model = 'LCU_2023-01-23-2018.data'
-datapath_model = 'LCU_2023-02-15-1410.data'
+datapath_model = 'LCU_2023-02-16-1455.data'
 padding = 44
 
 save_shp_prediction = True
@@ -60,7 +60,7 @@ with open(os.path.join(save_folder, 'summary_results.pkl'), 'wb') as f:
 print('\nResults saved!\n\n')
 
 ## Merge all tiles into one shapefile:
-lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
+lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder, filename=f'merged_tiles_{dissolved_name}.shp')
 
 ## Override predictions with manual FGH layer:
 if override_with_fgh_layer:

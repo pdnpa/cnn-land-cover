@@ -1512,7 +1512,7 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
             df_all = pd.concat([df_all, df_tmp], ignore_index=True)
     
     if save_merged_shp_file:
-        dir_path_merged = os.path.join(dir_indiv_tile_shp, 'merged_tiles')
+        dir_path_merged = os.path.join(dir_indiv_tile_shp, filename.rstrip('.shp'))
         if not os.path.exists(dir_path_merged):
             os.mkdir(dir_path_merged)
         df_all.to_file(os.path.join(dir_path_merged, filename))

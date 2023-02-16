@@ -3,6 +3,7 @@ import os, sys, copy, shutil
 import numpy as np
 from tqdm import tqdm
 import datetime
+import random
 import pickle
 import pandas as pd
 import loadpaths
@@ -17,6 +18,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import torchmetrics
+from torchvision import transforms
+import torchvision.transforms.functional as TF
 import segmentation_models_pytorch as smp
 import pytorch_lightning as pl
 import land_cover_analysis as lca
@@ -31,9 +34,9 @@ class DataSetPatches(torch.utils.data.Dataset):
     
     Used for training etc - __getitem__ has expected output (input, output) for PL models.
     '''
-    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', list_tile_names=None,
+    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', mask_dir_name='masks', list_tile_names=None,
                  preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
-                 subsample_patches=False, frac_subsample=1, relabel_masks=True,
+                 subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
                  path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
@@ -47,6 +50,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.subsample_patches = subsample_patches
         self.unique_labels_arr = unique_labels_arr
         self.list_tile_names = list_tile_names
+        self.random_transform_data = random_transform_data
 
         if self.preprocessing_func is not None:  # prep preprocess transformation
             rgb_means = self.preprocessing_func.keywords['mean']
@@ -72,8 +76,9 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.list_im_npys = []
             print(f'Multiple ({len(self.im_dir)}) image directories provided. Will concatenate all patches together.')
         elif type(self.im_dir) == str:
-            self.multiple_im_dirs = False
-
+            self.multiple_im_dirs = False    
+        self.mask_dir_name = mask_dir_name.rstrip('/').lstrip('/')
+            
         if list_tile_names is None:
             if self.multiple_im_dirs is False:
                 self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir)]
@@ -91,15 +96,19 @@ class DataSetPatches(torch.utils.data.Dataset):
                 self.list_im_npys = [os.path.join(im_dir, x) for x in os.listdir(im_dir) if x[:6] in list_tile_names]
         self.list_patch_names = [x.split('/')[-1].rstrip('.npy') for x in self.list_im_npys]
         if mask_dir is None:
-            print('No mask directory provided. Will use image parent directory instead.')
-            self.list_mask_npys = [x.replace('/images/', '/masks/').replace('.npy', mask_suffix) for x in self.list_im_npys]
+            print(f'No mask directory provided. Will use {self.mask_dir_name}/ in image parent directory instead.')
+            self.list_mask_npys = [x.replace('/images/', f'/{self.mask_dir_name}/').replace('.npy', mask_suffix) for x in self.list_im_npys]
         else:
             self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
 
         self.create_df_patches()
         self.organise_df_patches()
         print(f'Loaded {len(self.df_patches)} patches')
-        self.create_label_mapping()        
+        self.create_label_mapping()    
+        # if self.random_transform_data:
+        #     self.create_transform()    
+        # else:
+        #     self.transform_data = None
 
     def __getitem__(self, index):
         '''Function that gets data items by index. I have added timings in case this should be sped up.'''
@@ -111,6 +120,8 @@ class DataSetPatches(torch.utils.data.Dataset):
         if self.relabel_masks:
             mask = self.remap_labels(mask)  # 2.5ms
         mask = torch.tensor(mask).type(torch.LongTensor)  #0.1ms
+        if self.random_transform_data:
+            im, mask = self.transform_data(im, mask)
         return im, mask 
 
     def __repr__(self):
@@ -143,7 +154,6 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.df_patches = self.df_patches.reset_index(drop=True)
             
     def remove_no_class_patches(self):
-
         ## Loop through df_patches, load patches.
         ## Check if any class present (that isn't no class). If not, remove from df_patches
         n_patches = len(self.df_patches)
@@ -151,7 +161,6 @@ class DataSetPatches(torch.utils.data.Dataset):
         for ind in tqdm(range(n_patches)):
             _, mask = self.__getitem__(ind)
             if mask.sum() == 0:
-                # self.df_patches = self.df_patches.drop(ind)
                 pass 
             else:
                 list_patches_stay.append(ind)
@@ -207,6 +216,28 @@ class DataSetPatches(torch.utils.data.Dataset):
         for label in self.unique_labels_arr:
             new_mask[mask == label] = self.mapping_label_to_new_dict[label]
         return new_mask
+
+    # def create_transform(self):
+    #     '''Create the transform object'''
+    #     self.transform = transforms.Compose([
+    #         transforms.RandomHorizontalFlip(p=0.5),
+    #         transforms.RandomVerticalFlip(p=0.5)
+    #         # transforms.RandomRotation(180)
+    #     ])
+
+    def transform_data(self, im, mask):
+        '''https://discuss.pytorch.org/t/torchvision-transfors-how-to-perform-identical-transform-on-both-image-and-target/10606/7'''
+        # Random horizontal flipping
+        if random.random() > 0.5:
+            im = TF.hflip(im)
+            mask = TF.hflip(mask)
+
+        # Random vertical flipping
+        if random.random() > 0.5:
+            im = TF.vflip(im)
+            mask = TF.vflip(mask)
+
+        return im, mask
 
 class DataSetPatchesTwoMasks(DataSetPatches):
     '''DS class that holds another set of masks (of the same images).

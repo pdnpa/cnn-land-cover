@@ -18,12 +18,14 @@ tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
 ## Parameters:
 batch_size = 10
 n_cpus = 8
-n_max_epochs = 20
+n_max_epochs = 10
 optimise_learning_rate = False
+transform_training_data = True
 learning_rate = 1e-3
 loss_function = 'focal_loss'
 save_full_model = True
 mask_suffix_train = '_lc_nfi_mask.npy'
+mask_dir_name_train = 'masks_nfi'  # only relevant if no dir_mask_patches is given
 use_valid_ds = False
 evaluate_on_test_ds = False
 # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
@@ -38,10 +40,13 @@ path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dict
     
 # dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/']#,
 #                 #   '/home/tplas/data/gis/most recent APGB 12.5cm aerial/urban_tiles/images/']  # give multiple folders 
-# dir_mask_patches = None   # auto find masks 
+dir_mask_patches = None   # auto find masks 
 
-dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'
-dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks_nfi/'
+dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/',
+                  '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/images/']
+
+# dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'
+# dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks_nfi/'
 
 ## Dirs test data:
 dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
@@ -56,11 +61,12 @@ LCU.change_description(new_description='C only. 11 training tiles CDE using NFI'
 ## Create train & validation dataloader:
 print('\nCreating train dataloader...')
 train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
-                              mask_suffix=mask_suffix_train,
+                              mask_suffix=mask_suffix_train, mask_dir_name=mask_dir_name_train,
                             #   list_tile_names=dict_tile_names_sample['sample'],
                               preprocessing_func=LCU.preprocessing_func,
                               shuffle_order_patches=True, relabel_masks=True,
-                              subsample_patches=False, path_mapping_dict=path_mapping_dict)
+                              subsample_patches=False, path_mapping_dict=path_mapping_dict,
+                              random_transform_data=transform_training_data)
 train_ds.remove_no_class_patches()  # remove all patches that have no class                              
 assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
 train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)

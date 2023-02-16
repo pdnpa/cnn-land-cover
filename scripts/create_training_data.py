@@ -1,7 +1,6 @@
 ## Create training data 
 
 import sys
-sys.path.append('../scripts/')
 # import numpy as np
 from tqdm import tqdm
 # import pandas as pd
@@ -13,21 +12,25 @@ import land_cover_analysis as lca
 path_dict = loadpaths.loadpaths()
 
 ## Tile paths:
-path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/tiles/'
-path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/CDE_training_tiles/CDE_training_tiles.shp'
-# save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/tiles/tile_masks/'
-save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/tiles/tile_masks_nfi/'
+# path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/tiles/'
+# path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/CDE_training_tiles/CDE_training_tiles.shp'
+# save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/tiles/tile_masks_nfi/'
+path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/117915_20230216/12.5cm Aerial Photo/'
+path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/forest_tiles/forest_tiles_2/forest_tiles_2.shp'
+save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/tiles/tile_masks_nfi/'
 
 ## Patch paths:
-dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'  # where to save patches 
-# dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks/'
-dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks_nfi/'
+# dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'  # where to save patches 
+# dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks_nfi/'
+dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/images/'  # where to save patches 
+dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/masks_nfi/'
 
 ## Set parameters:
 extract_main_categories_only = False
 create_patches = True
 assert extract_main_categories_only == False 
-save_im_patches = False
+save_im_patches = True
+tif_ims_in_subdirs = True
 
 # ## For 80s data:
 # suffix_name = '_lc_80s_mask'
@@ -80,7 +83,10 @@ for key_tile, df_tile in tqdm(dict_intersect_pols_tiles_sample.items()):
 
 print('\nCreating and exporting patches:')
 if create_patches:
-    list_tiff_files = lca.get_all_tifs_from_dir(dirpath=path_image_tile_tifs)
+    if tif_ims_in_subdirs:
+        list_tiff_files = lca.get_all_tifs_from_subdirs(dirpath=path_image_tile_tifs)
+    else:
+        list_tiff_files = lca.get_all_tifs_from_dir(dirpath=path_image_tile_tifs)
     list_mask_files = lca.get_all_tifs_from_dir(dirpath=save_dir_mask_tifs)
 
     print(f'Found {len(list_tiff_files)} images and {len(list_mask_files)} masks')
