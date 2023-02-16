@@ -468,6 +468,7 @@ class LandCoverUNet(pl.LightningModule):
         pickle.dump(self, file_handle)
         if verbose > 0:
             print(f'LCU model saved as {self.filename} at {self.filepath}')
+        return self.filepath
 
 def load_model(folder='/home/tplas/models', filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
