@@ -12,12 +12,12 @@ lca.check_torch_ready(check_gpu=True, assert_versions=True)
 
 ##Parameters:
 # datapath_model = 'LCU_2023-01-23-2018.data'
-datapath_model = 'LCU_2023-02-09-1650.data'
+datapath_model = 'LCU_2023-02-15-1410.data'
 padding = 44
 
 save_shp_prediction = True
 parent_save_folder = '/home/tplas/predictions/'
-override_with_fgh_layer = True
+override_with_fgh_layer = False
 
 dissolve_small_pols = True
 dissolve_threshold = 1000 #1000
@@ -27,7 +27,7 @@ dir_mask_eval = None #'/home/tplas/data/gis/most recent APGB 12.5cm aerial/evalu
 subsample_tiles_for_testing = False
 
 clip_to_main_class = True 
-main_class_clip_label = 'D'
+main_class_clip_label = 'C'
 parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/'
 tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'
 
