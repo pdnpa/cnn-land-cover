@@ -436,7 +436,7 @@ def test_validity_geometry_column(df):
         return df
 
 def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False,
-                       col_ind_name='LC_N_80', col_class_name='LC_D_80' ):
+                       col_ind_name='LC_N_80', col_class_name='LC_D_80', verbose=1):
     '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.'''
 
     n_tiles = len(df_tiles)
@@ -447,7 +447,8 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
         name_tile = tile[col_name]
         df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
         n_pols = len(df_relevant_pols)
-        print(f'{name_tile} contains {n_pols} polygons')
+        if verbose > 0:
+            print(f'{name_tile} contains {n_pols} polygons')
         list_pols = []
         list_class_id = []
         list_class_name = []
@@ -482,6 +483,31 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
             dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(**{col_ind_name: list_class_id, col_class_name: list_class_name})  # put all new intersections back into a dataframe
 
     return dict_pols
+
+# def get_pols_for_tiles_simple(df_pols, df_tiles, col_name='PLAN_NO', verbose=0):
+
+#     n_tiles = len(df_tiles)
+#     col_names = [x for x in list(df_pols.columns) if x != 'geometry']
+#     dict_pols = {}
+#     for i_tile in tqdm(range(n_tiles)):  # loop through tiles, process individually:
+#         tile = df_tiles.iloc[i_tile]
+#         pol_tile = tile['geometry']  # polygon of tile 
+#         name_tile = tile[col_name]
+#         df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
+#         n_pols = len(df_relevant_pols)
+#         if verbose > 0:
+#             print(f'{name_tile} contains {n_pols} polygons')
+#         if n_pols > 0:
+#             list_pols = []
+#             for row in range(len(df_relevant_pols)):  # loop through pols
+#                 new_pol = df_relevant_pols.iloc[row]['geometry'].intersection(pol_tile)  # create intersection between pol and tile
+#                 list_pols.append(new_pol)
+#             df_relevant_pols['geometry'] = list_pols
+#         # dict_pols[name_tile] = df_relevant_pols
+#         dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(**{col_ind_name: list_class_id, col_class_name: list_class_name})
+    
+#     concat_df = pd.concat(list(dict_pols.values())).reset_index(drop=True)
+#     return dict_pols, concat_df
 
 def get_area_per_class_df(gdf, col_class_name='LC_D_80', total_area=1e6):
     '''Given a geo df (ie shape file), calculate total area per class present'''

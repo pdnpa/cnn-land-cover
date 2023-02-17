@@ -14,7 +14,7 @@ def predict_segmentation_network(datapath_model=None, padding=44):
     ##Parameters:
     if datapath_model is None:
         # datapath_model = 'LCU_2023-01-23-2018.data'
-        datapath_model = 'LCU_2023-02-16-1609.data'
+        datapath_model = 'LCU_2023-02-16-2258.data'
     
     save_shp_prediction = True
     parent_save_folder = '/home/tplas/predictions/'
@@ -24,10 +24,11 @@ def predict_segmentation_network(datapath_model=None, padding=44):
     dissolve_threshold = 1000 #1000
 
     skip_factor = 16
-    dir_mask_eval = None #'/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022_FGH-override/'
+    dir_mask_eval = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022_FGH-override/'
+    mask_suffix = '_lc_2022_FGH-override_mask.tif'
     subsample_tiles_for_testing = False
 
-    clip_to_main_class = True 
+    clip_to_main_class = False 
     main_class_clip_label = 'C'
     parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/'
     tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'
@@ -51,7 +52,7 @@ def predict_segmentation_network(datapath_model=None, padding=44):
                                 dir_mask_eval=dir_mask_eval,
                                 save_folder=save_folder, dissolve_small_pols=dissolve_small_pols, 
                                 area_threshold=dissolve_threshold, skip_factor=skip_factor,
-                                padding=padding,
+                                padding=padding, mask_suffix=mask_suffix,
                                 clip_to_main_class=clip_to_main_class, main_class_clip_label=main_class_clip_label, 
                                 parent_dir_tile_mainpred=parent_dir_tile_mainpred, tile_outlines_shp_path=tile_outlines_shp_path,
                                 subsample_tiles_for_testing=subsample_tiles_for_testing)

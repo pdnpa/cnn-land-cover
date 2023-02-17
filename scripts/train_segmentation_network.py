@@ -21,20 +21,20 @@ def train_segmentation_network():
     ## Parameters:
     batch_size = 10
     n_cpus = 8
-    n_max_epochs = 10
+    n_max_epochs = 60
     optimise_learning_rate = False
     transform_training_data = True
     learning_rate = 1e-3
     loss_function = 'focal_loss'
     encoder_name = 'efficientnet-b1'
     save_full_model = True
-    mask_suffix_train = '_lc_nfi_mask.npy'
-    mask_dir_name_train = 'masks_nfi'  # only relevant if no dir_mask_patches is given
-    use_valid_ds = False
-    evaluate_on_test_ds = False
+    mask_suffix_train = '_lc_80s_mask.npy'
+    mask_dir_name_train = 'masks'  # only relevant if no dir_mask_patches is given
+    use_valid_ds = True
+    evaluate_on_test_ds = True
     perform_and_save_predictions = True
-    # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
-    path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
+    path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
+    # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
     # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-02-09-1449.pkl'
 
     ## Dirs training data:
@@ -45,13 +45,13 @@ def train_segmentation_network():
         
     # dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/']#,
     #                 #   '/home/tplas/data/gis/most recent APGB 12.5cm aerial/urban_tiles/images/']  # give multiple folders 
-    dir_mask_patches = None   # auto find masks 
+    # dir_mask_patches = None   # auto find masks 
 
-    dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/',
-                    '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/images/']
+    # dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/',
+    #                 '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/images/']
 
-    # dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'
-    # dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks_nfi/'
+    dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'
+    dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks/'
 
     ## Dirs test data:
     dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
