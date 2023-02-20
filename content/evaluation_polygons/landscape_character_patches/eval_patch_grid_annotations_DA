@@ -1,5 +1,0 @@
-This shp file has the following fields:
-- RAND_ANNOT: if 1, this patch was randomly selected for visual interpretation 
-- SEL_ANNOT: if 1, this patch was manually selected for visual interpretation 
-- Class_low: Class label according to schema (e.g. 'C1') 
-- And tile & patch ID
