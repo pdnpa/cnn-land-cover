@@ -1629,3 +1629,86 @@ def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C'
             clipped_raster = set_raster_in_pols_to_no_class(raster_im, area_outside_pols)
 
     return clipped_raster
+
+def create_patch_grid_from_tile_outline(tile_row=None, tile_outline_pol=None, resolution=0.125, patch_size=512,
+                                        tile_name_col='PLAN_NO', tile_name=None, select_9_random_patches=True,
+                                        verbose=1):
+    '''Create a grid of patches from tile outline'''
+    assert type(tile_row) == pd.core.series.Series or tile_row is None, f'tile_row must be of type pd.core.series.Series or None, not {type(tile_row)}'
+    assert type(tile_outline_pol) == shp.geometry.polygon.Polygon or tile_outline_pol is None, f'tile_outline_pol must be of type shapely.geometry.Polygon or None, not {type(tile_outline_pol)}'
+    assert not (tile_row is None and tile_outline_pol is None), 'Either tile_row or tile_outline_pol must be given'
+    
+    if tile_row is not None and tile_outline_pol is None:
+        tile_outline_pol = tile_row.geometry
+        tile_name = tile_row[tile_name_col]
+    elif tile_row is None and tile_outline_pol is not None:
+        pass
+    else:
+        raise ValueError('Either tile_row or tile_outline_pol must be given')
+    if tile_name is None:
+        print('WARNING: No tile name given')
+    min_x, min_y, max_x, max_y = tile_outline_pol.bounds 
+    len_x = max_x - min_x
+    len_y = max_y - min_y
+    num_patches_x = int(np.floor(len_x / (patch_size * resolution)))
+    num_patches_y = int(np.floor(len_y / (patch_size * resolution)))
+    if verbose > 0:
+        print(f'num_patches_x: {num_patches_x}, num_patches_y: {num_patches_y}')
+
+    if select_9_random_patches:
+        ## Doing this custom for 9 patches & division by 3 because that's only use case at the moment 
+        n_tertiles = 3
+        assert num_patches_x >= n_tertiles and num_patches_y >= n_tertiles, f'num_patches_x and num_patches_y must be >= 3, not {num_patches_x} and {num_patches_y}'
+        assert num_patches_x % n_tertiles == 0 and num_patches_y % n_tertiles == 0, f'num_patches_x and num_patches_y must be divisible by 3, not {num_patches_x} and {num_patches_y}'
+        n_patches_per_tertile_side = int(num_patches_x / n_tertiles) 
+        n_patches_per_tertile_square = n_patches_per_tertile_side ** 2 
+        rand_select_mat = np.zeros((num_patches_x, num_patches_y))
+        for i in range(n_tertiles):
+            for j in range(n_tertiles):
+                rand_x = np.random.choice(n_patches_per_tertile_side, size=1, replace=False)[0]
+                rand_y = np.random.choice(n_patches_per_tertile_side, size=1, replace=False)[0]
+                rand_select_mat[i * n_patches_per_tertile_side + rand_x, j * n_patches_per_tertile_side + rand_y] = 1
+
+    ## Create grid of patches
+    patch_grid = []
+    patch_number_list = []
+    random_select_list = []
+    pn = 0
+    for i in range(num_patches_x):
+        for j in range(num_patches_y):
+            if select_9_random_patches:
+                if rand_select_mat[i, j] == 1:
+                    random_select_list.append(1)
+                else:
+                    random_select_list.append(0)
+            else:
+                random_select_list.append(0)
+            patch_grid.append(shp.geometry.box(min_x + i * patch_size * resolution, max_y - j * patch_size * resolution,
+                                               min_x + (i + 1) * patch_size * resolution, max_y - (j + 1) * patch_size * resolution))
+            patch_number_list.append(pn) 
+            pn += 1
+
+    ## Insert patch_grid in gpd 
+    df_patch_grid = gpd.GeoDataFrame({'geometry': patch_grid})
+    # df_patch_grid.crs = {'init': }
+    df_patch_grid['RAND_ANNOT'] = random_select_list
+    df_patch_grid['SEL_ANNOT'] = 0
+    df_patch_grid['Class_low'] = '0'
+    df_patch_grid['patch_i'] = patch_number_list
+    df_patch_grid['tile_i'] = tile_name
+    df_patch_grid['tile_patch'] = [f'{tile_name}_p{pn}' for pn in patch_number_list]
+
+    return df_patch_grid
+
+def create_patch_grid_for_df_outlines(df_tile_outlines, resolution=0.125, patch_size=512,
+                                      select_9_random_patches=True, verbose=0):
+
+    df_patch_grid = []
+    for row in range(len(df_tile_outlines)):
+        df_patch_grid.append(create_patch_grid_from_tile_outline(tile_row=df_tile_outlines.iloc[row], resolution=resolution, patch_size=patch_size,
+                                                                select_9_random_patches=select_9_random_patches, verbose=verbose))
+    df_patch_grid_all = pd.concat(df_patch_grid, ignore_index=True)
+
+    ## Add CRS from df_tile_outlines:
+    df_patch_grid_all.crs = df_tile_outlines.crs
+    return df_patch_grid_all
