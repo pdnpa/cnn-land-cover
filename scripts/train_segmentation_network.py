@@ -25,8 +25,8 @@ def train_segmentation_network():
     optimise_learning_rate = False
     transform_training_data = True
     learning_rate = 1e-3
-    loss_function = 'focal_loss'
-    encoder_name = 'efficientnet-b1'
+    loss_function = 'cross_entropy'
+    encoder_name = 'resnet50'  #'efficientnet-b1'
     save_full_model = True
     mask_suffix_train = '_lc_80s_mask.npy'
     mask_dir_name_train = 'masks'  # only relevant if no dir_mask_patches is given
@@ -62,7 +62,7 @@ def train_segmentation_network():
     n_classes = len(tmp_path_dict['dict_new_names'])
     LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
                             loss_function=loss_function, encoder_name=encoder_name)  # load model 
-    LCU.change_description(new_description='C only. 11 training tiles CDE using NFI', add=True)
+    LCU.change_description(new_description='Main with CE. 11 training tiles CDE using 80s', add=True)
 
     ## Create train & validation dataloader:
     print('\nCreating train dataloader...')
