@@ -490,7 +490,7 @@ def plot_distr_classes_from_multiple_shapes(dict_dfs_lc, ax=None):
 def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)', 
                                      label_2='Sample', ax=None, plot_legend=True,
                                      save_fig=False, filename=None, lc_name='LC',
-                                     min_straightline=1e-6):
+                                     min_straightline=1e-6, use_lc_code_labels=True):
     '''Scatter plot of distr of LC classes of two DFs'''
     if ax is None:
         ax = plt.subplot(111)
@@ -501,7 +501,8 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)',
     distr_1[distr_1 == 0] = 1e-6
     distr_2[distr_2 == 0] = 1e-6
     assert len(distr_1) == len(distr_2) and len(distr_1) == len(lc_names)
-
+    if use_lc_code_labels:
+        lc_code_mapping = lca.create_mapping_label_names_to_codes()
     ax.plot([min_straightline, 1], [min_straightline, 1], c='k', alpha=0.4, zorder=-1)
 
     if plot_legend:
@@ -510,8 +511,9 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)',
         i_mark = 0
         n_colors = len(color_dict_stand)
         for i_cl in range(len(lc_names)):
-            ax.scatter(distr_1[i_cl], distr_2[i_cl], label=lc_names[i_cl], alpha=1,
-                        color=color_dict_stand[i_col], marker=marker_list[i_mark])
+            ax.scatter(distr_1[i_cl], distr_2[i_cl], 
+                       label=lc_names[i_cl] if use_lc_code_labels is False else lc_code_mapping[lc_names[i_cl]], 
+                       alpha=1, color=color_dict_stand[i_col], marker=marker_list[i_mark])
             i_col += 1
             if i_col == n_colors:
                 i_col = 0
@@ -527,7 +529,7 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)',
     minl, maxl = equal_xy_lims(ax)
     ax.set_title(f'LC distribution of {label_1} vs {label_2}')
     if plot_legend:
-        ax.legend(bbox_to_anchor=(1, 1), ncol=2)
+        ax.legend(bbox_to_anchor=(1, 1), ncol=3)
     despine(ax)
 
     if save_fig:
