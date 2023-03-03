@@ -7,7 +7,7 @@
       "lc_80s_path": "/home/tplas/data/gis/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp",
       "landscape_character_grid_path": "/home/tplas/data/gis/Landscape_Character_Grid 2019-08-29 09-57-26/Landscape_Character_Grid.shp",
       "evaluation_50tiles": "/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
-      "evaluation_50tiles_polygons": "/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/Landscape_Character_80s_2022.shp",
+      "evaluation_50tiles_polygons": "/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp",
       "pd_outline": "/home/tplas/data/gis/National_Park/National_Park.shp"
               }
     },
@@ -19,7 +19,7 @@
       "lc_80s_path": "/home/thijs/Google Drive/peak district/data/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp",
       "landscape_character_grid_path": "/home/thijs/Google Drive/peak district/data/Landscape_Character_Grid 2019-08-29 09-57-26/Landscape_Character_Grid.shp",
       "evaluation_50tiles": "/home/thijs/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
-      "evaluation_50tiles_polygons": "/home/thijs/repos/cnn-land-cover/content/evaluation_polygons/Landscape_Character_80s_2022.shp",
+      "evaluation_50tiles_polygons": "/home/thijs/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp",
       "pd_outline": "/home/thijs/Google Drive/peak district/data/National_Park/National_Park.shp"
               }
     }

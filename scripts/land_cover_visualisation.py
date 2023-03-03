@@ -489,7 +489,8 @@ def plot_distr_classes_from_multiple_shapes(dict_dfs_lc, ax=None):
 
 def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)', 
                                      label_2='Sample', ax=None, plot_legend=True,
-                                     save_fig=False, filename=None):
+                                     save_fig=False, filename=None, lc_name='LC',
+                                     min_straightline=1e-6):
     '''Scatter plot of distr of LC classes of two DFs'''
     if ax is None:
         ax = plt.subplot(111)
@@ -501,7 +502,7 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)',
     distr_2[distr_2 == 0] = 1e-6
     assert len(distr_1) == len(distr_2) and len(distr_1) == len(lc_names)
 
-    ax.plot([1e-4, 1], [1e-4, 1], c='k', alpha=0.4, zorder=-1)
+    ax.plot([min_straightline, 1], [min_straightline, 1], c='k', alpha=0.4, zorder=-1)
 
     if plot_legend:
         i_col = 0
@@ -519,8 +520,8 @@ def plot_scatter_class_distr_two_dfs(df_1, df_2, label_1='True (PD)',
     else:
         ax.plot(distr_1, distr_2, '.')
 
-    ax.set_xlabel(f'{label_1} LC distr.')
-    ax.set_ylabel(f'{label_2} LC distr.')
+    ax.set_xlabel(f'{label_1} {lc_name} distr.')
+    ax.set_ylabel(f'{label_2} {lc_name} distr.')
     ax.set_yscale('log')
     ax.set_xscale('log')
     minl, maxl = equal_xy_lims(ax)
