@@ -441,13 +441,14 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
 
     n_tiles = len(df_tiles)
     dict_pols = {}
+    list_empty_tiles = []
     for i_tile in tqdm(range(n_tiles)):  # loop through tiles, process individually:
         tile = df_tiles.iloc[i_tile]
         pol_tile = tile['geometry']  # polygon of tile 
         name_tile = tile[col_name]
         df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
         n_pols = len(df_relevant_pols)
-        if verbose > 0:
+        if verbose > 1:
             print(f'{name_tile} contains {n_pols} polygons')
         list_pols = []
         list_class_id = []
@@ -473,6 +474,7 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
                 list_class_code.append('0')
         elif n_pols == 0: 
             ## Create 1 polygon that is pol_tile, filled with 0s 
+            list_empty_tiles.append(name_tile)
             list_pols.append(pol_tile)
             list_class_id.append(0)
             list_class_name.append('0')
@@ -481,7 +483,8 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
             dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(Class_Code=list_class_code)  # put all new intersections back into a dataframe
         else:
             dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(**{col_ind_name: list_class_id, col_class_name: list_class_name})  # put all new intersections back into a dataframe
-
+    if verbose > 0:
+        print(f'{len(list_empty_tiles)} tiles were empty: {list_empty_tiles}')
     return dict_pols
 
 # def get_pols_for_tiles_simple(df_pols, df_tiles, col_name='PLAN_NO', verbose=0):
