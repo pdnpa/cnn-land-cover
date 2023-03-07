@@ -1,0 +1,43 @@
+{
+  "priority": {
+    "Blanket Bog": null,
+    "Calaminarian Grassland": null,
+    "Lowland Calcareous Grassland": null,
+    "Lowland Dry Acid Grassland": null,
+    "Lowland Dry Acid grassland": null,
+    "Lowland Fen": null,
+    "Lowland Heathland": null,
+    "Lowland MIxed Deciduous Woodland": null,
+    "Lowland Meadows": null,
+    "Lowland Mixed Deciduous Woodland": null,
+    "Lowland heathland": null,
+    "Pond": null,
+    "Purple Moor Grass & Rush Pasture": null,
+    "River": null,
+    "Traditional Orchard": null,
+    "Upland Flushes, Fens & Swamps": null,
+    "Upland Heathland": null,
+    "Upland Mixed Ashwood": null,
+    "Upland Oakwood": null,
+    "Wet Woodland": null,
+    "Wood-Pasture & Parkland": null
+  },
+  "non-priority": {
+    "Acid Grassland": null,
+    "Blanket Bog": null,
+    "Broad-leafed Woodland": null,
+    "Coniferous Plantation Woodland": null,
+    "Grassland Improved": null,
+    "Grassland Poor Semi Improved": null,
+    "Grassland Rich Semi Improved": null,
+    "Lowland Dry Acid Grassland": null,
+    "Lowland Meadows": null,
+    "None": null,
+    "Pond": null,
+    "Purple Moor Grass & Rush Pasture": null,
+    "Reservoirs": null,
+    "Rush Pasture Species Poor": null,
+    "Upland Flushes, Fens & Swamps": null,
+    "Woodland Scrub": null
+  }
+}
