@@ -1,6 +1,7 @@
 import os, sys, copy, datetime, pickle
 import time, datetime
 import numpy as np
+import json
 from numpy.core.multiarray import square
 from numpy.testing import print_assert_equal
 import rasterio
@@ -1715,3 +1716,81 @@ def create_patch_grid_for_df_outlines(df_tile_outlines, resolution=0.125, patch_
     ## Add CRS from df_tile_outlines:
     df_patch_grid_all.crs = df_tile_outlines.crs
     return df_patch_grid_all
+
+def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Priority/Habitats - Priority.shp',
+                         path_habitat_nonprio='/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Non Priority/Habitats - Non Priority.shp',
+                         path_dict_mapping='../content/habitat_data_annotations/dict_mapping_habitat.json',
+                         col_hab = 'UK_BAP', verbose=1):
+    if verbose > 0:
+        print('Loading habitat data...')
+    df_prio = load_pols(path_habitat_prio)
+    df_nonprio = load_pols(path_habitat_nonprio)
+    pd_outline = load_pols(path_dict['pd_outline'])
+
+    if verbose > 0:
+        print(f'Number of polygons in priority habitat data: {len(df_prio)}')
+        print(f'Number of polygons in non-priority habitat data: {len(df_nonprio)}')
+    if verbose > 1:
+        print(f'Unique habitat types in priority habitat data: {df_prio[col_hab].unique()}')
+        print(f'Unique habitat types in non-priority habitat data: {df_nonprio[col_hab].unique()}')
+
+    ## What columns are in both dataframes?
+    list_cols_overlap = []
+    list_cols_prio_only = []
+    list_cols_nonprio_only = []
+
+    for col in df_prio.columns:
+        if col in df_nonprio.columns:
+            list_cols_overlap.append(col)
+        else:
+            list_cols_prio_only.append(col)
+
+    for col in df_nonprio.columns:
+        if col not in df_prio.columns:
+            list_cols_nonprio_only.append(col)
+
+    if verbose > 0:
+        print(f'Only in priority habitat data: {list_cols_prio_only}')
+        print(f'Only in non-priority habitat data: {list_cols_nonprio_only}')
+        print(f'N of rows equal Habitat_gr to UK_BAP: {(df_nonprio["Habitat_Gr"] == df_nonprio["UK_BAP"]).sum()}/{len(df_nonprio)}')
+
+    ## Get rid of columns that are only in one of the dataframes:
+    if len(list_cols_prio_only) > 0:
+        df_prio = df_prio.drop(list_cols_prio_only, axis=1)
+    if len(list_cols_nonprio_only) > 0:
+        df_nonprio = df_nonprio.drop(list_cols_nonprio_only, axis=1)
+        
+    with open(path_dict_mapping, 'r') as fp:
+        dict_mapping_habitat = json.load(fp)
+
+    cols_keep = ['Year', 'UK_BAP', 'geometry'] 
+    df_prio = df_prio[cols_keep]
+    df_nonprio = df_nonprio[cols_keep]
+    df_prio['source'] = 'Habitats - Priority, Peak District National Park Authority'
+    df_nonprio['source'] = 'Habitats - Non-priority, Peak District National Park Authority'
+    df_prio['Class_low'] = df_prio['UK_BAP'].apply(lambda x: dict_mapping_habitat['priority'][x] if x in dict_mapping_habitat['priority'].keys() else None)
+    df_nonprio['Class_low'] = df_nonprio['UK_BAP'].apply(lambda x: dict_mapping_habitat['non-priority'][x] if x in dict_mapping_habitat['non-priority'].keys() else None)
+    df_merged = pd.concat([df_prio, df_nonprio]).reset_index(drop=True)
+    if verbose > 0:
+        print(f'Number of polygons in merged habitat data: {len(df_merged)}')
+        print(f'Number of polygons with Class_low = None: {(df_merged["Class_low"].isna()).sum()}')
+    if verbose > 1:
+    
+        print(f'Unique habitat types in merged habitat data: {df_merged[col_hab].unique()}')
+        print(f'Unique habitat types in merged habitat data: {df_merged["Class_low"].unique()}')
+    df_merged = df_merged.dropna(subset=['Class_low'])
+
+    df_merged = df_merged.explode()
+    if verbose > 0:
+        print(f'Number of polygons in merged habitat data after exploding: {len(df_merged)}')
+    df_merged = test_validity_geometry_column(df_merged)
+    df_merged = df_merged.dropna(subset=['geometry'])
+    if verbose > 0:
+        print(f'Number of polygons in merged habitat data after dropping invalid geometries: {len(df_merged)}')
+        print('Now only keeping polygons that intersect with the outline of the Peak District National Park...')
+    
+    df_merged = df_merged[df_merged.intersection(pd_outline.iloc[0]['geometry']).area > 1]
+    df_merged = df_merged.reset_index(drop=True)
+
+    return df_merged
+    
