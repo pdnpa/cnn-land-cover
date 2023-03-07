@@ -23,13 +23,13 @@
     "Wood-Pasture & Parkland": null
   },
   "non-priority": {
-    "Acid Grassland": "D2",
+    "Acid Grassland": "D2a",
     "Blanket Bog": "F3a",
     "Broad-leafed Woodland": null,
     "Coniferous Plantation Woodland": "C2",
     "Grassland Improved": "E2a",
     "Grassland Poor Semi Improved": "E2b",
-    "Grassland Rich Semi Improved": "E2b",
+    "Grassland Rich Semi Improved": "E2a",
     "Lowland Dry Acid Grassland": "E2b",
     "Lowland Meadows": "E2b",
     "None": null,

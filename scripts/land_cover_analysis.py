@@ -1720,7 +1720,8 @@ def create_patch_grid_for_df_outlines(df_tile_outlines, resolution=0.125, patch_
 def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Priority/Habitats - Priority.shp',
                          path_habitat_nonprio='/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Non Priority/Habitats - Non Priority.shp',
                          path_dict_mapping='../content/habitat_data_annotations/dict_mapping_habitat.json',
-                         col_hab = 'UK_BAP', verbose=1):
+                         col_hab = 'UK_BAP', save_df=False, save_path='~/tmp/habitat_data_annotations/habitat_data_annotations.shp',
+                         get_intersection=True, add_tag_col=False, verbose=1):
     if verbose > 0:
         print('Loading habitat data...')
     df_prio = load_pols(path_habitat_prio)
@@ -1789,8 +1790,27 @@ def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery
         print(f'Number of polygons in merged habitat data after dropping invalid geometries: {len(df_merged)}')
         print('Now only keeping polygons that intersect with the outline of the Peak District National Park...')
     
-    df_merged = df_merged[df_merged.intersection(pd_outline.iloc[0]['geometry']).area > 1]
+    if get_intersection:
+        df_merged = df_merged[df_merged.intersection(pd_outline.iloc[0]['geometry']).area > 1]
+    df_merged = df_merged.explode()
     df_merged = df_merged.reset_index(drop=True)
+    gtypes = np.array([type(df_merged['geometry'].iloc[x]) for x in range(len(df_merged))])
+    ispol = gtypes == shapely.geometry.polygon.Polygon
+    inds_not_pol = np.where(ispol == False)[0]
+    if verbose > 0:
+        print(f'Number of non polygons: {len(inds_not_pol)}')
+    if len(inds_not_pol) > 10:
+        print('More than 10 non polygons, something is wrong!')
+        assert False
+    if len(inds_not_pol) > 0: 
+        df_merged = df_merged.drop(inds_not_pol)
+    df_merged = df_merged.reset_index(drop=True)
+
+    if add_tag_col:
+        df_merged['SEL_TRAIN'] = 0
+
+    if save_df:
+        df_merged.to_file(save_path)
 
     return df_merged
     
