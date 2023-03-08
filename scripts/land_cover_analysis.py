@@ -1761,6 +1761,21 @@ def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery
     if len(list_cols_nonprio_only) > 0:
         df_nonprio = df_nonprio.drop(list_cols_nonprio_only, axis=1)
         
+    create_blank_mapping = False
+    if create_blank_mapping:
+        assert False, 'This will overwrite the existing mapping - remove assert to continue'
+        sorted_hab_prio = np.array([x for x in list(df_prio[col_hab].unique()) if x is not None])
+        sorted_hab_prio.sort()
+        sorted_hab_nonprio = np.array([x for x in list(df_nonprio[col_hab].unique()) if x is not None])
+        sorted_hab_nonprio.sort()
+
+        dict_mapping_habitat = {'priority': {x: None for x in sorted_hab_prio},
+                                'non-priority': {x: None for x in sorted_hab_nonprio}}
+
+        ## save dict as json file:
+        with open('../content/habitat_data_annotations/dict_mapping_habitat.json', 'w') as fp:
+            json.dump(dict_mapping_habitat, fp, indent=2)
+
     with open(path_dict_mapping, 'r') as fp:
         dict_mapping_habitat = json.load(fp)
 
