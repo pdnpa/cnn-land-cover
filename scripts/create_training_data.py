@@ -1,13 +1,9 @@
 ## Create training data 
 
 import sys
-# import numpy as np
 from tqdm import tqdm
-# import pandas as pd
-# import geopandas as gpd
 import loadpaths
 import land_cover_analysis as lca
-# import land_cover_models as lcm
 
 path_dict = loadpaths.loadpaths()
 
@@ -28,9 +24,9 @@ dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/for
 ## Set parameters:
 extract_main_categories_only = False
 create_patches = True
-assert extract_main_categories_only == False 
 save_im_patches = True
 tif_ims_in_subdirs = True
+assert extract_main_categories_only == False, 'deprecated functionality'
 
 # ## For 80s data:
 # suffix_name = '_lc_80s_mask'

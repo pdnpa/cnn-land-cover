@@ -391,9 +391,9 @@ def create_df_mapping_labels_2022_to_80s():
             dict_2022_schema[it] = val
             dict_2022_schema[it + 1] = 'Minor Transport Routes'
             dict_2022_schema[it + 2] = 'Urban Greenspace'
-            dict_2022_names_to_labels[val] = 'H3b'
-            dict_2022_names_to_labels['Minor Transport Routes'] = 'H3c'
-            dict_2022_names_to_labels['Urban Greenspace'] = 'H3d'
+            dict_2022_names_to_labels[val] = 'H1b'
+            dict_2022_names_to_labels['Minor Transport Routes'] = 'H1c'
+            dict_2022_names_to_labels['Urban Greenspace'] = 'H1d'
             for ii in range(2):
                 dict_80s_schema[it + ii] = val  # map minor transport route back as major transport route 
             dict_80s_schema[it + 2] = 'Urban'  # map urban greenspace back as urban
@@ -417,6 +417,38 @@ def create_df_mapping_labels_2022_to_80s():
     df_schema = df_schema.assign(index_80s=[dict_old_labels_to_inds[name] for name in df_schema['code_80s'].values])
 
     return df_schema
+
+def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_name_low_level_name='Class_low',
+                              dict_mapping_name_to_index=None, exclude_non_mapped_pols=False):
+    '''Add column with index of detailed class, mapped from column with detailed class names.'''
+    if col_name_low_level_index is not None:
+        if col_name_low_level_index in df_lc.columns:
+            print('Column name for low level index already exists in dataframe!')
+            return df_lc
+
+    assert col_name_low_level_name in df_lc.columns, 'Column name for low level name not found in dataframe!'
+    if col_name_low_level_index is None:
+        col_name_low_level_index = 'Class_lowi'    
+    assert type(col_name_low_level_index) == str and len(col_name_low_level_index) <= 10, 'Column name for low level index not valid!'
+
+    if dict_mapping_name_to_index is None:
+        df_schema = create_df_mapping_labels_2022_to_80s() 
+        dict_mapping_name_to_index = {df_schema.iloc[ii]['code_2022']: df_schema.iloc[ii]['index_2022'] for ii in range(len(df_schema))}
+        if 'C4' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['C4'] = dict_mapping_name_to_index['C4a']
+        if 'G2' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['G2'] = dict_mapping_name_to_index['G2a']
+    df_lc[col_name_low_level_index] = df_lc[col_name_low_level_name].map(dict_mapping_name_to_index)
+
+    classes_not_mapped = df_lc.loc[np.where(df_lc[col_name_low_level_index].isna())[0]]['Class_low'].unique()
+    if len(classes_not_mapped) > 0:
+        print(f'Classes not mapped: {classes_not_mapped}')
+        if exclude_non_mapped_pols:
+            df_lc = df_lc.loc[np.where(df_lc[col_name_low_level_index].notna())[0]]
+            df_lc[col_name_low_level_index] = df_lc[col_name_low_level_index].astype(int)
+    elif len(classes_not_mapped) == 0:
+        df_lc[col_name_low_level_index] = df_lc[col_name_low_level_index].astype(int)
+    return df_lc, col_name_low_level_index
 
 def test_validity_geometry_column(df):
     '''Test if all polygons in geometry column of df are valid. If not, try to fix.'''
@@ -488,30 +520,81 @@ def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categori
         print(f'{len(list_empty_tiles)} tiles were empty: {list_empty_tiles}')
     return dict_pols
 
-# def get_pols_for_tiles_simple(df_pols, df_tiles, col_name='PLAN_NO', verbose=0):
-
-#     n_tiles = len(df_tiles)
-#     col_names = [x for x in list(df_pols.columns) if x != 'geometry']
-#     dict_pols = {}
-#     for i_tile in tqdm(range(n_tiles)):  # loop through tiles, process individually:
-#         tile = df_tiles.iloc[i_tile]
-#         pol_tile = tile['geometry']  # polygon of tile 
-#         name_tile = tile[col_name]
-#         df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
-#         n_pols = len(df_relevant_pols)
-#         if verbose > 0:
-#             print(f'{name_tile} contains {n_pols} polygons')
-#         if n_pols > 0:
-#             list_pols = []
-#             for row in range(len(df_relevant_pols)):  # loop through pols
-#                 new_pol = df_relevant_pols.iloc[row]['geometry'].intersection(pol_tile)  # create intersection between pol and tile
-#                 list_pols.append(new_pol)
-#             df_relevant_pols['geometry'] = list_pols
-#         # dict_pols[name_tile] = df_relevant_pols
-#         dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(**{col_ind_name: list_class_id, col_class_name: list_class_name})
+def get_pols_for_tiles_general(df_pols, df_tiles, col_name='name',
+                               list_extra_cols=None, verbose=1, 
+                               fill_empty_space_with_zero=True, 
+                               use_full_tile_as_zero_background=False):
+    '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.
     
-#     concat_df = pd.concat(list(dict_pols.values())).reset_index(drop=True)
-#     return dict_pols, concat_df
+    General version of get_pols_for_tiles, because it takes any extra columns as arg, 
+    instead of col_ind_name and col_class_name specifically.
+    
+    Parameters:
+    -----------
+    df_pols: gpd.GeoDataFrame
+        Dataframe with polygons to extract from tiles
+    df_tiles: gpd.GeoDataFrame
+        Dataframe with tile outlines 
+    col_name: str
+        Name of column in df_tiles that contains the name of the tile
+    list_extra_cols: list of str
+        List of column names in df_pols that should be extracted for each tile
+    verbose: int
+        Verbosity level
+    fill_empty_space_with_zero: bool
+        If True, fill empty space in tile with 0s
+    use_full_tile_as_zero_background: bool
+        If True, use full tile as background, instead of just the empty space
+    '''
+
+    n_tiles = len(df_tiles)
+    dict_pols = {}
+    list_empty_tiles = []
+    if list_extra_cols is None:
+        ## Use all columns except geometry
+        list_extra_cols = [x for x in df_pols.columns if x != 'geometry']
+    dtype_dict = {x: df_pols[x].dtype for x in list_extra_cols}
+    for i_tile in tqdm(range(n_tiles)):  # loop through tiles, process individually:
+        tile = df_tiles.iloc[i_tile]
+        pol_tile = tile['geometry']  # polygon of tile 
+        name_tile = tile[col_name]
+        df_relevant_pols = df_pols[df_pols.geometry.intersects(pol_tile)]  # find polygons that overlap with tile
+        n_pols = len(df_relevant_pols)
+        if verbose > 1:
+            print(f'{name_tile} contains {n_pols} polygons')
+        list_pols = []
+        dict_list_extra_cols = {x: [] for x in list_extra_cols}
+        if n_pols > 0:
+            for i_pol in range(len(df_relevant_pols)):  # loop through pols
+                new_pol = df_relevant_pols.iloc[i_pol]['geometry'].intersection(pol_tile)  # create intersection between pol and tile
+                list_pols.append(new_pol)
+                for col in list_extra_cols:
+                    dict_list_extra_cols[col].append(df_relevant_pols.iloc[i_pol][col])
+            if fill_empty_space_with_zero:
+                ## Get diff with pol_tile, to get the part of the tile that is not covered by any pols and seto 0
+                diff_pol_tile = pol_tile.difference(gpd.GeoSeries(list_pols).unary_union)
+                if not diff_pol_tile.is_empty:
+                    if use_full_tile_as_zero_background:
+                        diff_pol_tile = pol_tile
+
+                    ## Want to add this as first element to list_pols, because then (in case of full tile), other pols will take priority when rasterising
+                    list_pols.insert(0, diff_pol_tile)
+                    for col in list_extra_cols:
+                        dict_list_extra_cols[col].insert(0, '0')  # or int?
+        elif n_pols == 0: 
+            if fill_empty_space_with_zero:
+                ## Create 1 polygon that is pol_tile, filled with 0s (regardless of use_full_tile_as_zero_background)
+                list_empty_tiles.append(name_tile)
+                list_pols.append(pol_tile)
+                for col in list_extra_cols:
+                    dict_list_extra_cols[col].append('0')
+        
+        dict_pols[name_tile] = gpd.GeoDataFrame(geometry=list_pols).assign(**dict_list_extra_cols)  # put all new intersections back into a dataframe
+        for col in list_extra_cols:
+            dict_pols[name_tile][col] = dict_pols[name_tile][col].astype(dtype_dict[col])
+    if verbose > 0:
+        print(f'{len(list_empty_tiles)} tiles were empty: {list_empty_tiles}')
+    return dict_pols, list_empty_tiles
 
 def get_area_per_class_df(gdf, col_class_name='LC_D_80', total_area=1e6):
     '''Given a geo df (ie shape file), calculate total area per class present'''
@@ -649,7 +732,8 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     '''
     # assert not np.isin(0, np.unique(df_shp[col_name])), '0 is already a class label, so cant be used for fill value'
     assert len(resolution) == 2 and resolution[0] < 0 and resolution[1] > 0, 'resolution has unexpected size/values'
-    
+    # unique_gtypes = pd.Series([type(x) for x in df_shp['geometry']]).unique()
+    # assert len(unique_gtypes) == 1 and unique_gtypes[0] == shapely.geometry.polygon.Polygon, f'Expected all geometries to be of type Polygon but got {unique_gtypes}'
     ## Convert shape to raster:
     assert len(df_shp) > 0, 'df_shp is empty'
     cube = make_geocube(df_shp, measurements=[col_name],
@@ -657,6 +741,8 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
                         # like=ex_tile,  # use resolution of example tiff
                         resolution=resolution,
                         fill=0)
+    if col_name in df_shp.columns and col_name not in cube.data_vars:
+        print(cube)
     shape_cube = cube[col_name].shape  # somehow sometimes an extra row or of NO CLASS is added... 
     if shape_cube[0]  == 8001:
         if len(np.unique(cube[col_name][0, :])) > 1:
@@ -782,7 +868,7 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
 def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
                                        mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
                                        dir_im_patches='', dir_mask_patches='', save_files=False,
-                                       save_im=True, save_mask=True):
+                                       save_im=True, save_mask=True, discard_empty_patches=False):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
     print(f'WARNING: this will save approximately {np.round(len(list_tiff_files) / 5 * 1.3)}GB of data')
@@ -816,6 +902,15 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
         n_patches = patches_mask.shape[0]
         assert n_patches < 1000, 'if more than 1e3 patches, change zfill in lines below '
         for i_patch in range(n_patches):
+            if i_tile == 0 and i_patch == 0:
+                assert type(patches_img[i_patch]) == np.ndarray
+                assert type(patches_mask[i_patch]) == np.ndarray
+                assert patches_img[i_patch].shape[1:] == patches_mask[i_patch].shape
+
+            if discard_empty_patches:
+                ## If patches_mask is equal to 0 everywhere, don't save
+                if np.sum(patches_mask[i_patch, :, :]) == 0 and (patches_mask[i_patch, :, :] == 0).all():
+                    continue
             patch_name = tile_name + f'_patch{str(i_patch).zfill(3)}'
             
             im_patch_name = patch_name + '.npy'
@@ -829,11 +924,6 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
                     np.save(im_patch_path, patches_img[i_patch, :, :, :])
                 if save_mask:
                     np.save(mask_patch_path, patches_mask[i_patch, :, :])
-
-            if i_tile == 0 and i_patch == 0:
-                assert type(patches_img[i_patch]) == np.ndarray
-                assert type(patches_mask[i_patch]) == np.ndarray
-                assert patches_img[i_patch].shape[1:] == patches_mask[i_patch].shape
 
 def augment_patches(all_patches_img, all_patches_mask):
     '''Augment patches by rotating etc.
