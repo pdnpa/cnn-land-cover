@@ -230,6 +230,7 @@ def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'],
     dict_ind_to_name[0] = 'NO CLASS'
     dict_name_to_ind = {v: k for k, v in dict_ind_to_name.items()}
 
+    assert add_main_classes_at_end is False, 'deprecated'
     if add_main_classes_at_end:  # not exactly sure what this is used for .. to be determined 
         print('WARNING: adding main classes at end of dict')
         dict_ind_to_name[40] = 'Wood and Forest Land'
@@ -418,6 +419,19 @@ def create_df_mapping_labels_2022_to_80s():
 
     return df_schema
 
+def create_empty_label_mapping_dict_2022_schema():
+    df_schema = create_df_mapping_labels_2022_to_80s()
+
+    col_index = 'index_2022'
+    col_name = 'description_2022'
+    dict_mapping = {}
+    dict_mapping['dict_label_mapping'] = {x: x for x in df_schema[col_index].values}
+    dict_mapping['dict_name_mapping'] = {x: x for x in df_schema[col_name].values}
+    dict_mapping['dict_old_names'] = {df_schema[col_index].iloc[x]: df_schema[col_name].iloc[x] for x in range(len(df_schema))}
+    dict_mapping['dict_new_names'] = {df_schema[col_index].iloc[x]: df_schema[col_name].iloc[x] for x in range(len(df_schema))}
+   
+    return dict_mapping
+
 def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_name_low_level_name='Class_low',
                               dict_mapping_name_to_index=None, exclude_non_mapped_pols=False):
     '''Add column with index of detailed class, mapped from column with detailed class names.'''
@@ -434,10 +448,13 @@ def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_
     if dict_mapping_name_to_index is None:
         df_schema = create_df_mapping_labels_2022_to_80s() 
         dict_mapping_name_to_index = {df_schema.iloc[ii]['code_2022']: df_schema.iloc[ii]['index_2022'] for ii in range(len(df_schema))}
+        ## Fix some human errors in the mapping:
         if 'C4' not in dict_mapping_name_to_index.keys():
             dict_mapping_name_to_index['C4'] = dict_mapping_name_to_index['C4a']
         if 'G2' not in dict_mapping_name_to_index.keys():
             dict_mapping_name_to_index['G2'] = dict_mapping_name_to_index['G2a']
+        if 'D2a' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['D2a'] = dict_mapping_name_to_index['D2b']
     df_lc[col_name_low_level_index] = df_lc[col_name_low_level_name].map(dict_mapping_name_to_index)
 
     classes_not_mapped = df_lc.loc[np.where(df_lc[col_name_low_level_index].isna())[0]]['Class_low'].unique()
@@ -871,14 +888,22 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
                                        save_im=True, save_mask=True, discard_empty_patches=False):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
-    print(f'WARNING: this will save approximately {np.round(len(list_tiff_files) / 5 * 1.3)}GB of data')
-
+    print(f'WARNING: this will save approximately {np.round(np.maximum(len(list_tiff_files), len(list_mask_files)) / 5 * 1.3)}GB of data')
+    print('Starting patches save loop')
     for i_tile, tilepath in tqdm(enumerate(list_tiff_files)):
         tile_name = tilepath.split('/')[-1].rstrip('.tif')
-        maskpath = list_mask_files[np.where(np.array([x.split('/')[-1] for x in list_mask_files]) == tile_name + mask_fn_suffix)[0][0]]
+        inds_relevant_mask = np.where(np.array([x.split('/')[-1] for x in list_mask_files]) == tile_name + mask_fn_suffix)[0]
+        if len(inds_relevant_mask) == 0:
+            # print(f'No mask found for {tile_name}')
+            continue
+        elif len(inds_relevant_mask) == 1:
+            maskpath = list_mask_files[inds_relevant_mask[0]]
+            print(f'Found mask for {tile_name} at {maskpath}')
+        else:
+            assert False, f'Multiple masks found for {tile_name}'
  
         assert tile_name in tilepath and tile_name in maskpath
- 
+
         image_tile = load_tiff(tiff_file_path=tilepath, datatype='da')
         mask_tif = load_tiff(tiff_file_path=maskpath, datatype='np')
         image_tile = image_tile.assign_coords({'ind_x': ('x', np.arange(len(image_tile.x))),
@@ -890,13 +915,13 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
         n_pix_fit = n_patches_per_side * step_size + padding
         if padding == 0:
             assert n_pix_fit % step_size == 0
+        # image_tile = image_tile.where(image_tile.ind_x < n_pix_fit, drop=True)
+        # image_tile = image_tile.where(image_tile.ind_y < n_pix_fit, drop=True)
+        image_tile = image_tile[:, :n_pix_fit, :][:, :, :n_pix_fit]
         
-        image_tile = image_tile.where(image_tile.ind_x < n_pix_fit, drop=True)
-        image_tile = image_tile.where(image_tile.ind_y < n_pix_fit, drop=True)
         assert mask_tif.ndim == 3 and mask_tif.shape[0] == 1, f'Mask has wrong number of dimensions: {mask_tif.ndim}'
         mask_tif = mask_tif[:, :n_pix_fit, :n_pix_fit]
         assert image_tile.shape[-2:] == mask_tif.shape[-2:], f'Image and mask have different shapes: {image_tile.shape} and {mask_tif.shape}'
-    
         patches_img, patches_mask = create_image_mask_patches(image=image_tile, mask=mask_tif, 
                                                               patch_size=patch_size, padding=padding)
         n_patches = patches_mask.shape[0]
@@ -1029,8 +1054,10 @@ def undo_zscore_single_image(im_ds, f_preprocess):
     return im_ds
 
 def create_empty_label_mapping_dict():
-    '''Create empty dict with right format for label mapping'''
-
+    '''Create empty dict with right format for label mapping.
+    Corresponds to LC80 schema
+    '''
+    print('WARNING: creating label mapping dictionary corresponding to LC80 schema (ie missing few classes)')
     dict_ind_to_name, _ = get_lc_mapping_inds_names_dicts(add_main_classes_at_end=False)  # get labels of PD
 
     ## Add labels to dict that don't exist PD (for sake of completeness):
@@ -1077,8 +1104,11 @@ def change_lc_label_in_dict(dict_mapping, dict_new_names,
 
 def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/',
                                   save_mapping=False):
+    '''Using the mapping of create_df_mapping_labels_2022_to_80s()
+    (i.e., the LC80 schema, plus C4a/C4b/C4c, plus F3d, plus H1c/H1d
+    '''
 
-    dict_mapping = create_empty_label_mapping_dict()
+    dict_mapping = create_empty_label_mapping_dict_2022_schema()
 
     if mapping_type == 'identity':
         pass 
@@ -1088,22 +1118,23 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
 
         if mapping_type == 'main_categories':
             list_old_inds_new_name = [  
-                                        ([0, 38], 'NO CLASS'),
-                                        ([1, 2, 3, 4, 5], 'Wood and Forest Land'),
-                                        ([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], 'Moor and Heath Land'),
-                                        ([18, 19, 20], 'Agro-Pastoral Land'),
-                                        ([21, 22, 23, 24, 25], 'Water and Wetland'),
-                                        ([26, 27, 28, 29, 30, 31], 'Rock and Coastal Land'),
-                                        ([32, 33, 34, 35, 36, 37], 'Developed Land')
+                                        ([0, 43], 'NO CLASS'),
+                                        ([1, 2, 3, 4, 5, 6, 7], 'Wood and Forest Land'),
+                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], 'Moor and Heath Land'),
+                                        ([20, 21, 22], 'Agro-Pastoral Land'),
+                                        ([23, 24, 25, 26, 27, 28], 'Water and Wetland'),
+                                        ([29, 30, 31, 32, 33, 34], 'Rock and Coastal Land'),
+                                        ([35, 36, 37, 38, 39, 40, 41, 42], 'Developed Land')
                                     ]
             create_mapping_with_loop = False
 
         elif mapping_type == 'C_subclasses_only':
-            list_stay = [1, 2, 3, 4, 5] # these classes stay the same, everything else goes ot no-class. 
+            list_stay = [1, 2, 3, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. 
         elif mapping_type == 'D_subclasses_only':
-            list_stay = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] # these classes stay the same, everything else goes ot no-class.
+            print('INCLUDING F3D AS D CLASS')
+            list_stay = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 28] # these classes stay the same, everything else goes ot no-class.
         elif mapping_type == 'E_subclasses_only':
-            list_stay = [18, 19, 20] # these classes stay the same, everything else goes ot no-class. 
+            list_stay = [20, 21, 22] # these classes stay the same, everything else goes ot no-class. 
         else:
             raise ValueError(f'Unknown mapping type {mapping_type}')
 
@@ -1115,8 +1146,6 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
                 if kk in list_stay:
                     list_old_inds_new_name.append(([kk], dict_mapping['dict_old_names'][kk]))
 
-            
-        
         for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):
             
             dict_mapping, dict_new_names = change_lc_label_in_dict(dict_mapping=dict_mapping, dict_new_names=dict_new_names,

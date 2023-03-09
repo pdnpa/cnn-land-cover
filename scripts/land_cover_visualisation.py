@@ -38,7 +38,9 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 with open(os.path.join(Path(__location__).parent, 'content/lc_colour_mapping.json'), 'r') as f:
     lc_colour_mapping_inds = json.load(f, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})  # mapping from class ind to colour hex
 
-dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts()
+# dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts()
+df_schema = lca.create_df_mapping_labels_2022_to_80s()
+dict_ind_to_name = {df_schema.iloc[x]['index_2022']: df_schema.iloc[x]['description_2022'] for x in range(len(df_schema))}
 lc_colour_mapping_names = {dict_ind_to_name[k]: v for k, v in lc_colour_mapping_inds.items() if k in dict_ind_to_name.keys()}
 
 fig_folder = os.path.join(Path(__location__).parent, 'figures/')
