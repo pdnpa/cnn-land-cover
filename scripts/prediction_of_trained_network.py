@@ -7,32 +7,28 @@ import land_cover_analysis as lca
 import land_cover_visualisation as lcv
 import land_cover_models as lcm
 
-def predict_segmentation_network(datapath_model=None, padding=44):
+def predict_segmentation_network(datapath_model=None, padding=44, 
+                                 dissolve_small_pols = True,
+                                dissolve_threshold = 1000,
+                                clip_to_main_class=False,
+                                main_class_clip_label='D',
+                                skip_factor=16,
+                                save_shp_prediction = True,
+                                parent_save_folder = '/home/tplas/predictions/',
+                                override_with_fgh_layer = False,
+                                subsample_tiles_for_testing = False,
+                                dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022_FGH-override/',
+                                mask_suffix='_lc_2022_FGH-override_mask.tif',
+                                parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                                tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'
+                                ):
     path_dict = loadpaths.loadpaths()
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
 
     ##Parameters:
     if datapath_model is None:
         # datapath_model = 'LCU_2023-01-23-2018.data'
-        datapath_model = 'LCU_2023-02-16-2258.data'
-    
-    save_shp_prediction = True
-    parent_save_folder = '/home/tplas/predictions/'
-    override_with_fgh_layer = False
-
-    dissolve_small_pols = True
-    dissolve_threshold = 1000 #1000
-
-    skip_factor = 16
-    dir_mask_eval = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022_FGH-override/'
-    mask_suffix = '_lc_2022_FGH-override_mask.tif'
-    subsample_tiles_for_testing = False
-
-    clip_to_main_class = False 
-    main_class_clip_label = 'C'
-    parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/'
-    tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'
-
+        datapath_model = 'LCU_2023-02-16-2258.data'  
 
     ## Load model:
     LCU = lcm.load_model(filename=datapath_model)

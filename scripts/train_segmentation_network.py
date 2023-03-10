@@ -28,14 +28,14 @@ def train_segmentation_network():
     loss_function = 'cross_entropy'
     encoder_name = 'resnet50'  #'efficientnet-b1'
     save_full_model = True
-    mask_suffix_train = '_lc_80s_mask.npy'
+    mask_suffix_train = '_lc_hab_mask.npy'
     mask_dir_name_train = 'masks'  # only relevant if no dir_mask_patches is given
-    use_valid_ds = True
-    evaluate_on_test_ds = True
+    use_valid_ds = False
+    evaluate_on_test_ds = False
     perform_and_save_predictions = True
-    path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
+    # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
     # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
-    # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-02-09-1449.pkl'
+    path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-09-1536.pkl'
 
     ## Dirs training data:
     # dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
@@ -50,8 +50,8 @@ def train_segmentation_network():
     # dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/',
     #                 '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/images/']
 
-    dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/'
-    dir_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/masks/'
+    dir_im_patches = '/home/tplas/data/gis/habitat_training/images/'
+    dir_mask_patches = '/home/tplas/data/gis/habitat_training/masks_hab/'
 
     ## Dirs test data:
     dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
@@ -62,7 +62,7 @@ def train_segmentation_network():
     n_classes = len(tmp_path_dict['dict_new_names'])
     LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
                             loss_function=loss_function, encoder_name=encoder_name)  # load model 
-    LCU.change_description(new_description='Main with CE. 11 training tiles CDE using 80s', add=True)
+    LCU.change_description(new_description='D class training using habitat data', add=True)
 
     ## Create train & validation dataloader:
     print('\nCreating train dataloader...')
@@ -150,7 +150,9 @@ def train_segmentation_network():
     path_lcu = LCU.save_model()  
 
     if perform_and_save_predictions:
-        predict_segmentation_network(datapath_model=path_lcu.lstrip('/home/tplas/models'))
+        predict_segmentation_network(datapath_model=path_lcu.lstrip('/home/tplas/models'),
+                                     clip_to_main_class=True, 
+                                     main_class_clip_label='D')
 
 if __name__ == '__main__':
     train_segmentation_network()

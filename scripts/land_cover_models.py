@@ -710,7 +710,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         print('Warning: area_threshold is > 0, but dissolve_small_pols is False, so NOT dissolving small polygons.')
         assert False
     if dissolve_small_pols:
-        print('Dissolving small polygons. WARNING: this takes considerable overhead computinsave_rasterg time')
+        print('Dissolving small polygons. WARNING: this takes considerable overhead computing time')
 
     if save_shp:
         if save_folder is None:
@@ -752,7 +752,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
             assert mask_tile_true.shape == mask_tile.shape, f'Predicted mask shape {mask_tile.shape} does not match true mask shape {mask_tile_true.shape}'
             half_pad = padding // 2
             mask_tile = mask_tile[half_pad:(shape_predicted_tile[0] - half_pad), :][:, half_pad:(shape_predicted_tile[1] - half_pad)]
-            assert np.sum(mask_tile == 0) == 0, 'Padding not removed correctly OR predicted mask contains no-class pixels'
+            assert np.sum(mask_tile == 0) == 0, f'Padding not removed correctly OR predicted mask contains no-class pixels in tile {tilename} (index {i_tile})'
             mask_tile_true = mask_tile_true[half_pad:(shape_predicted_tile[0] - half_pad), :][:, half_pad:(shape_predicted_tile[1] - half_pad)]
 
             ## Compute confusion matrix:
