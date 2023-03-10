@@ -885,7 +885,8 @@ def create_all_patches_from_dir(dir_im=path_dict['image_path'],
 def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
                                        mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
                                        dir_im_patches='', dir_mask_patches='', save_files=False,
-                                       save_im=True, save_mask=True, discard_empty_patches=False):
+                                       save_im=True, save_mask=True, discard_empty_patches=False,
+                                       verbose=0):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
     print(f'WARNING: this will save approximately {np.round(np.maximum(len(list_tiff_files), len(list_mask_files)) / 5 * 1.3)}GB of data')
@@ -898,7 +899,8 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
             continue
         elif len(inds_relevant_mask) == 1:
             maskpath = list_mask_files[inds_relevant_mask[0]]
-            print(f'Found mask for {tile_name} at {maskpath}')
+            if verbose > 0:
+                print(f'Found mask for {tile_name} at {maskpath}')
         else:
             assert False, f'Multiple masks found for {tile_name}'
  
@@ -1132,7 +1134,7 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
             list_stay = [1, 2, 3, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. 
         elif mapping_type == 'D_subclasses_only':
             print('INCLUDING F3D AS D CLASS')
-            list_stay = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 28] # these classes stay the same, everything else goes ot no-class.
+            list_stay = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25, 28] # these classes stay the same, everything else goes ot no-class.
         elif mapping_type == 'E_subclasses_only':
             list_stay = [20, 21, 22] # these classes stay the same, everything else goes ot no-class. 
         else:
