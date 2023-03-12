@@ -21,12 +21,13 @@ def train_segmentation_network():
     ## Parameters:
     batch_size = 10
     n_cpus = 8
-    n_max_epochs = 60
+    n_max_epochs = 20
     optimise_learning_rate = False
     transform_training_data = True
     learning_rate = 1e-3
-    loss_function = 'cross_entropy'
+    loss_function = 'focal_loss'  # 'cross_entropy'
     encoder_name = 'resnet50'  #'efficientnet-b1'
+    # encoder_name = 'efficientnet-b1'
     save_full_model = True
     mask_suffix_train = '_lc_hab_mask.npy'
     mask_dir_name_train = 'masks'  # only relevant if no dir_mask_patches is given
@@ -35,7 +36,7 @@ def train_segmentation_network():
     perform_and_save_predictions = True
     # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
     # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
-    path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-09-1536.pkl'
+    path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl'
 
     ## Dirs training data:
     # dir_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
@@ -62,7 +63,7 @@ def train_segmentation_network():
     n_classes = len(tmp_path_dict['dict_new_names'])
     LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
                             loss_function=loss_function, encoder_name=encoder_name)  # load model 
-    LCU.change_description(new_description='D class training using habitat data', add=True)
+    LCU.change_description(new_description='D class training using habitat data. Focal loss resnet 20 epochs', add=True)
 
     ## Create train & validation dataloader:
     print('\nCreating train dataloader...')
@@ -152,7 +153,8 @@ def train_segmentation_network():
     if perform_and_save_predictions:
         predict_segmentation_network(datapath_model=path_lcu.lstrip('/home/tplas/models'),
                                      clip_to_main_class=True, 
-                                     main_class_clip_label='D')
+                                     main_class_clip_label='D',
+                                     dir_mask_eval=None)
 
 if __name__ == '__main__':
     train_segmentation_network()

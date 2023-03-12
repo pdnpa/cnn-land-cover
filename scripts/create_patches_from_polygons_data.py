@@ -25,7 +25,9 @@ def main(
             discard_empty_patches = False, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
             suffix_name = '_lc_2022_detailed_mask',
             col_name_low_level_index = None,  # if None, will be created
-            col_name_low_level_name = 'Class_low'
+            col_name_low_level_name = 'Class_low',
+            df_patches_selected=None, 
+            df_sel_tile_patch_name_col='tile_patch'
         ):
     ## Create directories:
     if not os.path.exists(save_dir_mask_tifs):
@@ -82,13 +84,12 @@ def main(
                                         verbose=0)
             assert ex_raster[col_name_low_level_index].shape == (8000, 8000), key_tile
 
-    print('\nCreating and exporting patches:')
     if create_patches:
+        print('\nCreating and exporting patches:')
         if tif_ims_in_subdirs:
             list_tiff_files = lca.get_all_tifs_from_subdirs(dirpath=path_image_tile_tifs)
         else:
             list_tiff_files = lca.get_all_tifs_from_dir(dirpath=path_image_tile_tifs)
-        print('Got image')
         list_mask_files = lca.get_all_tifs_from_dir(dirpath=save_dir_mask_tifs)
 
         print(f'Found {len(list_tiff_files)} images and {len(list_mask_files)} masks')
@@ -97,6 +98,7 @@ def main(
         lca.create_and_save_patches_from_tiffs(list_tiff_files=list_tiff_files, list_mask_files=list_mask_files,
                                             dir_im_patches=dir_im_save_patches, dir_mask_patches=dir_mask_save_patches,
                                             mask_fn_suffix=suffix_name + '.tif', discard_empty_patches=discard_empty_patches,
+                                            df_patches_selected=df_patches_selected, df_sel_tile_patch_name_col=df_sel_tile_patch_name_col,
                                             save_files=True, save_im=save_im_patches) 
         if create_metadata_patches:
             ## Create textfile with all datapaths and parameters in parent dir of dir_mask_save_patches:
@@ -137,7 +139,7 @@ if __name__ == '__main__':
         save_dir_mask_tifs = '/home/tplas/data/gis/habitat_training/tile_masks_hab/',
         path_lc = None,
         df_lc=df_hab,
-        description_df_lc_for_metadata='Habitat data selected from traingin 2023-03-09',
+        description_df_lc_for_metadata='Habitat data selected from training 2023-03-09',
         dir_im_save_patches = '/home/tplas/data/gis/habitat_training/images/',  # where to save patches 
         dir_mask_save_patches = '/home/tplas/data/gis/habitat_training/masks_hab/',
         create_patches = True,

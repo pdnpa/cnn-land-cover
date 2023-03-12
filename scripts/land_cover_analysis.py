@@ -886,11 +886,13 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
                                        mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
                                        dir_im_patches='', dir_mask_patches='', save_files=False,
                                        save_im=True, save_mask=True, discard_empty_patches=False,
+                                       df_patches_selected=None, df_sel_tile_patch_name_col='tile_patch',
                                        verbose=0):
     '''Function that loads an image tiff and creates patches of im and masks and saves these'''    
     assert mask_fn_suffix[-4:] == '.tif'
     print(f'WARNING: this will save approximately {np.round(np.maximum(len(list_tiff_files), len(list_mask_files)) / 5 * 1.3)}GB of data')
     print('Starting patches save loop')
+    list_saved_patches = []
     for i_tile, tilepath in tqdm(enumerate(list_tiff_files)):
         tile_name = tilepath.split('/')[-1].rstrip('.tif')
         inds_relevant_mask = np.where(np.array([x.split('/')[-1] for x in list_mask_files]) == tile_name + mask_fn_suffix)[0]
@@ -929,6 +931,13 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
         n_patches = patches_mask.shape[0]
         assert n_patches < 1000, 'if more than 1e3 patches, change zfill in lines below '
         for i_patch in range(n_patches):
+            if df_patches_selected is not None:
+                tp_name = f'{tile_name}_p{i_patch}'
+                if tp_name not in df_patches_selected[df_sel_tile_patch_name_col].values:
+                    continue
+                else:
+                    list_saved_patches.append(tp_name)
+                
             if i_tile == 0 and i_patch == 0:
                 assert type(patches_img[i_patch]) == np.ndarray
                 assert type(patches_mask[i_patch]) == np.ndarray
@@ -937,6 +946,7 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
             if discard_empty_patches:
                 ## If patches_mask is equal to 0 everywhere, don't save
                 if np.sum(patches_mask[i_patch, :, :]) == 0 and (patches_mask[i_patch, :, :] == 0).all():
+                    print(f'Patch {i_patch, tp_name} is empty, not saving')
                     continue
             patch_name = tile_name + f'_patch{str(i_patch).zfill(3)}'
             
@@ -951,6 +961,15 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
                     np.save(im_patch_path, patches_img[i_patch, :, :, :])
                 if save_mask:
                     np.save(mask_patch_path, patches_mask[i_patch, :, :])
+
+    if df_patches_selected is not None:
+        # print(f'{len(list_saved_patches)} patches were saved, out of {len(df_patches_selected)} selected patches')
+        if len(list_saved_patches) != len(df_patches_selected):
+            print('WARNING: not all selected patches were saved')
+            ## Find patches that were not saved:
+            list_not_saved_patches = [x for x in df_patches_selected[df_sel_tile_patch_name_col].values if x not in list_saved_patches]
+            print(f'WARNING: {len(list_not_saved_patches)} patches were not saved')
+            print(f'WARNING: {list_not_saved_patches}')
 
 def augment_patches(all_patches_img, all_patches_mask):
     '''Augment patches by rotating etc.
