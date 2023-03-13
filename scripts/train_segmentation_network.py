@@ -30,10 +30,11 @@ def train_segmentation_network():
     # encoder_name = 'efficientnet-b1'
     save_full_model = True
     mask_suffix_train = '_lc_hab_mask.npy'
+    mask_suffix_test_ds = '_lc_2022_detailed.npy'
     mask_dir_name_train = 'masks'  # only relevant if no dir_mask_patches is given
-    use_valid_ds = False
-    evaluate_on_test_ds = False
-    perform_and_save_predictions = True
+    use_valid_ds = True
+    evaluate_on_test_ds = True
+    perform_and_save_predictions = False
     # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'
     # path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-02-01-1518.pkl'
     path_mapping_dict = '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl'
@@ -56,14 +57,14 @@ def train_segmentation_network():
 
     ## Dirs test data:
     dir_test_im_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images'
-    dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022/'
+    dir_test_mask_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_2022_detailed/'
 
     ## Define model:
     tmp_path_dict = pickle.load(open(path_mapping_dict, 'rb'))
     n_classes = len(tmp_path_dict['dict_new_names'])
     LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
                             loss_function=loss_function, encoder_name=encoder_name)  # load model 
-    LCU.change_description(new_description='D class training using habitat data. Focal loss resnet 20 epochs', add=True)
+    LCU.change_description(new_description='D class training using habitat data. Focal loss resnet 60 epochs', add=True)
 
     ## Create train & validation dataloader:
     print('\nCreating train dataloader...')
@@ -78,15 +79,16 @@ def train_segmentation_network():
     assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
     train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 
+    assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
+
     if use_valid_ds:
         ## Create validation set:
         print('\nCreating validation dataloader...')
         valid_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
-                                    mask_suffix='_lc_2022_mask.npy',
-                                #   list_tile_names=dict_tile_names_sample['remainder'],
+                                    mask_suffix=mask_suffix_test_ds,
                                     preprocessing_func=LCU.preprocessing_func,
-                                    shuffle_order_patches=True, relabel_masks=False,
-                                    subsample_patches=True, frac_subsample=0.1, 
+                                    shuffle_order_patches=True, relabel_masks=True,
+                                    subsample_patches=False, frac_subsample=0.1, 
                                     path_mapping_dict=path_mapping_dict)
         assert valid_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
         valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus)
@@ -95,16 +97,15 @@ def train_segmentation_network():
     if evaluate_on_test_ds:
         print('\nCreating test dataloader...')
         test_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
-                                    mask_suffix='_lc_2022_mask.npy',
-                                    #   list_tile_names=dict_tile_names_sample['remainder'],
-                                    preprocessing_func=LCU.preprocessing_func, path_mapping_dict=path_mapping_dict,
-                                    shuffle_order_patches=True, relabel_masks=False,
-                                    subsample_patches=False)
+                                    mask_suffix=mask_suffix_test_ds,
+                                    preprocessing_func=LCU.preprocessing_func, 
+                                    shuffle_order_patches=True, relabel_masks=True,
+                                    subsample_patches=False,
+                                    path_mapping_dict=path_mapping_dict)
 
         test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus)
 
     ## Save details to model:
-    ## TODO: unique labels array isn't correct (range(39) instaed of range(7) for main cats)
     lcm.save_details_trainds_to_model(model=LCU, train_ds=train_ds)
     LCU.dict_training_details['batch_size'] = batch_size
     LCU.dict_training_details['n_cpus'] = n_cpus 

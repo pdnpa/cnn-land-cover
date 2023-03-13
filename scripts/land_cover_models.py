@@ -35,7 +35,7 @@ class DataSetPatches(torch.utils.data.Dataset):
     Used for training etc - __getitem__ has expected output (input, output) for PL models.
     '''
     def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', mask_dir_name='masks', list_tile_names=None,
-                 preprocessing_func=None, unique_labels_arr=None, shuffle_order_patches=True,
+                 preprocessing_func=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
                  path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
         super(DataSetPatches, self).__init__()
@@ -48,7 +48,6 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.frac_subsample = frac_subsample
         self.relabel_masks = relabel_masks
         self.subsample_patches = subsample_patches
-        self.unique_labels_arr = unique_labels_arr
         self.list_tile_names = list_tile_names
         self.random_transform_data = random_transform_data
 
@@ -171,7 +170,7 @@ class DataSetPatches(torch.utils.data.Dataset):
     def create_label_mapping(self):
         '''Prep the transformation of class inds'''
         if self.path_mapping_dict is None:
-            print('WARNING: no label mapping given - so using all labels individually')
+            assert False, 'WARNING: no label mapping given - so using all labels individually'
             dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
             if self.unique_labels_arr == None:  # if no array given, presume full array:
                 self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 
@@ -317,6 +316,7 @@ class LandCoverUNet(pl.LightningModule):
         self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
         self.iou_loss = cl.mIoULoss(n_classes=n_classes)
         self.dice_loss = torchmetrics.Dice(num_classes=n_classes, ignore_index=0, requires_grad=True)#, average='macro')
+        self.n_classes = n_classes
 
         ## Define loss used for training:
         if loss_function == 'dummy':
@@ -335,7 +335,7 @@ class LandCoverUNet(pl.LightningModule):
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
         self.calculate_test_confusion_mat = True
-        self.test_confusion_mat = np.zeros((7, 7))
+        self.test_confusion_mat = np.zeros((n_classes, n_classes))
         # self.seg_val_metric = pl.metrics.Accuracy()  # https://devblog.pytorchlightning.ai/torchmetrics-pytorch-metrics-built-to-scale-7091b1bec919
 
         self.model_name = 'LCU (not saved)'
@@ -690,8 +690,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         print('WARNING: subsampling 2 tiles for testing')
         list_tiff_tiles = list_tiff_tiles[:2]
     print(f'Loaded {len(list_tiff_tiles)} tiffs from subdirs of {dir_im}')
-    unique_labels_array = np.arange(7)  # hard coded because dict_treaining_details needs to be fixed
-
+    
     if dir_mask_eval is not None:
         print('Evaluating vs true masks')
         dict_acc = {} 
@@ -758,7 +757,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
             ## Compute confusion matrix:
             conf_mat = lca.compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=mask_tile, 
                                                         lc_class_name_list=model.dict_training_details['class_name_list'], 
-                                                        unique_labels_array=unique_labels_array, skip_factor=skip_factor)
+                                                         skip_factor=skip_factor)
             tmp = lcv.plot_confusion_summary(conf_mat=conf_mat, class_name_list=model.dict_training_details['class_name_list'], 
                                              plot_results=False, normalise_hm=True)
             dict_df_stats[tilename], dict_acc[tilename], _, __ = tmp 
