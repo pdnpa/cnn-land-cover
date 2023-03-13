@@ -1186,6 +1186,7 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
 def change_labels_to_consecutive_numbers(mask_patches, unique_labels_array=None, 
                                          use_all_pd_classes=False, verbose=0):
     '''Map labels to consecutive numbers (eg [0, 2, 5] to [0, 1, 2])'''
+    assert False, 'deprecated function'
     assert type(mask_patches) == np.ndarray, 'expected np array here'
 
     if use_all_pd_classes is False:
@@ -1295,7 +1296,8 @@ def concat_list_of_batches(batches):
 
 def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_list, 
                                          unique_labels_array, skip_factor=None):
-    '''Compute confusion matrix given two np or da masks/matrices.'''
+    '''Compute confusion matrix given two np or da masks/matrices.
+    unique_labels_array still in here for backwards compatibility.'''
     if type(mask_true) == xr.DataArray:
         mask_true = mask_true.to_numpy()
     if type(mask_pred) == xr.DataArray:
@@ -1304,7 +1306,7 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
     mask_pred = np.squeeze(mask_pred)
 
     assert mask_pred.shape == mask_true.shape, f'{mask_pred.shape}, {mask_true.shape}'
-    assert len(lc_class_name_list) == len(unique_labels_array)
+    # assert len(lc_class_name_list) == len(unique_labels_array)  # don't check because unique_labels_array is not used anymore
     n_classes = len(lc_class_name_list)
     conf_mat = np.zeros((n_classes, n_classes))
 
@@ -1442,7 +1444,7 @@ def compute_confusion_mat_from_dirs(dir_mask_true,
         ## Compute confusion matrix:
         conf_mat = compute_confusion_mat_from_two_masks(mask_true=mask_tile_true, mask_pred=np_pred_tile, 
                                                     lc_class_name_list=lc_class_name_list, 
-                                                    unique_labels_array=unique_labels_array, skip_factor=skip_factor)
+                                                    skip_factor=skip_factor)
         tmp = compute_stats_from_confusion_mat(conf_mat=conf_mat, class_name_list=lc_class_name_list, 
                                                normalise_hm=True)
 
