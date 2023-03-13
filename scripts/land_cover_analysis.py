@@ -252,6 +252,10 @@ def get_mapping_class_names_to_shortcut():
                             'I': 'Unclassified Land',
                             '0': 'NO CLASS'}
 
+    df_schema_2022 = create_df_mapping_labels_2022_to_80s()
+    for ii in range(len(df_schema_2022)):
+        mapping_dict_to_full[df_schema_2022['code_2022'].iloc[ii]] = df_schema_2022['description_2022'].iloc[ii]
+
     mapping_dict_to_shortcut = {v: k for k, v in mapping_dict_to_full.items()}
     return mapping_dict_to_full, mapping_dict_to_shortcut
 
@@ -1323,7 +1327,7 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
     return conf_mat
 
 def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=None,
-                                     dim_truth=0, normalise_hm=True):
+                                     dim_truth=0, normalise_hm=True, remove_no_class_if_present=True):
     '''Given a confusion matrix, compute precision/sensitivity/accuracy etc stats'''
     if model is not None:
         if conf_mat is not None:
@@ -1337,10 +1341,17 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
     assert len(class_name_list) == conf_mat.shape[0], len(class_name_list) == n_classes
     assert (conf_mat >= 0).all()
     assert dim_truth == 0, 'if true labels are on the other axis, code below doesnt work. Add transpose here..?'
+    if remove_no_class_if_present:
+        if class_name_list[0] in ['NO CLASS', '0']:
+            print('Removing NO CLASS from confusion matrix')
+            class_name_list = class_name_list[1:]
+            conf_mat = conf_mat[1:, 1:]
+            n_classes -= 1
 
     _, dict_name_to_shortcut = get_mapping_class_names_to_shortcut()
-    shortcuts = ''.join([dict_name_to_shortcut[x] for x in class_name_list])        
-    assert len(shortcuts) == n_classes
+    # shortcuts = ''.join([dict_name_to_shortcut[x] for x in class_name_list])     
+    shortcuts = [dict_name_to_shortcut[x] for x in class_name_list]    
+    assert len(shortcuts) == n_classes, f'Shortcuts: {len(shortcuts)}, n_classes: {n_classes}, class_name_list: {len(class_name_list)}'
 
     if normalise_hm:
         conf_mat_norm = conf_mat / conf_mat.sum() 

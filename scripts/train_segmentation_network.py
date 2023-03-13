@@ -80,6 +80,8 @@ def train_segmentation_network():
     train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
 
     assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
+    if train_ds.class_name_list[0] in ['NO CLASS', '0']:
+        LCU.first_class_is_no_class = True  # for accuracy calculation
 
     if use_valid_ds:
         ## Create validation set:
@@ -90,6 +92,7 @@ def train_segmentation_network():
                                     shuffle_order_patches=True, relabel_masks=True,
                                     subsample_patches=False, frac_subsample=0.1, 
                                     path_mapping_dict=path_mapping_dict)
+        valid_ds.remove_no_class_patches()
         assert valid_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
         valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus)
 
@@ -102,7 +105,7 @@ def train_segmentation_network():
                                     shuffle_order_patches=True, relabel_masks=True,
                                     subsample_patches=False,
                                     path_mapping_dict=path_mapping_dict)
-
+        test_ds.remove_no_class_patches()
         test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus)
 
     ## Save details to model:

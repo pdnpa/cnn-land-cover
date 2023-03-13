@@ -216,14 +216,6 @@ class DataSetPatches(torch.utils.data.Dataset):
             new_mask[mask == label] = self.mapping_label_to_new_dict[label]
         return new_mask
 
-    # def create_transform(self):
-    #     '''Create the transform object'''
-    #     self.transform = transforms.Compose([
-    #         transforms.RandomHorizontalFlip(p=0.5),
-    #         transforms.RandomVerticalFlip(p=0.5)
-    #         # transforms.RandomRotation(180)
-    #     ])
-
     def transform_data(self, im, mask):
         '''https://discuss.pytorch.org/t/torchvision-transfors-how-to-perform-identical-transform-on-both-image-and-target/10606/7'''
         # Random horizontal flipping
@@ -306,7 +298,8 @@ class LandCoverUNet(pl.LightningModule):
                             encoder_weights=pretrained,     # use `imagenet` pre-trained weights for encoder initialization or None
                             in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
                             classes=n_classes,                      # model output channels (number of classes in your dataset)
-                            activation='softmax')  # activation function to apply after final convolution; One of [sigmoid, softmax, logsoftmax, identity, callable, None]
+                            activation='softmax',  # activation function to apply after final convolution; One of [sigmoid, softmax, logsoftmax, identity, callable, None]
+                            first_class_is_no_class=False)
 
         ## Define the preprocessing function that the data needs to be applied to
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
@@ -314,9 +307,11 @@ class LandCoverUNet(pl.LightningModule):
         self.ce_loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)
         # self.focal_loss = cl.FocalLoss(gamma=0.75)
         self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
-        self.iou_loss = cl.mIoULoss(n_classes=n_classes)
+        self.iou_loss = cl.mIoULoss(n_classes=n_classes)  # has no ignore-index
         self.dice_loss = torchmetrics.Dice(num_classes=n_classes, ignore_index=0, requires_grad=True)#, average='macro')
+        self.focal_and_dice_loss = lambda x, y: self.focal_loss(x, y) + self.dice_loss(x, y)
         self.n_classes = n_classes
+        self.first_class_is_no_class = first_class_is_no_class
 
         ## Define loss used for training:
         if loss_function == 'dummy':
@@ -330,7 +325,7 @@ class LandCoverUNet(pl.LightningModule):
         elif loss_function == 'dice_loss':
             self.loss = self.dice_loss
         elif loss_function == 'focal_and_dice_loss':
-            self.loss = lambda x, y: self.focal_loss(x, y) + self.dice_loss(x, y)
+            self.loss = self.focal_and_dice_loss
         else:
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
@@ -409,6 +404,10 @@ class LandCoverUNet(pl.LightningModule):
             self.log('test_focal_loss', self.focal_loss(output, y))
         if hasattr(self, 'iou_loss'):
             self.log('test_iou_loss', self.iou_loss(output, y))
+        if hasattr(self, 'dice_loss'):
+            self.log('test_dice_loss', self.dice_loss(output, y))
+        if hasattr(self, 'focal_and_dice_loss'):
+            self.log('test_focal_and_dice_loss', self.focal_and_dice_loss(output, y))
         
         if self.calculate_test_confusion_mat:
             if self.skip_factor_eval is None:
@@ -422,7 +421,11 @@ class LandCoverUNet(pl.LightningModule):
                 for ic_pred in range(n_classes):
                     n_match = int((det_output[y == ic_true] == ic_pred).sum()) 
                     self.test_confusion_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
-            overall_accuracy = self.test_confusion_mat.diagonal().sum() / self.test_confusion_mat.sum() 
+            if self.first_class_is_no_class:
+                conf_mat_use= self.test_confusion_mat[1:, 1:]
+            else:
+                conf_mat_use= self.test_confusion_mat
+            overall_accuracy = conf_mat_use.diagonal().sum() / conf_mat_use.sum() 
             self.log('test_overall_accuracy', overall_accuracy)
 
     def validation_step(self, batch, batch_idx):
