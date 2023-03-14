@@ -284,7 +284,8 @@ class LandCoverUNet(pl.LightningModule):
     
     '''
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
-                 lr=1e-3, loss_function='cross_entropy', skip_factor_eval=1):
+                 lr=1e-3, loss_function='cross_entropy', skip_factor_eval=1,
+                 first_class_is_no_class=False):
         super().__init__()
 
         self.save_hyperparameters()
@@ -298,8 +299,7 @@ class LandCoverUNet(pl.LightningModule):
                             encoder_weights=pretrained,     # use `imagenet` pre-trained weights for encoder initialization or None
                             in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
                             classes=n_classes,                      # model output channels (number of classes in your dataset)
-                            activation='softmax',  # activation function to apply after final convolution; One of [sigmoid, softmax, logsoftmax, identity, callable, None]
-                            first_class_is_no_class=False)
+                            activation='softmax')  # activation function to apply after final convolution; One of [sigmoid, softmax, logsoftmax, identity, callable, None]
 
         ## Define the preprocessing function that the data needs to be applied to
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
@@ -326,6 +326,13 @@ class LandCoverUNet(pl.LightningModule):
             self.loss = self.dice_loss
         elif loss_function == 'focal_and_dice_loss':
             self.loss = self.focal_and_dice_loss
+        elif loss_function == 'weighted_cross_entropy':
+            self.loss_weights = torch.zeros(n_classes)
+            self.loss_weights[1] = 1.0  # D1 
+            self.loss_weights[2] = 0.7  # D2b
+            self.loss_weights[13] = 0.5  # F3a
+            self.loss_weights[14] = 6.0 # F3d
+            self.loss = nn.CrossEntropyLoss(weight=self.loss_weights, reduction='mean', ignore_index=0)
         else:
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
