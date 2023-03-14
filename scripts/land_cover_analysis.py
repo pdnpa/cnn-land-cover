@@ -471,7 +471,7 @@ def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_
         df_lc[col_name_low_level_index] = df_lc[col_name_low_level_index].astype(int)
     return df_lc, col_name_low_level_index
 
-def test_validity_geometry_column(df):
+def test_validity_geometry_column(df, verbose=1):
     '''Test if all polygons in geometry column of df are valid. If not, try to fix.'''
     arr_valid = np.array([shapely.validation.explain_validity(df['geometry'].iloc[x]) for x in range(len(df))])
     unique_vals = np.unique(arr_valid)
@@ -481,12 +481,14 @@ def test_validity_geometry_column(df):
         for val in unique_vals:
             if val != 'Valid Geometry':
                 inds_val = np.where(arr_valid == val)[0] 
-                print(f'Geometry {val} for inds {inds_val}')
-                print('Attempting to make valid')
+                if verbose > 0:
+                    print(f'Geometry {val} for inds {inds_val}')
+                    print('Attempting to make valid')
                 for ind in inds_val:
                     new_geom = shapely.validation.make_valid(df['geometry'].iloc[ind])
                     df['geometry'].iloc[ind] = new_geom
-                print('Done')
+                if verbose > 0:
+                    print('Done')
         return df
 
 def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False,
@@ -1982,3 +1984,65 @@ def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery
 
     return df_merged
     
+def use_soil_data_to_overwrite(df_lc=None, df_soil_path='/home/tplas/data/gis/Peaty_Soils_Location/Peaty_Soils_Location_(England)___BGS_&_NSRI.shp',
+                               col_lc_label='Class_low', soil_data_name='Natural England Peaty Soils',
+                               verbose=1):
+    df_soil = load_pols(df_soil_path)
+    df_outline = load_pols(path_dict['pd_outline'])
+
+    print('Validating df_LC')
+    df_lc = test_validity_geometry_column(df_lc, verbose=verbose)
+
+    print('Validating df_soil')
+
+    df_soil = df_soil[df_soil['geometry'].intersects(df_outline.iloc[0]['geometry'])]
+    df_soil = df_soil.explode()
+    df_soil = test_validity_geometry_column(df_soil, verbose=verbose)
+    
+    if soil_data_name == 'Natural England Peaty Soils':
+        peat_classes = ['Deep Peaty Soils', 'Shallow Peaty Soils']
+        assert np.isin(peat_classes, df_soil['PCLASSDESC'].values).all(), 'Not all peat classes are in the soil data'
+        df_soil = df_soil[np.isin(df_soil['PCLASSDESC'].values, peat_classes)]
+        ## merge all geometries in df_soil to one geometry:
+        soil_merged = df_soil.dissolve()
+        soil_merged = soil_merged['geometry'].iloc[0]
+        
+        peat_mapping = {'D2b': 'D2d', 'D6a': 'D6c'}
+        non_peat_mapping = {'D2d': 'D2b', 'D6c': 'D6a'}
+        all_keys = list(peat_mapping.keys()) + list(non_peat_mapping.keys())
+        ## Loop through the soil data and replace the classes where geom overlaps with the soil data:
+        count_changed, count_unchanged = 0, 0
+        for i in range(len(df_lc)):
+            pol = df_lc.iloc[i]['geometry']
+            label = df_lc.iloc[i][col_lc_label]
+            if label in all_keys:
+                area_intersect_soil = pol.intersection(soil_merged).area
+                area_non_peat = pol.difference(soil_merged).area
+                if area_intersect_soil > area_non_peat:
+                    if label in peat_mapping.keys():
+                        df_lc.loc[i, col_lc_label] = peat_mapping[label]
+                        df_lc.loc[i, 'source'] = df_lc.loc[i, 'source'] + ' (using Natural England Peaty Soils Location)'
+                        count_changed += 1
+                        if verbose > 1:
+                            print(f'Changed {label} to {peat_mapping[label]} at index {i}')
+                    else:
+                        count_unchanged += 1
+                        if verbose > 1:
+                            print(f'Label {label} at index {i} not changed')
+                else:
+                    if label in non_peat_mapping.keys():
+                        df_lc.loc[i, col_lc_label] = non_peat_mapping[label]
+                        df_lc.loc[i, 'source'] = df_lc.loc[i, 'source'] + ' (using Natural England Peaty Soils Location)'
+                        count_changed += 1
+                        if verbose > 1:
+                            print(f'Changed {label} to {non_peat_mapping[label]} at index {i}')
+                    else:
+                        count_unchanged += 1
+                        if verbose > 1:
+                            print(f'Label {label} at index {i} not changed')
+    else:
+        raise ValueError(f'Soil data name {soil_data_name} not recognised')
+
+    if verbose > 0:
+        print(f'Number of polygons changed: {count_changed} and unchanged: {count_unchanged}')
+    return df_lc, df_soil
