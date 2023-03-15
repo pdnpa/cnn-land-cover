@@ -937,8 +937,8 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
         n_patches = patches_mask.shape[0]
         assert n_patches < 1000, 'if more than 1e3 patches, change zfill in lines below '
         for i_patch in range(n_patches):
+            tp_name = f'{tile_name}_p{i_patch}'
             if df_patches_selected is not None:
-                tp_name = f'{tile_name}_p{i_patch}'
                 if tp_name not in df_patches_selected[df_sel_tile_patch_name_col].values:
                     continue
                 else:
@@ -1162,6 +1162,8 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
             list_stay = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25, 28] # these classes stay the same, everything else goes ot no-class.
         elif mapping_type == 'E_subclasses_only':
             list_stay = [20, 21, 22] # these classes stay the same, everything else goes ot no-class. 
+        elif mapping_type == 'E_subclasses_and_F3d_only':
+            list_stay = [20, 21, 22, 28] # these classes stay the same, everything else goes ot no-class. 
         else:
             raise ValueError(f'Unknown mapping type {mapping_type}')
 
