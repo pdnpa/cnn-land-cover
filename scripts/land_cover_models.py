@@ -309,7 +309,7 @@ class LandCoverUNet(pl.LightningModule):
         self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
         self.iou_loss = cl.mIoULoss(n_classes=n_classes)  # has no ignore-index
         self.dice_loss = torchmetrics.Dice(num_classes=n_classes, ignore_index=0, requires_grad=True)#, average='macro')
-        self.focal_and_dice_loss = lambda x, y: self.focal_loss(x, y) + self.dice_loss(x, y)
+        # self.focal_and_dice_loss = lambda x, y: self.focal_loss(x, y) + self.dice_loss(x, y)
         self.n_classes = n_classes
         self.first_class_is_no_class = first_class_is_no_class
 

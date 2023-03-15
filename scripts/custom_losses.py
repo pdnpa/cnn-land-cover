@@ -63,7 +63,7 @@ class FocalLoss(nn.Module):
 
 
 class mIoULoss(nn.Module):
-    '''https://github.com/amirhosseinh77/UNet-AerialSegmentation/blob/main/losses.py'''
+    '''https://github.com/amirhosseinh77/UNet-AerlambdaialSegmentation/blob/main/losses.py'''
     def __init__(self, weight=None, size_average=True, n_classes=2):
         super(mIoULoss, self).__init__()
         self.classes = n_classes

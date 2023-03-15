@@ -19,10 +19,10 @@ def main(
             dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
             create_patches = True,
             create_mask_tiles = True,
-            save_im_patches = False,
+            save_im_patches = True,
             tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
             create_metadata_patches = True,
-            discard_empty_patches = False, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
+            discard_empty_patches = True, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
             suffix_name = '_lc_2022_detailed_mask',
             col_name_low_level_index = None,  # if None, will be created
             col_name_low_level_name = 'Class_low',
@@ -128,26 +128,25 @@ def main(
             f.close() 
 
 if __name__ == '__main__':
-    # main()
-    df_hab = lca.load_pols('../content/habitat_data_annotations/habitat_data_annotations.shp')
-    df_hab = df_hab[df_hab['SEL_TRAIN'] == 1]
-    # df_hab.head()
+    main()
+    # df_hab = lca.load_pols('../content/habitat_data_annotations/habitat_data_annotations.shp')
+    # df_hab = df_hab[df_hab['SEL_TRAIN'] == 1]
     
-    main(
-        path_image_tile_tifs = '/media/data-hdd/gis_pd/all_pd_tiles/',
-        path_tile_outline_shp = path_dict['landscape_character_grid_path'],
-        save_dir_mask_tifs = '/home/tplas/data/gis/habitat_training/tile_masks_hab/',
-        path_lc = None,
-        df_lc=df_hab,
-        description_df_lc_for_metadata='Habitat data selected from training 2023-03-09',
-        dir_im_save_patches = '/home/tplas/data/gis/habitat_training/images/',  # where to save patches 
-        dir_mask_save_patches = '/home/tplas/data/gis/habitat_training/masks_hab/',
-        create_patches = True,
-        save_im_patches = True,
-        tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
-        create_metadata_patches = True,
-        discard_empty_patches = False, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
-        suffix_name = '_lc_hab_mask',
-        col_name_low_level_index = None,  # if None, will be created
-        col_name_low_level_name = 'Class_low'
-    )
+    # main(
+    #     path_image_tile_tifs = '/media/data-hdd/gis_pd/all_pd_tiles/',
+    #     path_tile_outline_shp = path_dict['landscape_character_grid_path'],
+    #     save_dir_mask_tifs = '/home/tplas/data/gis/habitat_training/tile_masks_hab/',
+    #     path_lc = None,
+    #     df_lc=df_hab,
+    #     description_df_lc_for_metadata='Habitat data selected from training 2023-03-09',
+    #     dir_im_save_patches = '/home/tplas/data/gis/habitat_training/images/',  # where to save patches 
+    #     dir_mask_save_patches = '/home/tplas/data/gis/habitat_training/masks_hab/',
+    #     create_patches = True,
+    #     save_im_patches = True,
+    #     tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
+    #     create_metadata_patches = True,
+    #     discard_empty_patches = False, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
+    #     suffix_name = '_lc_hab_mask',
+    #     col_name_low_level_index = None,  # if None, will be created
+    #     col_name_low_level_name = 'Class_low'
+    # )
