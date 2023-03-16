@@ -1831,6 +1831,8 @@ def create_patch_grid_from_tile_outline(tile_row=None, tile_outline_pol=None, re
                 rand_x = np.random.choice(n_patches_per_tertile_side, size=1, replace=False)[0]
                 rand_y = np.random.choice(n_patches_per_tertile_side, size=1, replace=False)[0]
                 rand_select_mat[i * n_patches_per_tertile_side + rand_x, j * n_patches_per_tertile_side + rand_y] = 1
+    else:
+        rand_select_mat = np.zeros((num_patches_x, num_patches_y))
 
     ## Create grid of patches
     patch_grid = []
@@ -1853,7 +1855,6 @@ def create_patch_grid_from_tile_outline(tile_row=None, tile_outline_pol=None, re
 
     ## Insert patch_grid in gpd 
     df_patch_grid = gpd.GeoDataFrame({'geometry': patch_grid})
-    # df_patch_grid.crs = {'init': }
     df_patch_grid['RAND_ANNOT'] = random_select_list
     df_patch_grid['SEL_ANNOT'] = 0
     df_patch_grid['Class_low'] = '0'
