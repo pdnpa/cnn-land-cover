@@ -1839,8 +1839,8 @@ def create_patch_grid_from_tile_outline(tile_row=None, tile_outline_pol=None, re
     patch_number_list = []
     random_select_list = []
     pn = 0
-    for i in range(num_patches_x):
-        for j in range(num_patches_y):
+    for j in range(num_patches_y):
+        for i in range(num_patches_x):
             if select_9_random_patches:
                 if rand_select_mat[i, j] == 1:
                     random_select_list.append(1)
