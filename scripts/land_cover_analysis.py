@@ -491,6 +491,38 @@ def test_validity_geometry_column(df, verbose=1):
                     print('Done')
         return df
 
+def filter_only_polygons_from_geometry_column(df, verbose=1, area_threshold=0):
+    df = test_validity_geometry_column(df, verbose=verbose)
+    df = df[df['geometry'].area > area_threshold]
+    
+    for ii in range(len(df)):
+        if type(df['geometry'].iloc[ii]) in [shapely.geometry.polygon.Polygon, shapely.geometry.multipolygon.MultiPolygon]:
+            continue 
+        elif type(df['geometry'].iloc[ii]) in [shapely.geometry.GeometryCollection]:
+            new_col = shapely.geometry.multipolygon.MultiPolygon([x for x in df['geometry'].iloc[ii] if type(x) in [shapely.geometry.polygon.Polygon, shapely.geometry.multipolygon.MultiPolygon]])
+            print(new_col)
+            if len(new_col) > 0:
+                ## Change geometry column:
+                df.iloc[ii]['geometry'] = new_col
+            else:
+                if verbose > 0:
+                    print(f'Not a polygon at index {ii}')
+                df = df.drop(ii)
+        else:            
+            if verbose > 0:
+                print(f'Not a polygon at index {ii}')
+            df = df.drop(ii)
+
+    ## explode:
+    df = df.explode()
+    df = df[df['geometry'].area > area_threshold]
+    df = df.reset_index(drop=True)
+
+    list_types = [type(x) for x in df['geometry']]
+    inds_no_pol = np.where(np.array(list_types) != shapely.geometry.polygon.Polygon)[0]
+    assert len(inds_no_pol) == 0, 'Not all polygons are polygons!'
+    return df
+
 def get_pols_for_tiles(df_pols, df_tiles, col_name='name', extract_main_categories_only=False,
                        col_ind_name='LC_N_80', col_class_name='LC_D_80', verbose=1):
     '''Extract polygons that are inside a tile, for all tiles in df_tiles. Assuming a df for tiles currently.'''
@@ -1154,6 +1186,14 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
                                         ([35, 36, 37, 38, 39, 40, 41, 42], 'Developed Land')
                                     ]
             create_mapping_with_loop = False
+        elif mapping_type == 'main_categories_F3inDE_noFGH':
+            list_old_inds_new_name = [  
+                                        ([0, 23, 24, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43], 'NO CLASS'),
+                                        ([1, 2, 3, 4, 5, 6, 7], 'Wood and Forest Land'),
+                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25], 'Moor and Heath Land'),
+                                        ([20, 21, 22, 28], 'Agro-Pastoral Land')
+                                    ]
+            create_mapping_with_loop = False
 
         elif mapping_type == 'C_subclasses_only':
             list_stay = [1, 2, 3, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. 
@@ -1190,6 +1230,7 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
         filepath = os.path.join(save_folder, fn)
         with open(filepath, 'wb') as f:
             pickle.dump(dict_mapping, f)
+        print(f'Saved mapping dict to {filepath}')
 
     return dict_mapping
 

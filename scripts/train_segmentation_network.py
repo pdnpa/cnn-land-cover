@@ -19,6 +19,7 @@ def train_segmentation_network(
         transform_training_data=True,
         learning_rate=1e-3,
         dissolve_small_pols=True,
+        dissolve_threshold=1000,
         loss_function='focal_loss',  # 'cross_entropy'
         encoder_name='resnet50',  #'efficientnet-b1'
         save_full_model=True,
@@ -155,10 +156,11 @@ def train_segmentation_network(
                                      clip_to_main_class=clip_to_main_class, 
                                      main_class_clip_label=main_class_clip_label,
                                      dissolve_small_pols=dissolve_small_pols,
+                                     dissolve_threshold=dissolve_threshold,
                                      dir_mask_eval=None)
 
 if __name__ == '__main__':
-    loss_functions_list = ['focal_loss', 'cross_entropy']
+    loss_functions_list = ['focal_loss']
     for current_loss_function in loss_functions_list:
         print(f'\n\n\nNEW LOSS FUNCTION {current_loss_function}\n\n\n')
         train_segmentation_network(
@@ -169,8 +171,8 @@ if __name__ == '__main__':
             perform_and_save_predictions=True,
             # main_class_clip_label='E',
             clip_to_main_class=False,
-            dissolve_small_pols=False,
+            dissolve_small_pols=True,
             n_max_epochs=60,
-            path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-03-15-1623.pkl',
-            description_model=f'C/D/E + F3d training using EVAL data. {current_loss_function} resnet 30 epochs'
+            path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
+            description_model=f'main class training using EVAL data. {current_loss_function} resnet 60 epochs'
         )
