@@ -717,7 +717,6 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         print('WARNING: area_threshold is 0, so no polygons will be dissolved.')
     if area_threshold > 0 and dissolve_small_pols is False:
         print('Warning: area_threshold is > 0, but dissolve_small_pols is False, so NOT dissolving small polygons.')
-        assert False
     if dissolve_small_pols:
         print('Dissolving small polygons. WARNING: this takes considerable overhead computing time')
 
