@@ -297,26 +297,6 @@ def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_n
 
     return df_lc
 
-def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_name='class_ind'):
-    '''Add column with main category indices, based on class codes'''
-    assert col_code_name in df_lc.columns, df_lc.columns
-    mapping_dict = {'C': 1,
-                    'D': 2,
-                    'E': 3,
-                    'F': 4,
-                    'G': 5,
-                    'H': 6,
-                    'I': 0}
-
-    class_ind_col = np.zeros(len(df_lc[col_code_name]), dtype=int)
-    for code, new_ind in mapping_dict.items():
-        inds_code = np.where(df_lc[col_code_name].apply(lambda x: x[0]) == code)[0]  # compare first letter
-        class_ind_col[inds_code] = new_ind 
-    
-    df_lc[col_ind_name] = class_ind_col
-
-    return df_lc
-
 def create_mapping_label_names_to_codes():
     dict_name_to_code = {'NO CLASS': '0',
                         'Broadleaved High Forest': 'C1',
@@ -436,6 +416,35 @@ def create_empty_label_mapping_dict_2022_schema():
    
     return dict_mapping
 
+def add_main_category_index_column(df_lc, col_code_name='Class_Code', col_ind_name='Class_hi_i'):
+    '''Add column with main category indices, based on class codes'''
+    if col_ind_name is not None:
+        if col_ind_name in df_lc.columns:
+            print('Column name for low level index already exists in dataframe!')
+            return df_lc
+    assert col_code_name in df_lc.columns, df_lc.columns
+    if col_ind_name is None:
+        col_ind_name = 'Class_hi_i' 
+    assert type(col_ind_name) == str and len(col_ind_name) <= 10, 'Column name for low level index not valid!'
+    mapping_dict = {'C': 1,
+                    'D': 2,
+                    'E': 3,
+                    'F': 4,
+                    'G': 5,
+                    'H': 6,
+                    'I': 0}
+
+    assert df_lc[col_code_name].apply(lambda x: x[0]).isin(mapping_dict.keys()).all()
+
+    class_ind_col = np.zeros(len(df_lc[col_code_name]), dtype=int)
+    for code, new_ind in mapping_dict.items():
+        inds_code = np.where(df_lc[col_code_name].apply(lambda x: x[0]) == code)[0]  # compare first letter
+        class_ind_col[inds_code] = new_ind 
+    
+    df_lc[col_ind_name] = class_ind_col
+
+    return df_lc, col_ind_name
+
 def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_name_low_level_name='Class_low',
                               dict_mapping_name_to_index=None, exclude_non_mapped_pols=False):
     '''Add column with index of detailed class, mapped from column with detailed class names.'''
@@ -461,7 +470,7 @@ def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_
             dict_mapping_name_to_index['D2a'] = dict_mapping_name_to_index['D2b']
     df_lc[col_name_low_level_index] = df_lc[col_name_low_level_name].map(dict_mapping_name_to_index)
 
-    classes_not_mapped = df_lc.loc[np.where(df_lc[col_name_low_level_index].isna())[0]]['Class_low'].unique()
+    classes_not_mapped = df_lc.loc[np.where(df_lc[col_name_low_level_index].isna())[0]][col_name_low_level_name].unique()
     if len(classes_not_mapped) > 0:
         print(f'Classes not mapped: {classes_not_mapped}')
         if exclude_non_mapped_pols:
