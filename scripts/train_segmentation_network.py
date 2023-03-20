@@ -172,7 +172,8 @@ if __name__ == '__main__':
             # main_class_clip_label='E',
             clip_to_main_class=False,
             dissolve_small_pols=True,
-            n_max_epochs=60,
+            dissolve_threshold=20,
+            n_max_epochs=120,
             path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-            description_model=f'main class training using EVAL data. {current_loss_function} resnet 60 epochs'
+            description_model=f'main class training using EVAL data. {current_loss_function} resnet 120 epochs'
         )

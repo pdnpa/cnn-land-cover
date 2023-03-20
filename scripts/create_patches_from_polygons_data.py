@@ -24,8 +24,9 @@ def main(
             create_metadata_patches = True,
             discard_empty_patches = True, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
             suffix_name = '_lc_2022_detailed_mask',
-            col_name_low_level_index = None,  # if None, will be created
-            col_name_low_level_name = 'Class_low',
+            col_name_class_index = None,  # if None, will be created
+            col_name_class_name = 'Class_low',
+            create_high_level_masks = False,
             df_patches_selected=None, 
             df_sel_tile_patch_name_col='tile_patch'
         ):
@@ -51,13 +52,16 @@ def main(
         lc_provided = True
         print('Using provided df_lc')
     df_lc = lca.test_validity_geometry_column(df=df_lc)
-    # list_extra_cols = [col_name_low_level_index, col_name_low_level_name]
     print('\nLoaded landcover polygons:\n')
     
     if create_mask_tiles:
         ## LC class names have to be changed to indices (eg C1 -> 1). Check to see if exists, else create one
-        df_lc, col_name_low_level_index = lca.add_detailed_index_column(df_lc=df_lc, col_name_low_level_index=col_name_low_level_index,
-                                            col_name_low_level_name=col_name_low_level_name,
+        if create_high_level_masks:
+            df_lc, col_name_class_index = lca.add_main_category_index_column(df_lc=df_lc, col_ind_name=col_name_class_index,
+                                            col_code_name=col_name_class_name)  
+        else:
+            df_lc, col_name_class_index = lca.add_detailed_index_column(df_lc=df_lc, col_name_low_level_index=col_name_class_index,
+                                            col_name_low_level_name=col_name_class_name,
                                             exclude_non_mapped_pols=True)  
         
         ## Load shp files of tiles and intersect with PD LC:
@@ -76,13 +80,13 @@ def main(
         for key_tile, df_tile in tqdm(dict_intersect_pols_tiles_sample.items()):
             ex_raster = lca.convert_shp_mask_to_raster(df_shp=df_tile, filename=key_tile + suffix_name, 
                                         maskdir=save_dir_mask_tifs, 
-                                        col_name=col_name_low_level_index,
+                                        col_name=col_name_class_index,
                                         # ex_tile=ex_raster,
                                         # resolution=(-0.125, 0.125),
                                         plot_raster=False, # whether to plot
                                         save_raster=True, # whether to store on disk
                                         verbose=0)
-            assert ex_raster[col_name_low_level_index].shape == (8000, 8000), key_tile
+            assert ex_raster[col_name_class_index].shape == (8000, 8000), key_tile
 
     if create_patches:
         print('\nCreating and exporting patches:')
@@ -114,8 +118,9 @@ def main(
                     f.write(f'description of df_lc: {description_df_lc_for_metadata}\n')
                 else:
                     f.write(f'path_lc: {path_lc}\n')
-                f.write(f'col_name_low_level_index: {col_name_low_level_index}\n')
-                f.write(f'col_name_low_level_name: {col_name_low_level_name}\n')
+                f.write(f'col_name_class_index: {col_name_class_index}\n')
+                f.write(f'col_name_class_name: {col_name_class_name}\n')
+                f.write(f'create_high_level_masks: {create_high_level_masks}\n')
                 f.write(f'dir_im_save_patches: {dir_im_save_patches}\n')
                 f.write(f'dir_mask_save_patches: {dir_mask_save_patches}\n')
                 f.write(f'suffix_name: {suffix_name}\n')
@@ -128,25 +133,29 @@ def main(
             f.close() 
 
 if __name__ == '__main__':
-    main()
+    # main()
     # df_hab = lca.load_pols('../content/habitat_data_annotations/habitat_data_annotations.shp')
     # df_hab = df_hab[df_hab['SEL_TRAIN'] == 1]
     
-    # main(
-    #     path_image_tile_tifs = '/media/data-hdd/gis_pd/all_pd_tiles/',
-    #     path_tile_outline_shp = path_dict['landscape_character_grid_path'],
-    #     save_dir_mask_tifs = '/home/tplas/data/gis/habitat_training/tile_masks_hab/',
-    #     path_lc = None,
-    #     df_lc=df_hab,
-    #     description_df_lc_for_metadata='Habitat data selected from training 2023-03-09',
-    #     dir_im_save_patches = '/home/tplas/data/gis/habitat_training/images/',  # where to save patches 
-    #     dir_mask_save_patches = '/home/tplas/data/gis/habitat_training/masks_hab/',
-    #     create_patches = True,
-    #     save_im_patches = True,
-    #     tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
-    #     create_metadata_patches = True,
-    #     discard_empty_patches = False, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
-    #     suffix_name = '_lc_hab_mask',
-    #     col_name_low_level_index = None,  # if None, will be created
-    #     col_name_low_level_name = 'Class_low'
-    # )
+    main(
+        path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
+        path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
+        save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
+        path_lc = '/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp',
+        df_lc=None,
+        description_df_lc_for_metadata=None,
+        dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_main_annotation/',  # where to save patches 
+        dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_main_annotation/',
+        create_patches = True,
+        create_mask_tiles = True,
+        save_im_patches = True,
+        tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
+        create_metadata_patches = True,
+        discard_empty_patches = True, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
+        suffix_name = '_lc_2022_main_mask',
+        col_name_class_index = None,  # if None, will be created
+        col_name_class_name = 'Class_high',
+        create_high_level_masks = True,
+        df_patches_selected=None, 
+        df_sel_tile_patch_name_col='tile_patch'
+    )
