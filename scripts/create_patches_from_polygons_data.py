@@ -58,8 +58,7 @@ def main(
         ## LC class names have to be changed to indices (eg C1 -> 1). Check to see if exists, else create one
         if create_high_level_masks:
             df_lc, col_name_class_index = lca.add_main_category_index_column(df_lc=df_lc, col_ind_name=col_name_class_index,
-                                            col_code_name=col_name_class_name,
-                                            exclude_non_mapped_pols=True)  
+                                            col_code_name=col_name_class_name)  
         else:
             df_lc, col_name_class_index = lca.add_detailed_index_column(df_lc=df_lc, col_name_low_level_index=col_name_class_index,
                                             col_name_low_level_name=col_name_class_name,
