@@ -1177,7 +1177,7 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
     '''
 
     dict_mapping = create_empty_label_mapping_dict_2022_schema()
-
+    finish_mapping = True
     if mapping_type == 'identity':
         pass 
     else:
@@ -1203,7 +1203,23 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
                                         ([20, 21, 22, 28], 'Agro-Pastoral Land')
                                     ]
             create_mapping_with_loop = False
-
+        elif mapping_type == 'main_categories_from_main_classes':
+            list_old_inds_new_name = [  
+                                        ([0, 4, 5, 6], 'NO CLASS'),
+                                        ([1], 'Wood and Forest Land'),
+                                        ([2], 'Moor and Heath Land'),
+                                        ([3], 'Agro-Pastoral Land')
+                                    ]
+            ## Doing this manually
+            dict_mapping = {'dict_label_mapping': {0: 0, 1: 1, 2: 2, 3: 3, 4: 0, 5: 0, 6: 0},
+                            'dict_name_mapping': {'NO CLASS': 'NO CLASS', 'Wood and Forest Land': 'Wood and Forest Land', 
+                                                  'Moor and Heath Land': 'Moor and Heath Land', 'Agro-Pastoral Land': 'Agro-Pastoral Land', 
+                                                  'Water and Wetland': 'NO CLASS', 'Rock and Coastal Land': 'NO CLASS', 'Developed Land':'NO CLASS'}}
+            dict_mapping['dict_old_names'] = {list(dict_mapping['dict_label_mapping'].keys())[xx]: list(dict_mapping['dict_name_mapping'].keys())[xx] for xx in range(len(dict_mapping['dict_label_mapping']))}
+            dict_mapping['dict_new_names'] = {list(dict_mapping['dict_label_mapping'].values())[xx]: list(dict_mapping['dict_name_mapping'].values())[xx] for xx in range(len(dict_mapping['dict_label_mapping']))}
+            
+            create_mapping_with_loop = False
+            finish_mapping = False
         elif mapping_type == 'C_subclasses_only':
             list_stay = [1, 2, 3, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. 
         elif mapping_type == 'D_subclasses_only':
@@ -1226,12 +1242,13 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
                 if kk in list_stay:
                     list_old_inds_new_name.append(([kk], dict_mapping['dict_old_names'][kk]))
 
-        for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):
-            
-            dict_mapping, dict_new_names = change_lc_label_in_dict(dict_mapping=dict_mapping, dict_new_names=dict_new_names,
-                                                            old_ind_list=old_ind_list, new_ind=new_ind, new_name=new_name)
-        ## finish:
-        dict_mapping['dict_new_names'] = dict_new_names
+        if finish_mapping:
+            for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):
+                
+                dict_mapping, dict_new_names = change_lc_label_in_dict(dict_mapping=dict_mapping, dict_new_names=dict_new_names,
+                                                                old_ind_list=old_ind_list, new_ind=new_ind, new_name=new_name)
+            ## finish:
+            dict_mapping['dict_new_names'] = dict_new_names
 
     if save_mapping:
         timestamp = create_timestamp()
