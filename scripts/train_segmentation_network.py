@@ -35,7 +35,7 @@ def train_segmentation_network(
         path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
         dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
         dir_mask_patches='/home/tplas/data/gis/habitat_training/masks_hab/',
-        dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images',
+        dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
         dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/'
                                 ):
 
@@ -52,6 +52,9 @@ def train_segmentation_network(
     # dir_im_patches = ['/home/tplas/data/gis/most recent APGB 12.5cm aerial/CDE_training_tiles/images/',
     #                 '/home/tplas/data/gis/most recent APGB 12.5cm aerial/forest_tiles_2/images/']
     
+    # with open('/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/dict_5050_traintest_split_eval_tiles.pkl', 'rb') as f:
+    #     dict_tile_names_sample = pickle.load(f)
+
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
     tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
     # pl.seed_everything(86, workers=True)
@@ -67,7 +70,7 @@ def train_segmentation_network(
     print('\nCreating train dataloader...')
     train_ds = lcm.DataSetPatches(im_dir=dir_im_patches, mask_dir=dir_mask_patches, 
                                 mask_suffix=mask_suffix_train, mask_dir_name=mask_dir_name_train,
-                                #   list_tile_names=dict_tile_names_sample['sample'],
+                                #   list_tile_names=dict_tile_names_sample['train'],
                                 preprocessing_func=LCU.preprocessing_func,
                                 shuffle_order_patches=True, relabel_masks=True,
                                 subsample_patches=False, path_mapping_dict=path_mapping_dict,
@@ -85,6 +88,7 @@ def train_segmentation_network(
         print('\nCreating validation dataloader...')
         valid_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                                     mask_suffix=mask_suffix_test_ds,
+                                #   list_tile_names=dict_tile_names_sample['test'],
                                     preprocessing_func=LCU.preprocessing_func,
                                     shuffle_order_patches=True, relabel_masks=True,
                                     subsample_patches=False, frac_subsample=0.1, 
@@ -98,6 +102,7 @@ def train_segmentation_network(
         print('\nCreating test dataloader...')
         test_ds = lcm.DataSetPatches(im_dir=dir_test_im_patches, mask_dir=dir_test_mask_patches, 
                                     mask_suffix=mask_suffix_test_ds,
+                                #   list_tile_names=dict_tile_names_sample['test'],
                                     preprocessing_func=LCU.preprocessing_func, 
                                     shuffle_order_patches=True, relabel_masks=True,
                                     subsample_patches=False,
@@ -160,20 +165,24 @@ def train_segmentation_network(
                                      dir_mask_eval=None)
 
 if __name__ == '__main__':
-    loss_functions_list = ['focal_loss']
+    loss_functions_list = ['cross_entropy']
     for current_loss_function in loss_functions_list:
         print(f'\n\n\nNEW LOSS FUNCTION {current_loss_function}\n\n\n')
         train_segmentation_network(
             loss_function=current_loss_function,
-            dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images/',
+            dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
             dir_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
+            dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/',
+            dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/masks_detailed_annotation/',
             mask_suffix_train='_lc_2022_detailed_mask.npy',
-            perform_and_save_predictions=True,
+            mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
+            perform_and_save_predictions=False,
             # main_class_clip_label='E',
             clip_to_main_class=False,
             dissolve_small_pols=True,
             dissolve_threshold=20,
-            n_max_epochs=120,
-            path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-            description_model=f'main class training using EVAL data. {current_loss_function} resnet 120 epochs'
+            n_max_epochs=30,
+            path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
+            # path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
+            description_model=f'main class training using eval patch data. {current_loss_function} resnet 30 epochs'
         )

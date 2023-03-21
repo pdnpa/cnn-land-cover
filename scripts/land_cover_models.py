@@ -522,7 +522,8 @@ def get_batch_from_ds(ds, batch_size=5, start_ind=0):
 
 def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, names_patches=None,
                                               plot_prediction=True, preprocessing_fun=None,
-                                              lc_class_name_list=None, unique_labels_array=None):
+                                              lc_class_name_list=None, unique_labels_array=None,
+                                              title_2022_annot=True):
     '''Predict LC of a single batch, and plot if wanted'''
     if batch is None and test_dl is not None:
         batch = next(iter(test_dl))
@@ -541,7 +542,7 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
         lcv.plot_image_mask_pred_wrapper(ims_plot=batch[0], masks_plot=batch[1], masks_2_plot=mask_2,
                                          preds_plot=predicted_labels, preprocessing_fun=preprocessing_fun,
                                          lc_class_name_list=lc_class_name_list, names_patches=names_patches,
-                                         unique_labels_array=unique_labels_array)
+                                         unique_labels_array=unique_labels_array, title_2022_annot=title_2022_annot)
     if len(batch) == 3:
         return (batch[0], batch[1], batch[2], predicted_labels)    
     elif len(batch) == 2:
@@ -785,7 +786,7 @@ def save_details_trainds_to_model(model, train_ds):
     list_names_attrs = ['df_patches', 'im_dir', 'mask_dir', 'path_mapping_dict', 
                         'preprocessing_func', 'rgb_means', 'rgb_std', 'shuffle_order_patches', 
                         'frac_subsample', 'unique_labels_arr', 'mapping_label_to_new_dict', 
-                        'class_name_list', 'n_classes']
+                        'class_name_list', 'n_classes', 'list_tile_names']
 
     for name_attr in list_names_attrs:  # add to model one by one:
         model.dict_training_details[name_attr] = getattr(train_ds, name_attr)
