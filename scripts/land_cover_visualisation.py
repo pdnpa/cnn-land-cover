@@ -47,7 +47,8 @@ fig_folder = os.path.join(Path(__location__).parent, 'figures/')
 
 def create_lc_cmap(lc_class_name_list, unique_labels_array):
     '''Create custom colormap of LC classes, based on list of names given.'''
-    lc_colours_list = [lc_colour_mapping_names[xx] for xx in lc_class_name_list]  # get list of colours based on class names
+    lc_colours_list = [lc_colour_mapping_names[xx] if xx in lc_colour_mapping_names.keys() else color_dict_stand[ii] for ii, xx in enumerate(lc_class_name_list)]  # get list of colours based on class names
+    
     lc_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('LC classes', colors=lc_colours_list, 
                                                                   N=len(lc_colours_list))  # create qualitative cmap of colour lists
     # formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
@@ -248,7 +249,8 @@ def plot_image_mask_pred(image, mask, pred, mask_2=None, lc_class_name_list=[], 
 
 def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot, 
                                  preprocessing_fun, masks_2_plot=None, names_patches=None,
-                                 lc_class_name_list=[], unique_labels_array=None):
+                                 lc_class_name_list=[], unique_labels_array=None,
+                                 title_2022_annot=False):
     assert ims_plot.ndim == 4 and masks_plot.ndim == 3 and preds_plot.ndim == 3
     if preprocessing_fun is None:
         print('WARNING: no preprocessing (eg z-scoring) can be undone because no preprocessing function passed on')
@@ -298,7 +300,10 @@ def plot_image_mask_pred_wrapper(ims_plot, masks_plot, preds_plot,
             ax_ims[i_ind][0].set_ylabel(names_patches[i_ind])
         if i_ind == 0:
             ax_ims[i_ind][0].set_title('Image')
-            ax_ims[i_ind][1].set_title('Land cover 80s')
+            if bool_2_masks is False and title_2022_annot:
+                ax_ims[i_ind][1].set_title('Land cover 2022')
+            else:
+                ax_ims[i_ind][1].set_title('Land cover 80s')
             if bool_2_masks:
                 ax_ims[i_ind][2].set_title('Land cover 2022')
                 ax_ims[i_ind][3].set_title('Model prediction')
