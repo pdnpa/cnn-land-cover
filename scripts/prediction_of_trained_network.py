@@ -17,6 +17,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
                                 parent_save_folder = '/home/tplas/predictions/',
                                 override_with_fgh_layer = False,
                                 subsample_tiles_for_testing = False,
+                                dir_im_pred='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
                                 dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022_FGH-override/',
                                 mask_suffix='_lc_2022_FGH-override_mask.tif',
                                 parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
@@ -44,7 +45,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
 
     ## Predict full tiles of test set:
     tmp_results = lcm.tile_prediction_wrapper(model=LCU, save_shp=save_shp_prediction,
-                                dir_im='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
+                                dir_im=dir_im_pred,
                                 dir_mask_eval=dir_mask_eval,
                                 save_folder=save_folder, dissolve_small_pols=dissolve_small_pols, 
                                 area_threshold=dissolve_threshold, skip_factor=skip_factor,
@@ -72,8 +73,10 @@ def predict_segmentation_network(datapath_model=None, padding=44,
         lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
 if __name__ == '__main__':
-    predict_segmentation_network(datapath_model='LCU_2023-03-16-1548.data', 
+    predict_segmentation_network(datapath_model='LCU_2023-03-20-1603.data', 
                                 clip_to_main_class=False, 
                                 main_class_clip_label=None,
-                                dissolve_small_pols=False,
-                                dir_mask_eval=None)
+                                dissolve_small_pols=True,
+                                dissolve_threshold=20, 
+                                dir_mask_eval=None,
+                                subsample_tiles_for_testing=True)

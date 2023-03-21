@@ -15,7 +15,7 @@ def main(
             path_lc = '/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_detailed_CFGH-override/landscape_character_2022_detailed_CFGH-override.shp',
             df_lc=None,
             description_df_lc_for_metadata=None,
-            dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images/',  # where to save patches 
+            dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',  # where to save patches 
             dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
             create_patches = True,
             create_mask_tiles = True,
@@ -138,24 +138,24 @@ if __name__ == '__main__':
     # df_hab = df_hab[df_hab['SEL_TRAIN'] == 1]
     
     main(
-        path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
-        path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
-        save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
-        path_lc = '/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp',
+        path_image_tile_tifs = '/media/data-hdd/gis_pd/all_pd_tiles/',
+        path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/eval_2_30tiles_outlines.shp',
+        save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/tile_masks_detailed_annotation/',
+        path_lc = '/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_detailed_CFGH-override/landscape_character_2022_detailed_CFGH-override.shp',
         df_lc=None,
         description_df_lc_for_metadata=None,
-        dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_main_annotation/',  # where to save patches 
-        dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_main_annotation/',
+        dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/',  # where to save patches 
+        dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/masks_detailed_annotation/',
         create_patches = True,
         create_mask_tiles = True,
         save_im_patches = True,
         tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
         create_metadata_patches = True,
         discard_empty_patches = True, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
-        suffix_name = '_lc_2022_main_mask',
+        suffix_name = '_lc_2022_detailed_mask',
         col_name_class_index = None,  # if None, will be created
-        col_name_class_name = 'Class_high',
-        create_high_level_masks = True,
+        col_name_class_name = 'Class_low',
+        create_high_level_masks = False,
         df_patches_selected=None, 
         df_sel_tile_patch_name_col='tile_patch'
     )
