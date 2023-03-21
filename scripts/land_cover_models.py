@@ -34,7 +34,8 @@ class DataSetPatches(torch.utils.data.Dataset):
     
     Used for training etc - __getitem__ has expected output (input, output) for PL models.
     '''
-    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', mask_dir_name='masks', list_tile_names=None,
+    def __init__(self, im_dir, mask_dir, mask_suffix='_lc_80s_mask.npy', mask_dir_name='masks', 
+                 list_tile_names=None, list_tile_patches_use=None,
                  preprocessing_func=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
                  path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
@@ -49,6 +50,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.relabel_masks = relabel_masks
         self.subsample_patches = subsample_patches
         self.list_tile_names = list_tile_names
+        self.list_tile_patches_use = list_tile_patches_use
         self.random_transform_data = random_transform_data
 
         if self.preprocessing_func is not None:  # prep preprocess transformation
@@ -96,19 +98,22 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.list_patch_names = [x.split('/')[-1].rstrip('.npy') for x in self.list_im_npys]
         if mask_dir is None:
             print(f'No mask directory provided. Will use {self.mask_dir_name}/ in image parent directory instead.')
-            self.list_mask_npys = [x.replace('/images/', f'/{self.mask_dir_name}/').replace('.npy', mask_suffix) for x in self.list_im_npys]
+            if self.multiple_im_dirs:
+                tmp = list(set([x.split('/')[-2] for x in self.im_dir]))
+                assert len(tmp) == 1
+                im_dir_name = tmp[0]
+            else:
+                im_dir_name = self.im_dir.split('/')[-2]
+            self.list_mask_npys = [x.replace(f'/{im_dir_name}/', f'/{self.mask_dir_name}/').replace('.npy', mask_suffix) for x in self.list_im_npys]
         else:
+            assert self.multiple_im_dirs is False, 'Cannot use multiple image directories if mask directory is provided.'
             self.list_mask_npys = [os.path.join(mask_dir, x.split('/')[-1].rstrip('.npy') + mask_suffix) for x in self.list_im_npys]
 
-        self.create_df_patches()
+        self.create_df_patches(list_tile_patches_use=self.list_tile_patches_use)
         self.organise_df_patches()
         print(f'Loaded {len(self.df_patches)} patches')
         self.create_label_mapping()    
-        # if self.random_transform_data:
-        #     self.create_transform()    
-        # else:
-        #     self.transform_data = None
-
+        
     def __getitem__(self, index):
         '''Function that gets data items by index. I have added timings in case this should be sped up.'''
         patch_row = self.df_patches.iloc[index]
@@ -129,12 +134,18 @@ class DataSetPatches(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.df_patches)
 
-    def create_df_patches(self):
+    def create_df_patches(self, list_tile_patches_use=None):
         '''Create dataframe with all patch locations'''
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'tile_name': [x[:6] for x in self.list_patch_names],
                                         'im_filepath': self.list_im_npys, 
                                         'mask_filepath': self.list_mask_npys})
+        if list_tile_patches_use is not None:
+            print(f'Only using patches that are in tile_patches list (of length {len(list_tile_patches_use)}).')
+            # print(f'Loaded {len(self.df_patches)} patches, of {len(self.list_patch_names)} total patches.)')
+            self.df_patches = self.df_patches[self.df_patches['patch_name'].isin(list_tile_patches_use)]
+            # print(f'Loaded {len(self.df_patches)} patches, of {len(self.list_patch_names)} total patches.)')
+            # assert len(self.df_patches) == len(list_tile_patches_use), f'Not all patches in list_tile_patches_use are in the image/mask directories: {len(self.df_patches)} vs {len(list_tile_patches_use)}. These are the missing patches: {list(set(list_tile_patches_use) - set(self.df_patches["patch_name"]))}'
 
     def organise_df_patches(self):
         '''Subsample & sort/shuffle patches DF'''
@@ -266,8 +277,10 @@ class DataSetPatchesTwoMasks(DataSetPatches):
         mask_2 = torch.tensor(mask_2).type(torch.LongTensor)
         return im, mask, mask_2
 
-    def create_df_patches(self):
+    def create_df_patches(self, list_tile_patches_use=None):
         '''Override to include mask_2_filepath'''
+        assert list_tile_patches_use is None, 'Not implemented yet'
+        
         self.list_mask_2_npys = [os.path.join(self.mask_dir_2, x.split('/')[-1].rstrip('.npy') + self.mask_suffix_2) for x in self.list_im_npys]
         self.df_patches = pd.DataFrame({'patch_name': self.list_patch_names,
                                         'tile_name': [x[:6] for x in self.list_patch_names],
