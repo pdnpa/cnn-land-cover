@@ -171,45 +171,57 @@ def train_segmentation_network(
                                      dir_mask_eval=None)
 
 if __name__ == '__main__':
-    loss_functions_list = ['cross_entropy']
-    for current_loss_function in loss_functions_list:
-        print(f'\n\n\nNEW LOSS FUNCTION {current_loss_function}\n\n\n')
-        # train_segmentation_network(
-        #     loss_function=current_loss_function,
-        #     dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-        #     dir_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
-        #     dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/',
-        #     dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/masks_detailed_annotation/',
-        #     mask_suffix_train='_lc_2022_detailed_mask.npy',
-        #     mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-        #     perform_and_save_predictions=False,
-        #     # main_class_clip_label='E',
-        #     clip_to_main_class=False,
-        #     dissolve_small_pols=True,
-        #     dissolve_threshold=20,
-        #     n_max_epochs=60,
-        #     path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-        #     # path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-        #     description_model=f'main class training using eval patch data. {current_loss_function} resnet 60 epochs'
-        # )
+    loss_functions_list = ['cross_entropy', 'focal_loss']
+    mapping_dicts_list = [
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-03-09-1537.pkl',
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-03-15-1323.pkl',
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl'
+                         ]
+    list_encoder_names = ['resnet50', 'efficientnet-b1']
 
-        train_segmentation_network(
-            loss_function=current_loss_function,
-            dir_im_patches=['/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-                            '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/'],
-            dir_mask_patches=None,
-            dir_test_im_patches=['/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-                                  '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/'],
-            dir_test_mask_patches=None,
-            mask_suffix_train='_lc_2022_detailed_mask.npy',
-            mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-            perform_and_save_predictions=False,
-            # main_class_clip_label='E',
-            clip_to_main_class=False,
-            dissolve_small_pols=True,
-            dissolve_threshold=20,
-            n_max_epochs=60,
-            tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl',
-            path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-            description_model=f'main class training using randomly split eval patch data. {current_loss_function} resnet 60 epochs'
-        )
+    ## loop through all combinations of loss functions and mapping dicts:
+    for current_encoder_name in list_encoder_names:
+        for current_loss_function in loss_functions_list:
+            for current_mapping_dict in mapping_dicts_list:
+                print(f'\n\n\nNEW LOSS FUNCTION {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
+                # train_segmentation_network(
+                #     loss_function=current_loss_function,
+                #     dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
+                #     dir_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
+                #     dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/',
+                #     dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/masks_detailed_annotation/',
+                #     mask_suffix_train='_lc_2022_detailed_mask.npy',
+                #     mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
+                #     perform_and_save_predictions=False,
+                #     # main_class_clip_label='E',
+                #     clip_to_main_class=False,
+                #     dissolve_small_pols=True,
+                #     dissolve_threshold=20,
+                #     n_max_epochs=60,
+                #     path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
+                #     # path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
+                #     description_model=f'main class training using eval patch data. {current_loss_function} resnet 60 epochs'
+                # )
+
+                train_segmentation_network(
+                    loss_function=current_loss_function,
+                    dir_im_patches=['/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
+                                    '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/'],
+                    dir_mask_patches=None,
+                    dir_test_im_patches=['/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
+                                        '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/'],
+                    dir_test_mask_patches=None,
+                    mask_suffix_train='_lc_2022_detailed_mask.npy',
+                    mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
+                    perform_and_save_predictions=False,
+                    # main_class_clip_label='E',
+                    clip_to_main_class=False,
+                    dissolve_small_pols=True,
+                    dissolve_threshold=20,
+                    n_max_epochs=60,
+                    encoder_name=current_encoder_name,
+                    tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl',
+                    path_mapping_dict=current_mapping_dict,
+                    description_model=f'{current_mapping_dict.split("/")[-1].split("__")[1]} training using randomly split eval patch data. {current_loss_function} {current_encoder_name} 60 epochs'
+                )
