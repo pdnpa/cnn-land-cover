@@ -316,7 +316,7 @@ class LandCoverUNet(pl.LightningModule):
 
         ## Define the preprocessing function that the data needs to be applied to
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
-
+        self.encoder_name = encoder_name
         self.ce_loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)
         # self.focal_loss = cl.FocalLoss(gamma=0.75)
         self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
@@ -501,9 +501,9 @@ def load_model(folder='/home/tplas/models', filename='', verbose=1):
     if verbose > 0:  # print some info
         print(f'Loaded {LCU}')
         for info_name in ['loss_function', 'n_max_epochs']:
-            if info_name in LCU.dict_training_details.keys():
+            if info_name in LCU.dict_training_details.keys() and verbose > 0:
                 print(f'{info_name} is {LCU.dict_training_details[info_name]}')
-        if hasattr(LCU, 'description'):
+        if hasattr(LCU, 'description') and verbose > 0:
             print(LCU.description)
 
     return LCU 
@@ -799,7 +799,7 @@ def save_details_trainds_to_model(model, train_ds):
     list_names_attrs = ['df_patches', 'im_dir', 'mask_dir', 'path_mapping_dict', 
                         'preprocessing_func', 'rgb_means', 'rgb_std', 'shuffle_order_patches', 
                         'frac_subsample', 'unique_labels_arr', 'mapping_label_to_new_dict', 
-                        'class_name_list', 'n_classes', 'list_tile_names']
+                        'class_name_list', 'n_classes', 'list_tile_names', 'encoder_name']
 
     for name_attr in list_names_attrs:  # add to model one by one:
         model.dict_training_details[name_attr] = getattr(train_ds, name_attr)

@@ -1374,7 +1374,7 @@ def concat_list_of_batches(batches):
     return torch.cat(batches, dim=0)
 
 def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_list, 
-                                         unique_labels_array, skip_factor=None):
+                                         unique_labels_array=None, skip_factor=None):
     '''Compute confusion matrix given two np or da masks/matrices.
     unique_labels_array still in here for backwards compatibility.'''
     if type(mask_true) == xr.DataArray:
@@ -1463,7 +1463,7 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
     return df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes
 
 def compute_confusion_mat_from_dirs(dir_mask_true,  
-                                    lc_class_name_list, unique_labels_array,
+                                    lc_class_name_list, unique_labels_array=None,
                                     dir_mask_pred_shp=None, dir_mask_pred_tif=None,
                                     path_mapping_pred_dict=None,
                                     col_name_shp_file='class', 
@@ -1687,17 +1687,17 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         os.mkdir(new_tile_predictions_override_folder)
 
     ## Collect all filepaths:
-    subdirs_tiles = [os.path.join(tile_predictions_folder, x) for x in os.listdir(tile_predictions_folder) if os.path.isdir(os.path.join(tile_predictions_folder, x))]
+    subdirs_tiles = [os.path.join(tile_predictions_folder, x) for x in os.listdir(tile_predictions_folder) if os.path.isdir(os.path.join(tile_predictions_folder, x)) and x[:3] == 'LCU']
     dict_shp_files = {} 
     dict_new_shp_files = {}
     for tile_dir in subdirs_tiles:
         ## Get tile name
         tilename = tile_dir.split('/')[-1].split('_')[2]
-        assert len(tilename) == 6
+        assert len(tilename) == 6, f'Error: tilename {tilename} is not 6 characters long (from {tile_dir}).'
 
         ## Get path to shp file
         tmp_list_shp_files = [os.path.join(tile_dir, x) for x in os.listdir(tile_dir) if x[-4:] == '.shp']
-        assert len(tmp_list_shp_files) == 1 
+        assert len(tmp_list_shp_files) == 1, f'Error: more than 1 shp file found in {tile_dir}'
         dict_shp_files[tilename] = tmp_list_shp_files[0]
 
         ## Set path for new shp file to be saved
@@ -1778,7 +1778,7 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
     return df_all
 
 def get_main_class_outline_for_tile(parent_dir_tile_pred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
-                                    tilename='SK0077', class_label='C'):
+                                    tilename='SK0077', class_label='C', col_name_class=None):
     '''Retrieve main class predictions for a given tile and class label'''
     ## Get path to shp file
     path_list = [x for x in os.listdir(parent_dir_tile_pred) if tilename in x]
@@ -1788,7 +1788,19 @@ def get_main_class_outline_for_tile(parent_dir_tile_pred='/home/tplas/prediction
 
     ## Load shp file
     df_main = load_pols(path_shp)
-    df_main = df_main[df_main['lc_label'] == class_label]
+    if col_name_class is None:
+        candidates = ['lc_label', 'Class_high', 'Class_Code', 'class']
+        for cand in candidates:
+            if cand in df_main.columns:
+                col_name_class = cand
+                ## assert others are not in df_main.columns
+                assert len([x for x in candidates if x in df_main.columns]) == 1, f'Found multiple candidates for column name for class label in {df_main.columns}'
+                break
+        assert col_name_class is not None, f'Could not find column name for class label in {df_main.columns}'
+    else:
+        assert col_name_class in df_main.columns, f'Column name {col_name_class} not found in {df_main.columns}'
+    df_main = df_main[df_main[col_name_class] == class_label]
+    
     if len(df_main) > 0:  # normal case 
         df_main = df_main.reset_index(drop=True)
         return df_main
@@ -1841,12 +1853,14 @@ def set_all_raster_values_to_no_class(raster_im):
     raster_im.values = np.zeros(raster_im.shape, dtype=raster_im.dtype)
     return raster_im
 
-def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C',
+def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C', 
                                    parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                                    tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'):
     '''Clip raster to area in main class prediction within tile'''
     ## Get main class prediction
-    df_main = get_main_class_outline_for_tile(parent_dir_tile_pred=parent_dir_tile_mainpred, tilename=tilename, class_label=class_label)
+    df_main = get_main_class_outline_for_tile(parent_dir_tile_pred=parent_dir_tile_mainpred, 
+                                              tilename=tilename, class_label=class_label,
+                                              col_name_class=None)
 
     if df_main is None:  # means no polygons found for class label in tile
         clipped_raster = set_all_raster_values_to_no_class(raster_im)

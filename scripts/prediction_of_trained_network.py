@@ -18,12 +18,11 @@ def predict_segmentation_network(datapath_model=None, padding=44,
                                 override_with_fgh_layer = False,
                                 subsample_tiles_for_testing = False,
                                 dir_im_pred='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
-                                dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_2022_FGH-override/',
-                                mask_suffix='_lc_2022_FGH-override_mask.tif',
+                                dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
+                                mask_suffix='_lc_2022_main_mask.tif',
                                 parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                                 tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'
                                 ):
-    path_dict = loadpaths.loadpaths()
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
 
     ##Parameters:
@@ -73,10 +72,12 @@ def predict_segmentation_network(datapath_model=None, padding=44,
         lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
 if __name__ == '__main__':
-    predict_segmentation_network(datapath_model='LCU_2023-03-20-1603.data', 
-                                clip_to_main_class=False, 
-                                main_class_clip_label=None,
+    predict_segmentation_network(datapath_model='LCU_2023-03-22-0150.data', 
+                                clip_to_main_class=True, 
+                                main_class_clip_label='D',
                                 dissolve_small_pols=True,
                                 dissolve_threshold=20, 
                                 dir_mask_eval=None,
-                                subsample_tiles_for_testing=True)
+                                override_with_fgh_layer=False,
+                                parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-03-22-0407_dissolved20m2_padding44/',
+                                subsample_tiles_for_testing=False)
