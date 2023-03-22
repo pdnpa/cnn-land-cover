@@ -654,7 +654,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
     if clip_to_main_class:
         if verbose > 0:
             print(f'Now clipping to main class {main_class_clip_label}')
-        assert main_class_clip_label in ['C', 'D', 'E'], main_class_clip_label
+        assert main_class_clip_label in ['C', 'D', 'E' , 1, 2, 3], main_class_clip_label
         assert type(tilename) == str and len(tilename) == 6, tilename
         mask_tile = lca.clip_raster_to_main_class_pred(mask_tile, tilename=tilename, class_label=main_class_clip_label,
                                     parent_dir_tile_mainpred=parent_dir_tile_mainpred,
@@ -702,7 +702,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
 def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, padding=0, save_shp=False, save_raster=False, save_folder=None,
                              dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
-                             clip_to_main_class=False, main_class_clip_label='C', parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                             clip_to_main_class=False, main_class_clip_label='C', 
+                             parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                              tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                              subsample_tiles_for_testing=False):
     '''Wrapper function that predicts & reconstructs full tile.'''
@@ -757,6 +758,8 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
     ## Loop across tiles:
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
         tilename = tilepath.split('/')[-1].rstrip('.tif')
+        # if tilename not in ['SE0503', 'SK1398', 'SK0988', 'SK0896', 'SK2091']:
+        #     continue
         mask_tile, mask_shp, shape_predicted_tile = prediction_one_tile(model=model, tilepath=tilepath, trainer=trainer, verbose=0,
                                                       save_shp=save_shp, save_raster=save_raster, save_folder=save_folder,
                                                       create_shp=True, patch_size=patch_size, padding=padding, tilename=tilename,
