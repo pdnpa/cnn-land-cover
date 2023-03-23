@@ -350,7 +350,7 @@ class LandCoverUNet(pl.LightningModule):
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
         self.calculate_test_confusion_mat = True
-        self.test_confusion_mat = np.zeros((n_classes, n_classes))
+        self.reset_test_confusion_mat()
         # self.seg_val_metric = pl.metrics.Accuracy()  # https://devblog.pytorchlightning.ai/torchmetrics-pytorch-metrics-built-to-scale-7091b1bec919
 
         self.model_name = 'LCU (not saved)'
@@ -373,6 +373,9 @@ class LandCoverUNet(pl.LightningModule):
             return f'Instance {self.model_name} of LandCoverUNet class'
         else:
             return f'Instance of LandCoverUNet class'
+    
+    def reset_test_confusion_mat(self):
+        self.test_confusion_mat = np.zeros((self.n_classes, self.n_classes))
 
     def change_description(self, new_description='', add=False):
         '''Just used for keeping notes etc.'''
@@ -489,6 +492,11 @@ class LandCoverUNet(pl.LightningModule):
 
         file_handle = open(self.filepath, 'wb')
         pickle.dump(self, file_handle)
+
+        ## Save v_num that is used for tensorboard
+        self.v_num = self.logger.version
+        ## Save logging directory that is used for tensorboard
+        self.log_dir = self.logger.log_dir
         if verbose > 0:
             print(f'LCU model saved as {self.filename} at {self.filepath}')
         return self.filepath
@@ -802,7 +810,7 @@ def save_details_trainds_to_model(model, train_ds):
     list_names_attrs = ['df_patches', 'im_dir', 'mask_dir', 'path_mapping_dict', 
                         'preprocessing_func', 'rgb_means', 'rgb_std', 'shuffle_order_patches', 
                         'frac_subsample', 'unique_labels_arr', 'mapping_label_to_new_dict', 
-                        'class_name_list', 'n_classes', 'list_tile_names', 'encoder_name']
+                        'class_name_list', 'n_classes', 'list_tile_names']
 
     for name_attr in list_names_attrs:  # add to model one by one:
         model.dict_training_details[name_attr] = getattr(train_ds, name_attr)

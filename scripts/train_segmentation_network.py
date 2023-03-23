@@ -124,12 +124,17 @@ def train_segmentation_network(
     LCU.dict_training_details['learning_rate'] = learning_rate
     LCU.dict_training_details['use_valid_ds'] = use_valid_ds
     LCU.dict_training_details['loss_function'] = loss_function
+    LCU.dict_training_details['tile_patch_train_test_split_dict_path'] = tile_patch_train_test_split_dict_path
 
     timestamp_start = datetime.datetime.now()
     print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
 
     ## Train using PL API - saves automatically.
-    trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, logger=tb_logger)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
+    callbacks = [pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
+                                            filename="best_checkpoint-{epoch:02d}-{val_loss:.2f}"),
+                 pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min')]
+    trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, 
+                         logger=tb_logger, callbacks=callbacks)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
     # # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
     # trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
 
@@ -171,14 +176,20 @@ def train_segmentation_network(
                                      dir_mask_eval=None)
 
 if __name__ == '__main__':
-    loss_functions_list = ['cross_entropy', 'focal_loss']
+    loss_functions_list = [
+        # 'cross_entropy', 
+        'focal_loss'
+                          ] 
     mapping_dicts_list = [
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-03-09-1537.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-03-15-1323.pkl',
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-03-09-1537.pkl',
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-03-15-1323.pkl',
         '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl'
                          ]
-    list_encoder_names = ['resnet50', 'efficientnet-b1']
+    list_encoder_names = [
+        'resnet50'#, 
+        # 'efficientnet-b1'
+                         ]
 
     ## loop through all combinations of loss functions and mapping dicts:
     for current_encoder_name in list_encoder_names:
@@ -219,9 +230,10 @@ if __name__ == '__main__':
                     clip_to_main_class=False,
                     dissolve_small_pols=True,
                     dissolve_threshold=20,
-                    n_max_epochs=60,
+                    n_max_epochs=90,
                     encoder_name=current_encoder_name,
-                    tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl',
+                    tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
+                    # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
                     path_mapping_dict=current_mapping_dict,
                     description_model=f'{current_mapping_dict.split("/")[-1].split("__")[1]} training using randomly split eval patch data. {current_loss_function} {current_encoder_name} 60 epochs'
                 )
