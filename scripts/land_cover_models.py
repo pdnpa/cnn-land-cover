@@ -573,6 +573,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
                         batch_size=10, save_raster=False, save_shp=False,
                         create_shp=False, verbose=1,
                         dissolve_small_pols=False, area_threshold=100,
+                        reconstruct_padded_tile_edges=False,
                         clip_to_main_class=False, main_class_clip_label='C', parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                         tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
@@ -587,7 +588,6 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
     im_tile = lca.load_tiff(tiff_file_path=tilepath, datatype='da')
     im_tile = im_tile.assign_coords({'ind_x': ('x', np.arange(len(im_tile.x))),
                                      'ind_y': ('y', np.arange(len(im_tile.y)))})
-    ## TODO: catch geo coords / ref for mask_tile, or not necessary?
     ## Copy of full tile
     mask_tile = copy.deepcopy(im_tile.sel(band=1, drop=True))
     mask_tile[:, :] = 0  # set everything to no class
@@ -624,8 +624,6 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
     pred_masks = lca.concat_list_of_batches(pred_masks)
     pred_masks = lca.change_tensor_to_max_class_prediction(pred=pred_masks)
 
-    ## set dtype to something appropriate (uint8?) 
-
     ## Reconstruct full tile
     assert pred_masks.shape[0] == patches_im.shape[0] and pred_masks.shape[0] == n_patches_per_side ** 2
     assert pred_masks.shape[-2:] == patches_im.shape[-2:] and pred_masks.shape[-2] == patch_size
@@ -634,22 +632,55 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
         print('Shapes pre pad-removal', pred_masks.shape, temp_shape, im_main.shape)
     half_pad = int(padding / 2) # should be even (asserted above)
     if padding > 0:  # need to remove padding
-        pred_masks = pred_masks[:, half_pad:-half_pad, :]
-        pred_masks = pred_masks[:, :, half_pad:-half_pad]
+        pred_masks_padded = pred_masks[:, half_pad:-half_pad, :]
+        pred_masks_padded = pred_masks_padded[:, :, half_pad:-half_pad]
         if verbose > 1:
-            print('Shapes post pad-removal', pred_masks.shape, temp_shape, im_main.shape)
+            print('Shapes post pad-removal', pred_masks_padded.shape, temp_shape, im_main.shape)
+    elif padding == 0:
+        pred_masks_padded = pred_masks
+    else:
+        raise ValueError('Padding should be 0 or larger')
     
-    assert np.product(temp_shape) == np.product(pred_masks.shape)
+    assert np.product(temp_shape) == np.product(pred_masks_padded.shape)
     assert np.product(temp_shape) + (4 * n_patches_per_side * half_pad * step_size) + (4 * half_pad ** 2) == np.product(im_main.shape[-2:])  # innner part + 4 edges + 4 corners
 
     if padding == 0:    
-        reconstructed_tile_mask = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), im_main.shape[-2:]) # won't work if im_tile has a remainder
+        reconstructed_tile_mask = patchify.unpatchify(pred_masks_padded.detach().numpy().reshape(temp_shape), im_main.shape[-2:]) # won't work if im_tile has a remainder
     elif padding > 0:
-        reconstructed_tile_mask_inner = patchify.unpatchify(pred_masks.detach().numpy().reshape(temp_shape), (im_main.shape[-2] - padding, im_main.shape[-2] - padding)) 
+        reconstructed_tile_mask_inner = patchify.unpatchify(pred_masks_padded.detach().numpy().reshape(temp_shape), (im_main.shape[-2] - padding, im_main.shape[-2] - padding)) 
         reconstructed_tile_mask = np.zeros(im_main.shape[-2:])
         if verbose > 1:
             print('Shapes post unpatchify', reconstructed_tile_mask.shape, reconstructed_tile_mask_inner.shape)
         reconstructed_tile_mask[half_pad:-half_pad, :][:, half_pad:-half_pad] = reconstructed_tile_mask_inner
+
+    if reconstruct_padded_tile_edges:
+        ## Idea: 1) only subtract half_pad in x dimension, get full y edges; 2) vice versa; 3) get 4 tile corners (of size half_pad x half_pad) manually
+        ## 1) x edges
+        pred_masks_x_edges = pred_masks[:, :, half_pad:-half_pad]
+        temp_shape_x_edges = (n_patches_per_side, n_patches_per_side, step_size + padding, step_size)
+        assert np.product(temp_shape_x_edges) == np.product(pred_masks_x_edges.shape)
+        reconstructed_tile_mask_x_edges = patchify.unpatchify(pred_masks_x_edges.detach().numpy().reshape(temp_shape_x_edges), (im_main.shape[-2], im_main.shape[-2] - padding))
+        print(reconstructed_tile_mask_x_edges.shape, reconstructed_tile_mask.shape)
+        reconstructed_tile_mask[:half_pad, :][:, half_pad:-half_pad] = reconstructed_tile_mask_x_edges[:half_pad, :]
+        reconstructed_tile_mask[-half_pad:, :][:, half_pad:-half_pad] = reconstructed_tile_mask_x_edges[-half_pad:, :]
+
+        ## 2) y edges
+        pred_masks_y_edges = pred_masks[:, half_pad:-half_pad, :]
+        temp_shape_y_edges = (n_patches_per_side, n_patches_per_side, step_size, step_size + padding)
+        assert np.product(temp_shape_y_edges) == np.product(pred_masks_y_edges.shape)
+        reconstructed_tile_mask_y_edges = patchify.unpatchify(pred_masks_y_edges.detach().numpy().reshape(temp_shape_y_edges), (im_main.shape[-2] - padding, im_main.shape[-2]))
+        reconstructed_tile_mask[:, :half_pad][half_pad:-half_pad, :] = reconstructed_tile_mask_y_edges[:, :half_pad]
+        reconstructed_tile_mask[:, -half_pad:][half_pad:-half_pad, :] = reconstructed_tile_mask_y_edges[:, -half_pad:]
+
+        ## 3) corners
+        pred_masks_corners = pred_masks 
+        temp_shape_corners = (n_patches_per_side, n_patches_per_side, step_size + padding, step_size + padding)
+        assert np.product(temp_shape_corners) == np.product(pred_masks_corners.shape)
+        reconstructed_tile_mask_corners = patchify.unpatchify(pred_masks_corners.detach().numpy().reshape(temp_shape_corners), (im_main.shape[-2], im_main.shape[-2]))
+        reconstructed_tile_mask[:half_pad, :][:, :half_pad] = reconstructed_tile_mask_corners[:half_pad, :half_pad]
+        reconstructed_tile_mask[:half_pad, :][:, -half_pad:] = reconstructed_tile_mask_corners[:half_pad, -half_pad:]
+        reconstructed_tile_mask[-half_pad:, :][:, :half_pad] = reconstructed_tile_mask_corners[-half_pad:, :half_pad]
+        reconstructed_tile_mask[-half_pad:, :][:, -half_pad:] = reconstructed_tile_mask_corners[-half_pad:, -half_pad:]
     
     assert reconstructed_tile_mask.ndim == 2
     shape_predicted_tile_part = reconstructed_tile_mask.shape
@@ -667,7 +698,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
         mask_tile = lca.clip_raster_to_main_class_pred(mask_tile, tilename=tilename, class_label=main_class_clip_label,
                                     parent_dir_tile_mainpred=parent_dir_tile_mainpred,
                                     tile_outlines_shp_path=tile_outlines_shp_path)
-        # return mask_tile
+
     ## Save & return
     model_name = model.model_name
     tile_name = tilepath.split('/')[-1].rstrip('.tif')
@@ -697,8 +728,6 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
             gdf.to_file(save_path)
             if verbose > 0:
                 print(f'Saved {name_file} with {len(gdf)} polygons to {save_path}')
-            ## zip:model_name
-            ## shutil.make_archive(output_filename, 'zip', dir_name)
     else:
         gdf = None
 
