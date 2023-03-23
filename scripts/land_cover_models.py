@@ -482,9 +482,46 @@ class LandCoverUNet(pl.LightningModule):
         # return {'optimizer': optimizer,
         #         'lr_scheduler': scheduler, # Changed scheduler to lr_scheduler
         #         'monitor': 'val_loss'}
+    
+    def tidy_up_metrics(self):
+        if self.metrics is None:
+            self.metrics_float = None
+            return
         
-    def save_model(self, folder='/home/tplas/models/', verbose=1):
+        n_epochs = len(self.metrics) 
+        self.metrics_float = []
+        self.set_metric_names = set()
+        for ii in range(len(self.metrics)):
+            self.metrics_float.append({})
+            for key in self.metrics[ii].keys():
+                self.set_metric_names.add(key)
+                value = self.metrics[ii][key]
+                if type(value) == float:
+                    continue 
+                if type(value) == torch.Tensor:
+                    self.metrics_float[ii][key] = value.detach().cpu().numpy()
+                assert type(self.metrics_float[ii][key]) == np.ndarray, type(self.metrics_float[ii][key])
+                assert self.metrics_float[ii][key].shape == (), self.metrics_float[ii][key]
+                self.metrics_float[ii][key] = float(self.metrics_float[ii][key])
+
+        self.metric_arrays = {}
+        for key in self.set_metric_names:
+            self.metric_arrays[key] = np.zeros(n_epochs) + np.nan
+            for ii in range(n_epochs):
+                if key in self.metrics_float[ii]:
+                    self.metric_arrays[key][ii] = self.metrics_float[ii][key]
+         
+        return 
+
+    def save_model(self, folder='/home/tplas/models/', verbose=1, metrics=None):
         '''Save model'''
+        ## Save v_num that is used for tensorboard
+        self.v_num = self.logger.version
+        ## Save logging directory that is used for tensorboard
+        self.log_dir = self.logger.log_dir
+        self.metrics = metrics
+        self.tidy_up_metrics()
+        
         timestamp = lca.create_timestamp()
         self.filename = f'LCU_{timestamp}.data'
         self.model_name = f'LCU_{timestamp}'
@@ -493,10 +530,6 @@ class LandCoverUNet(pl.LightningModule):
         file_handle = open(self.filepath, 'wb')
         pickle.dump(self, file_handle)
 
-        ## Save v_num that is used for tensorboard
-        self.v_num = self.logger.version
-        ## Save logging directory that is used for tensorboard
-        self.log_dir = self.logger.log_dir
         if verbose > 0:
             print(f'LCU model saved as {self.filename} at {self.filepath}')
         return self.filepath
@@ -573,7 +606,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
                         batch_size=10, save_raster=False, save_shp=False,
                         create_shp=False, verbose=1,
                         dissolve_small_pols=False, area_threshold=100,
-                        reconstruct_padded_tile_edges=False,
+                        reconstruct_padded_tile_edges=True,
                         clip_to_main_class=False, main_class_clip_label='C', parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                         tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
@@ -655,6 +688,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
 
     if reconstruct_padded_tile_edges:
         ## Idea: 1) only subtract half_pad in x dimension, get full y edges; 2) vice versa; 3) get 4 tile corners (of size half_pad x half_pad) manually
+        ## NB: if the padding is such that the patches exactly tesselate the image, it's works perfectly. However if the patches don't exactly tesselate the image, there will some remainder on right & bottom side that isn't predicted (and thus not reconstructed) at the moment.
         ## 1) x edges
         pred_masks_x_edges = pred_masks[:, :, half_pad:-half_pad]
         temp_shape_x_edges = (n_patches_per_side, n_patches_per_side, step_size + padding, step_size)

@@ -1578,21 +1578,24 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class',
         other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
 
         if len(inds_pols_greater_th) == 0:
-            ## No pols greater than area threshold; convert all small pols to no-class. Do this manually to speed up. 
-            if verbose > 0:
-                print('No pols greater than area threshold. Converting all small pols to no-class')
-            bounds_tile = tuple(gdf.total_bounds)
-            pol_tile = shapely.geometry.box(*bounds_tile)
-            gdf_new = gpd.GeoDataFrame(geometry=[pol_tile], crs=gdf.crs)
-            gdf_new[class_col] = ignore_index
-            no_class_inds_original_gdf = np.where(gdf[class_col] == ignore_index)[0]
-            if len(no_class_inds_original_gdf) > 0:
-                for col_name in other_cols:
-                    gdf_new[col_name] = gdf.iloc[no_class_inds_original_gdf[0]][col_name]
-            else:
-                for col_name in other_cols:
-                    gdf_new[col_name] = np.nan
-            return gdf_new 
+            ## No pols greater than area threshold; 
+            ## Leave as it is:
+            return gdf
+            # ## convert all small pols to no-class. Do this manually to speed up. 
+            # if verbose > 0:
+            #     print('No pols greater than area threshold. Converting all small pols to no-class')
+            # bounds_tile = tuple(gdf.total_bounds)
+            # pol_tile = shapely.geometry.box(*bounds_tile)
+            # gdf_new = gpd.GeoDataFrame(geometry=[pol_tile], crs=gdf.crs)
+            # gdf_new[class_col] = ignore_index
+            # no_class_inds_original_gdf = np.where(gdf[class_col] == ignore_index)[0]
+            # if len(no_class_inds_original_gdf) > 0:
+            #     for col_name in other_cols:
+            #         gdf_new[col_name] = gdf.iloc[no_class_inds_original_gdf[0]][col_name]
+            # else:
+            #     for col_name in other_cols:
+            #         gdf_new[col_name] = np.nan
+            # return gdf_new 
 
         elif len(inds_pols_greater_th) == 1:
             ## Only 1 pol greater than are; convert all small pols to this class. Do this manually to speed up. 

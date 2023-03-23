@@ -6,6 +6,7 @@ import loadpaths
 import land_cover_analysis as lca
 # import land_cover_visualisation as lcv
 import land_cover_models as lcm
+import custom_losses as cl
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
@@ -130,9 +131,11 @@ def train_segmentation_network(
     print(f'Training {LCU} in {n_max_epochs} epochs. Starting at {timestamp_start}\n')
 
     ## Train using PL API - saves automatically.
+    cb_metrics = cl.MetricsCallback()
     callbacks = [pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
                                             filename="best_checkpoint-{epoch:02d}-{val_loss:.2f}"),
-                 pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min')]
+                 pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min'),
+                 cb_metrics]
     trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, 
                          logger=tb_logger, callbacks=callbacks)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
     # # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
@@ -165,7 +168,7 @@ def train_segmentation_network(
     ## Save:
     if save_full_model is False:  # to save memory, don't save weights
         LCU.base = None 
-    path_lcu = LCU.save_model()  
+    path_lcu = LCU.save_model(metrics=cb_metrics.metrics)  
 
     if perform_and_save_predictions:
         predict_segmentation_network(datapath_model=path_lcu.lstrip('/home/tplas/models'),
@@ -177,7 +180,7 @@ def train_segmentation_network(
 
 if __name__ == '__main__':
     loss_functions_list = [
-        # 'cross_entropy', 
+        'cross_entropy', 
         'focal_loss'
                           ] 
     mapping_dicts_list = [
@@ -230,7 +233,7 @@ if __name__ == '__main__':
                     clip_to_main_class=False,
                     dissolve_small_pols=True,
                     dissolve_threshold=20,
-                    n_max_epochs=90,
+                    n_max_epochs=20,
                     encoder_name=current_encoder_name,
                     tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
                     # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
