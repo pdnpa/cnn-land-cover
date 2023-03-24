@@ -159,6 +159,7 @@ def plot_image_simple(im, ax=None, name_file=None, use_im_extent=False, verbose=
     rasterio.plot.show(plot_im, ax=ax, cmap='viridis', 
                        extent=extent)
     naked(ax)
+    ax.set_aspect('equal')
     if name_file is None:
         pass 
     else:
@@ -223,6 +224,7 @@ def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax
             cax = divider.append_axes("right", size="3%", pad=0.04)
         plt.colorbar(im_plot, format=formatter, ticks=cbar_ticks, cax=cax)
     naked(ax)
+    ax.set_aspect('equal')
 
 def plot_image_mask_pred(image, mask, pred, mask_2=None, lc_class_name_list=[], unique_labels_array=None, 
                          ax_list=None, plot_colorbar=True, cax=None):
@@ -585,11 +587,13 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
 def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None, print_table=True,
                            dim_truth=0, normalise_hm=True, skip_factor=1, fmt_annot=None,
-                           text_under_mat=False, suppress_zero_annot=False):
+                           text_under_mat=False, suppress_zero_annot=False,
+                           dict_override_shortcuts={}):
 
     df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes = \
         lca.compute_stats_from_confusion_mat(model=model, conf_mat=conf_mat, class_name_list=class_name_list,
-                                         dim_truth=dim_truth, normalise_hm=normalise_hm)
+                                         dim_truth=dim_truth, normalise_hm=normalise_hm,
+                                         dict_override_shortcuts=dict_override_shortcuts)
 
     if plot_results:
         if ax_hm is None or (ax_stats is None and print_table):
@@ -659,7 +663,8 @@ def plot_convergence_model(model, ax=None, metric='val_loss', colour_line='k',
         plot_arr = model.metric_arrays[metric] / model.metric_arrays[metric].max()
     else:
         plot_arr = model.metric_arrays[metric]
-    ax.plot(plot_arr, label=name_metric, linewidth=2, c=colour_line)
+    x_arr = np.arange(len(plot_arr)) #+ 1  # start at one? 
+    ax.plot(x_arr, plot_arr, label=name_metric, linewidth=2, c=colour_line)
     ax.set_xlabel('Epoch')
     ax.set_ylabel(name_metric)
     despine(ax)

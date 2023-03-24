@@ -1402,7 +1402,8 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
     return conf_mat
 
 def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=None,
-                                     dim_truth=0, normalise_hm=True, remove_no_class_if_present=True):
+                                     dim_truth=0, normalise_hm=True, remove_no_class_if_present=True,
+                                     dict_override_shortcuts={}):
     '''Given a confusion matrix, compute precision/sensitivity/accuracy etc stats'''
     if model is not None:
         if conf_mat is not None:
@@ -1423,8 +1424,11 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
             conf_mat = conf_mat[1:, 1:]
             n_classes -= 1
 
-    _, dict_name_to_shortcut = get_mapping_class_names_to_shortcut()
-    # shortcuts = ''.join([dict_name_to_shortcut[x] for x in class_name_list])     
+    _, dict_name_to_shortcut = get_mapping_class_names_to_shortcut()   
+    if len(dict_override_shortcuts) > 0:
+        for k, v in dict_override_shortcuts.items():
+            if k in dict_name_to_shortcut:
+                dict_name_to_shortcut[k] = v
     shortcuts = [dict_name_to_shortcut[x] for x in class_name_list]    
     assert len(shortcuts) == n_classes, f'Shortcuts: {len(shortcuts)}, n_classes: {n_classes}, class_name_list: {len(class_name_list)}'
 
@@ -1461,6 +1465,21 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
     sub_accuracy = sub_mat.diagonal().sum() / sub_mat.sum()
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes
+
+def export_df_stats_to_latex(df_stats, path_latex=None):
+    '''Export df_stats to latex'''
+    df_stats = df_stats.copy()
+    df_stats.columns = [x[0].upper() + x[1:] for x in df_stats.columns]
+    cols_2_decimals = ['Sensitivity', 'Precision']
+    for col in cols_2_decimals:
+        df_stats[col] = df_stats[col].apply(lambda x: f'{x:.2f}')
+    cols_1_decimal_perc = ['Density test set']
+    for col in cols_1_decimal_perc:
+        df_stats[col] = df_stats[col].apply(lambda x: f'{100 * x:.1f}\%')
+    df_stats.columns = [f'\textbf{{{x}}}' for x in df_stats.columns]
+
+    df_stats.to_latex(buf=path_latex, index=False, escape=False, na_rep='-')
+    return df_stats
 
 def compute_confusion_mat_from_dirs(dir_mask_true,  
                                     lc_class_name_list, unique_labels_array=None,
