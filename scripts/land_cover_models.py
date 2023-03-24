@@ -488,7 +488,7 @@ class LandCoverUNet(pl.LightningModule):
             self.metrics_float = None
             return
         
-        n_epochs = len(self.metrics) 
+        self.n_epochs_converged = len(self.metrics) 
         self.metrics_float = []
         self.set_metric_names = set()
         for ii in range(len(self.metrics)):
@@ -506,8 +506,8 @@ class LandCoverUNet(pl.LightningModule):
 
         self.metric_arrays = {}
         for key in self.set_metric_names:
-            self.metric_arrays[key] = np.zeros(n_epochs) + np.nan
-            for ii in range(n_epochs):
+            self.metric_arrays[key] = np.zeros(self.n_epochs_converged) + np.nan
+            for ii in range(self.n_epochs_converged):
                 if key in self.metrics_float[ii]:
                     self.metric_arrays[key][ii] = self.metrics_float[ii][key]
          
@@ -553,7 +553,7 @@ def get_batch_from_ds(ds, batch_size=5, start_ind=0):
     '''Given DS, retrieve a batch of data (for plotting etc)'''
     tmp_items = []
     names_patches = []
-    assert type(batch_size) == int and type(start_ind) == int
+    assert type(batch_size) == int and type(start_ind) == int, f'batch_size {batch_size} and start_ind {start_ind} should be int, not {type(batch_size)} and {type(start_ind)}'
     for ii in range(start_ind, start_ind + batch_size):
         tmp_items.append(ds[ii])
         names_patches.append(ds.df_patches.iloc[ii]['patch_name'])

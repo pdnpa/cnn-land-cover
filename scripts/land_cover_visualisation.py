@@ -584,7 +584,7 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
 def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None, print_table=True,
                            dim_truth=0, normalise_hm=True, skip_factor=1, fmt_annot=None,
-                           text_under_mat=False):
+                           text_under_mat=False, suppress_zero_annot=False):
 
     df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes = \
         lca.compute_stats_from_confusion_mat(model=model, conf_mat=conf_mat, class_name_list=class_name_list,
@@ -607,6 +607,13 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         ax_hm.set_title('Confusion matrix evaluation data', fontdict={'weight': 'bold'})
         ax_hm.set_ylabel('True labels')
         ax_hm.set_xlabel('Predicted labels')
+
+        if suppress_zero_annot:
+            for t in ax_hm.texts:
+                if float(t.get_text()) > 0.0:   # https://stackoverflow.com/questions/66099438/how-to-annot-only-values-greater-than-x-on-a-seaborn-heatmap
+                    t.set_text(t.get_text()) #if the value is greater than 0.4 then I set the text 
+                else:
+                    t.set_text("") # if not it sets an empty text
 
         if print_table:
             ## Create table content:
