@@ -32,6 +32,9 @@ for ii, x in enumerate(plt.rcParams['axes.prop_cycle']()):
         break  # after 8 it repeats (for ever)
 color_dict_stand[10] = '#994F00'
 color_dict_stand[11] = '#4B0092'
+color_dict_stand[1] = '#0e8212'
+color_dict_stand[2] = '#a33b1a'
+color_dict_stand[3] = '#465E85'
 
 ## Retrieve LC class specific colour mappings:
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -579,7 +582,7 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
     return dict_sum_area
 
 def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
-                           plot_results=True, ax_hm=None, ax_stats=None,
+                           plot_results=True, ax_hm=None, ax_stats=None, print_table=True,
                            dim_truth=0, normalise_hm=True, skip_factor=1, fmt_annot=None,
                            text_under_mat=False):
 
@@ -588,7 +591,7 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                                          dim_truth=dim_truth, normalise_hm=normalise_hm)
 
     if plot_results:
-        if ax_hm is None or ax_stats is None:
+        if ax_hm is None or (ax_stats is None and print_table):
             fig = plt.figure(figsize=(9, 4), constrained_layout=False)
             gs_hm = fig.add_gridspec(nrows=1, ncols=1, left=0.05, right=0.58, bottom=0.05, top=0.95)
             gs_stats = fig.add_gridspec(nrows=1, ncols=1, left=0.7, right=0.95, bottom=0.05, top=0.68)
@@ -599,41 +602,122 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         if fmt_annot is None:
             fmt_annot = '.2f' if normalise_hm else '.1f'
         sns.heatmap(conf_mat_norm * 100 if normalise_hm else conf_mat_norm, 
-                    cmap='Greens', annot=True, fmt=fmt_annot, xticklabels=shortcuts, 
+                    cmap='Greens', annot=True, fmt=fmt_annot, xticklabels=shortcuts, vmin=0,
                     yticklabels=shortcuts, cbar_kws={'label': 'Occurance (%)' if normalise_hm else 'Area (km^2)'}, ax=ax_hm)
         ax_hm.set_title('Confusion matrix evaluation data', fontdict={'weight': 'bold'})
         ax_hm.set_ylabel('True labels')
         ax_hm.set_xlabel('Predicted labels')
 
-        ## Print stats:
-        ## Create table content:
-        col_names = ['true density', 'sensitivity', 'precision']
-        col_headers = ['Density' if normalise_hm else 'True area\n(km^2)', 'Sensitivity', 'Precision']
-        row_headers = [f'  {x}  ' for x in list(df_stats_per_class['class shortcut'])]
-        table_text = []
-        for irow in range(n_classes):
-            df_row = df_stats_per_class.iloc[irow]
-            table_text.append([str(np.round(df_row[x], 2)) for x in col_names])
+        if print_table:
+            ## Create table content:
+            col_names = ['true density', 'sensitivity', 'precision']
+            col_headers = ['Density' if normalise_hm else 'True area\n(km^2)', 'Sensitivity', 'Precision']
+            row_headers = [f'  {x}  ' for x in list(df_stats_per_class['class shortcut'])]
+            table_text = []
+            for irow in range(n_classes):
+                df_row = df_stats_per_class.iloc[irow]
+                table_text.append([str(np.round(df_row[x], 2)) for x in col_names])
 
-        tab = ax_stats.table(cellText=table_text, rowLabels=row_headers, colLabels=col_headers, loc='center')
-        tab.scale(1.1, 2)
-        tab.auto_set_font_size(False)
-        tab.set_fontsize(10)
-        if text_under_mat:
-            x_text = -2.7
-            y_text_top, y_text_bottom = -0.35, -0.45
-        else:
-            x_text = -0.2
-            y_text_top, y_text_bottom = 1.27, 1.15
+            tab = ax_stats.table(cellText=table_text, rowLabels=row_headers, colLabels=col_headers, loc='center')
+            tab.scale(1.1, 2)
+            tab.auto_set_font_size(False)
+            tab.set_fontsize(10)
+            if text_under_mat:
+                x_text = -2.7
+                y_text_top, y_text_bottom = -0.35, -0.45
+            else:
+                x_text = -0.2
+                y_text_top, y_text_bottom = 1.27, 1.15
 
-        ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=x_text, y=y_text_bottom, clip_on=False)
-        if conf_mat is None:
-            conf_mat = model.test_confusion_mat
-        ## Total area: counts pixels & divides by resolution. Then scale by skip-factor squared to account for skipped pixelss
-        ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6) * (skip_factor ** 2)), 1)} km^2', 
-                      x=x_text, y=y_text_top, clip_on=False)  # because each tile is 8000^2 pixels = 1km^2
-        naked(ax_stats)
+            ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=x_text, y=y_text_bottom, clip_on=False)
+            if conf_mat is None:
+                conf_mat = model.test_confusion_mat
+            ## Total area: counts pixels & divides by resolution. Then scale by skip-factor squared to account for skipped pixelss
+            ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6) * (skip_factor ** 2)), 1)} km^2', 
+                        x=x_text, y=y_text_top, clip_on=False)  # because each tile is 8000^2 pixels = 1km^2
+            naked(ax_stats)
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, (ax_hm, ax_stats)
 
+def plot_convergence_model(model, ax=None, metric='val_loss', colour_line='k', 
+                           name_metric='Test loss'):
+    assert hasattr(model, 'metric_arrays'), 'Model does not have attribute "metric_arrays"'
+    assert metric in model.metric_arrays.keys(), f'Metric "{metric}" not in model.metric_arrays'
+
+    if ax is None:
+        ax = plt.subplot(111)
     
+    ax.plot(model.metric_arrays[metric], label=name_metric, linewidth=2, c=colour_line)
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel(name_metric)
+    despine(ax)
+
+    return ax
+
+def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Class_low',
+                                          ax=None, dict_train_test_split=None,
+                                          colour_dict=None,
+                                          rotation_xticklabels=90, plot_dual_axis=True,
+                                          classes_ignore=['0','F2', 'F', 'G', 'G2', 'H', 'H1a', 'H1b', 'H2a', 'H2b', 'H3a', 'H3b']):
+
+    df_patches_only_concat = pd.concat(list(dict_pols_per_patch.values()))
+    unique_classes = df_patches_only_concat[col_name_class].unique()
+
+    if dict_train_test_split is not None:
+        dict_total_area = {key: {} for key in dict_train_test_split.keys()}
+        dict_total_patches = {key: {} for key in dict_train_test_split.keys()}
+        df_patches_dict = {}
+        for key, list_patches in dict_train_test_split.items():
+            tmp_dict = {}
+            for x in list_patches:
+                if x in dict_pols_per_patch.keys():
+                    tmp_dict[x] =  dict_pols_per_patch[x]
+            df_patches_dict[key] = pd.concat(list(tmp_dict.values()))
+    else:
+        dict_total_area = {}
+        dict_total_patches = {}
+    unique_classes = np.sort(unique_classes)
+    for c in unique_classes:
+        if c in classes_ignore:
+            continue
+        if dict_train_test_split is None:
+            area_m = df_patches_only_concat[df_patches_only_concat[col_name_class] == c]['geometry'].area.sum()
+            dict_total_area[c] = area_m / 1e6  # convert to km2
+            dict_total_patches[c] = area_m  / (64 * 64)  # convert to patches
+        else:
+            for key in dict_train_test_split.keys():
+                df_patches = df_patches_dict[key]
+                area_m = df_patches[df_patches[col_name_class] == c]['geometry'].area.sum()
+                dict_total_area[key][c] = area_m / 1e6
+                dict_total_patches[key][c] = area_m  / (64 * 64)  # convert to patches
+
+    ## Bar plot of total area of each class
+    if ax is None:
+        ax = plt.subplot(111)
+    if dict_train_test_split is None:
+        ax.bar(dict_total_area.keys(), dict_total_area.values())
+        # ax.set_xticklabels(labels=ax.get_xticklabels(), rotation=90);
+        plt.xticks(rotation=90);
+    else:
+        width = 0.35
+        for i, key in enumerate(dict_total_area.keys()):
+            x_arr = np.arange(len(dict_total_area[key].keys()))
+            ax.bar(x_arr + i * width, dict_total_area[key].values(), 
+                   width=width, label=key, facecolor=colour_dict[key])
+        ax.set_xticks(x_arr + width / 2)
+        ax.set_xticklabels(dict_total_area[key].keys(), rotation=rotation_xticklabels)
+    ax.set_ylabel('Area (km' + r"$^2$" + ')')
+    ax.set_title(f'Total area of each class in the {len(dict_pols_per_patch)} evaluation patches');
+    ax.legend(frameon=False)
+
+    if plot_dual_axis:
+        ax2 = ax.twinx()
+        if dict_train_test_split is None:
+            ax2.bar(dict_total_area.keys(), dict_total_patches.values(), alpha=0.5)
+        else:
+            for i, key in enumerate(dict_total_area.keys()):
+                x_arr = np.arange(len(dict_total_area[key].keys()))
+                ax2.bar(x_arr + i * width, dict_total_patches[key].values(), 
+                        width=width, alpha=0.5, facolor=colour_dict[key])
+        # ax2.bar(dict_total_area.keys(), dict_total_patches.values(), alpha=0.5)
+        ax2.set_ylabel('Equivalent number of full patches')

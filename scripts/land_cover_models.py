@@ -574,6 +574,18 @@ def get_batch_from_ds(ds, batch_size=5, start_ind=0):
         list_outputs_2 = lca.concat_list_of_batches(list_outputs_2)
         return [list_inputs, list_outputs, list_outputs_2], names_patches
 
+def get_any_combination_from_ds(ds, list_inds=[]):
+    for ind in list_inds:
+        tmp_batch, tmp_names = get_batch_from_ds(ds, batch_size=1, start_ind=ind)
+        if ind == list_inds[0]:
+            batch = tmp_batch
+            names_patches = tmp_names
+        else:
+            batch[0] = torch.cat([batch[0], tmp_batch[0]], dim=0)
+            batch[1] = torch.cat([batch[1], tmp_batch[1]], dim=0)
+            names_patches.append(tmp_names[0])
+    return batch, names_patches
+
 def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, names_patches=None,
                                               plot_prediction=True, preprocessing_fun=None,
                                               lc_class_name_list=None, unique_labels_array=None,
