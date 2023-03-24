@@ -874,6 +874,61 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
 
     return dict_acc, dict_df_stats, dict_conf_mat
 
+def two_stage_patch_prediction(model_main, dict_models_detailed, 
+                               batch_im, dict_class_names_detailed, skip_first_noclass=True,
+                               dict_inds_mainclass_detailed={1: 'C', 2: 'D', 3: 'E'},
+                               verbose=0):
+    '''Predicts patch with two stage approach.
+    '''
+    pred_main = model_main.forward(batch_im)
+    pred_main = lca.change_tensor_to_max_class_prediction(pred=pred_main)
+
+    mapping_det_classes = {}  # so that they dont overlap
+    if skip_first_noclass:
+        count = 1
+        total_cn_list = ['NO CLASS']
+    else:
+        count = 0
+        total_cn_list = []
+    for key, cn_list in dict_class_names_detailed.items():
+        mapping_det_classes[key] = {}
+        assert type(cn_list) == list, f'Class name list for {key} is not a list, but {type(cn_list)}'
+        if skip_first_noclass:
+            cn_list = cn_list[1:]
+            mapping_det_classes[key][0] = 0
+        dict_tmp_override_duplicates = {}
+        for i, cn in enumerate(cn_list):
+            if cn in total_cn_list:
+                ind_cn = total_cn_list.index(cn)
+                dict_tmp_override_duplicates[i] = ind_cn
+                if verbose > 0:
+                    print('dupcliate', i, cn, ind_cn)
+        for i in range(len(cn_list)):
+            if skip_first_noclass:
+                i_use = i + 1
+            else:
+                i_use = i
+            if i in dict_tmp_override_duplicates.keys():
+                mapping_det_classes[key][i_use] = dict_tmp_override_duplicates[i]
+            else:
+                mapping_det_classes[key][i_use] = count + i
+        total_cn_list += [x for x in cn_list if x not in total_cn_list]
+        count += len(cn_list)
+
+    pred_det = {}
+    for key, model_det in dict_models_detailed.items():
+        pred_det[key] = model_det.forward(batch_im)
+        pred_det[key] = lca.change_tensor_to_max_class_prediction(pred=pred_det[key])
+        pred_det[key] = pred_det[key].clone()
+        pred_det[key] = pred_det[key].apply_(lambda x: mapping_det_classes[key][x])
+
+    pred_final = pred_main.clone()
+    for i_class, main_class in dict_inds_mainclass_detailed.items():
+        inds = pred_main == i_class
+        pred_final[inds] = pred_det[main_class][inds]
+
+    return pred_final, total_cn_list
+
 def save_details_trainds_to_model(model, train_ds):
     '''Save details of train data set to model'''
     assert type(model) == LandCoverUNet, f'{type(model)} not recognised'
