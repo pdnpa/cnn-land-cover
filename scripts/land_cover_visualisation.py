@@ -215,7 +215,7 @@ def plot_landcover_image(im, lc_class_name_list=[], unique_labels_array=None, ax
     lc_cmap, formatter, cbar_ticks = create_lc_cmap(lc_class_name_list=lc_class_name_list, 
                                                     unique_labels_array=unique_labels_array)  # get cbar specifics for LC classes
 
-    im_plot = ax.imshow(im, cmap=lc_cmap, vmin=- 0.5, vmax=len(lc_class_name_list) - 0.5)  # set min and max to absolute number of classes. Hence this ONLY works with adjacent classes.
+    im_plot = ax.imshow(im, cmap=lc_cmap, vmin=- 0.5, vmax=len(lc_class_name_list) - 0.5, interpolation='none')  # set min and max to absolute number of classes. Hence this ONLY works with adjacent classes.
     if plot_colorbar:
         if cax is None:
             divider = make_axes_locatable(ax)
