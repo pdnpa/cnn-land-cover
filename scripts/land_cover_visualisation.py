@@ -142,7 +142,7 @@ def remove_both_ticklabels(ax):  # remove labels but keep ticks
     remove_yticklabels(ax)
 
 ## Plotting images:
-def plot_image_simple(im, ax=None, name_file=None, use_im_extent=False):
+def plot_image_simple(im, ax=None, name_file=None, use_im_extent=False, verbose=0):
     '''Plot image (as np array or xr DataArray)'''
     if ax is None:
         ax = plt.subplot(111)
@@ -150,7 +150,8 @@ def plot_image_simple(im, ax=None, name_file=None, use_im_extent=False):
         plot_im = im.to_numpy()
     else:
         plot_im = im
-    print(plot_im.shape, type(plot_im))
+    if verbose > 0:
+        print(plot_im.shape, type(plot_im))
     if use_im_extent:
         extent = [im.x.min(), im.x.max(), im.y.min(), im.y.max()]
     else:
@@ -611,7 +612,7 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         if suppress_zero_annot:
             for t in ax_hm.texts:
                 if float(t.get_text()) > 0.0:   # https://stackoverflow.com/questions/66099438/how-to-annot-only-values-greater-than-x-on-a-seaborn-heatmap
-                    t.set_text(t.get_text()) #if the value is greater than 0.4 then I set the text 
+                    t.set_text(t.get_text()) 
                 else:
                     t.set_text("") # if not it sets an empty text
 
@@ -647,14 +648,18 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
     return df_stats_per_class, overall_accuracy, sub_accuracy, (ax_hm, ax_stats)
 
 def plot_convergence_model(model, ax=None, metric='val_loss', colour_line='k', 
-                           name_metric='Test loss'):
+                           name_metric='Test loss', normalise=False):
     assert hasattr(model, 'metric_arrays'), 'Model does not have attribute "metric_arrays"'
     assert metric in model.metric_arrays.keys(), f'Metric "{metric}" not in model.metric_arrays'
 
     if ax is None:
         ax = plt.subplot(111)
     
-    ax.plot(model.metric_arrays[metric], label=name_metric, linewidth=2, c=colour_line)
+    if normalise:
+        plot_arr = model.metric_arrays[metric] / model.metric_arrays[metric].max()
+    else:
+        plot_arr = model.metric_arrays[metric]
+    ax.plot(plot_arr, label=name_metric, linewidth=2, c=colour_line)
     ax.set_xlabel('Epoch')
     ax.set_ylabel(name_metric)
     despine(ax)
@@ -669,7 +674,8 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
 
     df_patches_only_concat = pd.concat(list(dict_pols_per_patch.values()))
     unique_classes = df_patches_only_concat[col_name_class].unique()
-
+    if col_name_class == 'Class_low':
+        classes_ignore.append('C')
     if dict_train_test_split is not None:
         dict_total_area = {key: {} for key in dict_train_test_split.keys()}
         dict_total_patches = {key: {} for key in dict_train_test_split.keys()}
@@ -698,21 +704,29 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
                 dict_total_area[key][c] = area_m / 1e6
                 dict_total_patches[key][c] = area_m  / (64 * 64)  # convert to patches
 
+    if dict_train_test_split is None:
+        classes_plot = list(dict_total_area.keys())
+    else:
+        classes_plot = list(dict_total_area[list(dict_total_area.keys())[0]].keys())
+        # print(list(dict_total_area[list(dict_total_area.keys())[0]].keys()))
+        # print(list(dict_total_area[list(dict_total_area.keys())[1]].keys()))
+
     ## Bar plot of total area of each class
     if ax is None:
         ax = plt.subplot(111)
     if dict_train_test_split is None:
-        ax.bar(dict_total_area.keys(), dict_total_area.values())
+        ax.bar(classes_plot, dict_total_area.values())
         # ax.set_xticklabels(labels=ax.get_xticklabels(), rotation=90);
         plt.xticks(rotation=90);
     else:
         width = 0.35
         for i, key in enumerate(dict_total_area.keys()):
-            x_arr = np.arange(len(dict_total_area[key].keys()))
+            assert classes_plot == list(dict_total_area[key].keys()), f'Classes are not the same. Difference: {classes_plot} and {dict_total_area[key].keys()}'
+            x_arr = np.arange(len(classes_plot))
             ax.bar(x_arr + i * width, dict_total_area[key].values(), 
                    width=width, label=key, facecolor=colour_dict[key])
         ax.set_xticks(x_arr + width / 2)
-        ax.set_xticklabels(dict_total_area[key].keys(), rotation=rotation_xticklabels)
+        ax.set_xticklabels(classes_plot, rotation=rotation_xticklabels)
     ax.set_ylabel('Area (km' + r"$^2$" + ')')
     ax.set_title(f'Total area of each class in the {len(dict_pols_per_patch)} evaluation patches');
     ax.legend(frameon=False)
@@ -720,11 +734,13 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
     if plot_dual_axis:
         ax2 = ax.twinx()
         if dict_train_test_split is None:
-            ax2.bar(dict_total_area.keys(), dict_total_patches.values(), alpha=0.5)
+            ax2.bar(classes_plot, dict_total_patches.values(), alpha=0.5)
         else:
             for i, key in enumerate(dict_total_area.keys()):
-                x_arr = np.arange(len(dict_total_area[key].keys()))
+                x_arr = np.arange(len(classes_plot))
                 ax2.bar(x_arr + i * width, dict_total_patches[key].values(), 
                         width=width, alpha=0.5, facolor=colour_dict[key])
-        # ax2.bar(dict_total_area.keys(), dict_total_patches.values(), alpha=0.5)
+        # ax2.bar(classes_plot, dict_total_patches.values(), alpha=0.5)
         ax2.set_ylabel('Equivalent number of full patches')
+
+    return ax, classes_plot
