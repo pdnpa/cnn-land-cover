@@ -339,20 +339,19 @@ class LandCoverUNet(pl.LightningModule):
             self.loss = self.dice_loss
         elif loss_function == 'focal_and_dice_loss':
             self.loss = self.focal_and_dice_loss
-        elif loss_function == 'weighted_cross_entropy':
-            self.loss_weights = torch.zeros(n_classes)
-            self.loss_weights[1] = 1.0  # D1 
-            self.loss_weights[2] = 0.7  # D2b
-            self.loss_weights[13] = 0.5  # F3a
-            self.loss_weights[14] = 6.0 # F3d
-            self.loss = nn.CrossEntropyLoss(weight=self.loss_weights, reduction='mean', ignore_index=0)
+        # elif loss_function == 'weighted_cross_entropy':
+        #     self.loss_weights = torch.zeros(n_classes)
+        #     self.loss_weights[1] = 1.0  # D1 
+        #     self.loss_weights[2] = 0.7  # D2b
+        #     self.loss_weights[13] = 0.5  # F3a
+        #     self.loss_weights[14] = 6.0 # F3d
+        #     self.loss = nn.CrossEntropyLoss(weight=self.loss_weights, reduction='mean', ignore_index=0)
         else:
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
         self.calculate_test_confusion_mat = True
         self.reset_test_confusion_mat()
-        # self.seg_val_metric = pl.metrics.Accuracy()  # https://devblog.pytorchlightning.ai/torchmetrics-pytorch-metrics-built-to-scale-7091b1bec919
-
+        
         self.model_name = 'LCU (not saved)'
         self.description = f'LandCoverUNet class using {self.loss}'
         self.filename = None

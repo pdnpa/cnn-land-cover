@@ -126,7 +126,7 @@ def train_segmentation_network(
     cb_metrics = cl.MetricsCallback()
     callbacks = [pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
                                             filename="best_checkpoint-{epoch:02d}-{val_loss:.2f}"),
-                 pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min'),
+                #  pl.callbacks.EarlyStopping(monitor='val_loss', patience=20, mode='min'),
                  cb_metrics]
     trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, 
                          logger=tb_logger, callbacks=callbacks)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
