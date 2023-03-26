@@ -1352,7 +1352,7 @@ def check_torch_ready(verbose=1, check_gpu=True, assert_versions=False):
         # assert torchvision.__version__ == '0.13.1+cu102'
         assert smp.__version__ == '0.3.0'
 
-def change_tensor_to_max_class_prediction(pred, expected_square_size=512):
+def change_tensor_to_max_class_prediction(pred, expected_square_size=512, disallow_0=True):
     '''CNN typically outputs a prediction for each class. This function finds the max/most likely
     predicted class and gets rid of dimenion.'''
 
@@ -1361,6 +1361,8 @@ def change_tensor_to_max_class_prediction(pred, expected_square_size=512):
     assert pred.shape[2] == pred.shape[3] and pred.shape[2] == expected_square_size
     ## assuming dim 0 is batch size and dim 1 is class size. 
 
+    if disallow_0:
+        pred[:, 0, :, :] = -1  # disallow 0 class (no class) to be predicted (assuming they're probabilities and therefore > 0)
     pred = torch.argmax(pred, dim=1)
 
     return pred 

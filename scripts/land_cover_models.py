@@ -26,7 +26,6 @@ import land_cover_analysis as lca
 import land_cover_visualisation as lcv
 import custom_losses as cl
 
-
 path_dict = loadpaths.loadpaths()
 
 class DataSetPatches(torch.utils.data.Dataset):
@@ -298,7 +297,7 @@ class LandCoverUNet(pl.LightningModule):
     '''
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
                  lr=1e-3, loss_function='cross_entropy', skip_factor_eval=1,
-                 first_class_is_no_class=False):
+                 first_class_is_no_class=False, ignore_index=0):
         super().__init__()
 
         self.save_hyperparameters()
@@ -317,11 +316,10 @@ class LandCoverUNet(pl.LightningModule):
         ## Define the preprocessing function that the data needs to be applied to
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
         self.encoder_name = encoder_name
-        self.ce_loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=0)
-        # self.focal_loss = cl.FocalLoss(gamma=0.75)
-        self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=0)
-        self.iou_loss = cl.mIoULoss(n_classes=n_classes)  # has no ignore-index
-        self.dice_loss = torchmetrics.Dice(num_classes=n_classes, ignore_index=0, requires_grad=True)#, average='macro')
+        self.ce_loss = nn.CrossEntropyLoss(reduction='mean', ignore_index=ignore_index)
+        self.focal_loss = cl.FocalLoss_2(gamma=0.75, reduction='mean', ignore_index=ignore_index)
+        # self.iou_loss = cl.mIoULoss(n_classes=n_classes)  # has no ignore-index
+        # self.dice_loss = torchmetrics.Dice(num_classes=n_classes, ignore_index=ignore_index, requires_grad=True)#, average='macro')
         # self.focal_and_dice_loss = lambda x, y: self.focal_loss(x, y) + self.dice_loss(x, y)
         self.n_classes = n_classes
         self.first_class_is_no_class = first_class_is_no_class
@@ -333,19 +331,19 @@ class LandCoverUNet(pl.LightningModule):
             self.loss = self.ce_loss  # reduction: 'none' (returns full-sized tensor), 'mean', 'sum'. Can also insert class weights and ignore indices
         elif loss_function == 'focal_loss':
             self.loss = self.focal_loss
-        elif loss_function == 'iou_loss':
-            self.loss = self.iou_loss
-        elif loss_function == 'dice_loss':
-            self.loss = self.dice_loss
-        elif loss_function == 'focal_and_dice_loss':
-            self.loss = self.focal_and_dice_loss
+        # elif loss_function == 'iou_loss':
+        #     self.loss = self.iou_loss
+        # elif loss_function == 'dice_loss':
+        #     self.loss = self.dice_loss
+        # elif loss_function == 'focal_and_dice_loss':
+        #     self.loss = self.focal_and_dice_loss
         # elif loss_function == 'weighted_cross_entropy':
         #     self.loss_weights = torch.zeros(n_classes)
         #     self.loss_weights[1] = 1.0  # D1 
         #     self.loss_weights[2] = 0.7  # D2b
         #     self.loss_weights[13] = 0.5  # F3a
         #     self.loss_weights[14] = 6.0 # F3d
-        #     self.loss = nn.CrossEntropyLoss(weight=self.loss_weights, reduction='mean', ignore_index=0)
+        #     self.loss = nn.CrossEntropyLoss(weight=self.loss_weights, reduction='mean', ignore_index=ignore_index)
         else:
             assert False, f'Loss function {loss_function} not recognised.'
         print(f'{loss_function} loss is used.')
