@@ -18,10 +18,12 @@ def predict_segmentation_network(datapath_model=None, padding=44,
                                 override_with_fgh_layer = False,
                                 subsample_tiles_for_testing = False,
                                 dir_im_pred='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
-                                dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
+                                dir_mask_eval=None,
+                                # dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
                                 mask_suffix='_lc_2022_main_mask.tif',
                                 parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
-                                tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'
+                                tile_outlines_shp_path = '../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
+                                use_tile_outlines_shp_to_predict_those_tiles_only=False
                                 ):
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
 
@@ -42,9 +44,17 @@ def predict_segmentation_network(datapath_model=None, padding=44,
     identifier = 'predictions_' + LCU.model_name + dissolved_name + f'_padding{padding}'
     save_folder = os.path.join(parent_save_folder, identifier)
 
+    if use_tile_outlines_shp_to_predict_those_tiles_only:
+        df_tile_outlines = lca.load_pols(tile_outlines_shp_path)
+        tile_name_col = 'PLAN_NO'
+        list_tile_names_to_predict = df_tile_outlines[tile_name_col].unique().tolist()
+        print(f'Predicting only the following number of tiles: {len(list_tile_names_to_predict)}')
+    else:
+        list_tile_names_to_predict = None
+
     ## Predict full tiles of test set:
     tmp_results = lcm.tile_prediction_wrapper(model=LCU, save_shp=save_shp_prediction,
-                                dir_im=dir_im_pred,
+                                dir_im=dir_im_pred, list_tile_names_to_predict=list_tile_names_to_predict,
                                 dir_mask_eval=dir_mask_eval,
                                 save_folder=save_folder, dissolve_small_pols=dissolve_small_pols, 
                                 area_threshold=dissolve_threshold, skip_factor=skip_factor,
@@ -72,12 +82,16 @@ def predict_segmentation_network(datapath_model=None, padding=44,
         lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
 if __name__ == '__main__':
-    predict_segmentation_network(datapath_model='LCU_2023-03-22-0119.data', 
+    predict_segmentation_network(datapath_model='LCU_2023-03-26-1718.data', 
                                 clip_to_main_class=False, 
                                 main_class_clip_label=2,
                                 dissolve_small_pols=True,
                                 dissolve_threshold=20, 
                                 dir_mask_eval=None,
                                 override_with_fgh_layer=False,
-                                parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-03-22-0407_dissolved20m2_padding44/',
-                                subsample_tiles_for_testing=False)
+                                dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
+                                # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-03-22-0407_dissolved20m2_padding44/',
+                                subsample_tiles_for_testing=False,
+                                tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
+                                use_tile_outlines_shp_to_predict_those_tiles_only=True                                
+                                )

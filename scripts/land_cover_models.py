@@ -779,7 +779,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
     
     return mask_tile, gdf, shape_predicted_tile_part
 
-def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
+def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_predict=None,
+                            dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, padding=0, save_shp=False, save_raster=False, save_folder=None,
                              dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
                              clip_to_main_class=False, main_class_clip_label='C', 
@@ -791,6 +792,8 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
         assert type(padding) == int and padding % 2 == 0, 'Padding should be even number'
     ## Get list of all image tiles to predict
     list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
+    if list_tile_names_to_predict is not None:
+        list_tiff_tiles = [tif for tif in list_tiff_tiles if tif.split('/')[-1][:6] in list_tile_names_to_predict]
     if subsample_tiles_for_testing:
         print('WARNING: subsampling 2 tiles for testing')
         list_tiff_tiles = list_tiff_tiles[:2]
@@ -836,6 +839,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', dir_mask_eval=None, 
             f.write(f'dir_mask_eval: {dir_mask_eval}\n')
 
     ## Loop across tiles:
+    print(f'Predicting {len(list_tiff_tiles)} tiles')
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
         tilename = tilepath.split('/')[-1].rstrip('.tif')
         # if tilename not in ['SE0503', 'SK1398', 'SK0988', 'SK0896', 'SK2091']:
