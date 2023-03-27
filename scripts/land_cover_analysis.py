@@ -1416,7 +1416,7 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
     else:
         n_classes = conf_mat.shape[0]
     assert conf_mat.ndim == 2 and conf_mat.shape[0] == conf_mat.shape[1]
-    assert len(class_name_list) == conf_mat.shape[0], len(class_name_list) == n_classes
+    assert len(class_name_list) == conf_mat.shape[0], f'{n_classes}, {len(class_name_list)}, {conf_mat.shape[0]}'
     assert (conf_mat >= 0).all()
     assert dim_truth == 0, 'if true labels are on the other axis, code below doesnt work. Add transpose here..?'
     if remove_no_class_if_present:
