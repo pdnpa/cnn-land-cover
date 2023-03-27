@@ -1468,14 +1468,15 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes
 
-def export_df_stats_to_latex(df_stats, path_latex=None):
+def export_df_stats_to_latex(df_stats, path_latex=None, cols_2_decimals = ['Sensitivity', 'Precision'],
+                             cols_1_decimal_perc = ['Density test set']):
     '''Export df_stats to latex'''
     df_stats = df_stats.copy()
     df_stats.columns = [x[0].upper() + x[1:] for x in df_stats.columns]
-    cols_2_decimals = ['Sensitivity', 'Precision']
+    
     for col in cols_2_decimals:
         df_stats[col] = df_stats[col].apply(lambda x: f'{x:.2f}')
-    cols_1_decimal_perc = ['Density test set']
+    
     for col in cols_1_decimal_perc:
         df_stats[col] = df_stats[col].apply(lambda x: f'{100 * x:.1f}\%')
     df_stats.columns = [f'\textbf{{{x}}}' for x in df_stats.columns]

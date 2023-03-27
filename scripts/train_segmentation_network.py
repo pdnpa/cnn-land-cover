@@ -187,13 +187,17 @@ if __name__ == '__main__':
         'efficientnet-b1'
                          ]
     n_repetitions = 5
+    count = -1
 
     ## loop through all combinations of loss functions and mapping dicts:
+    print('starting training')
     for i in range(n_repetitions):
         for current_encoder_name in list_encoder_names:
             for current_loss_function in loss_functions_list:
                 for current_mapping_dict in mapping_dicts_list:
-                
+                    count += 1
+                    if count < 29:
+                        continue
                     print(f'\n\n\nIteration {i} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
                     # train_segmentation_network(
                     #     loss_function=current_loss_function,
@@ -234,5 +238,5 @@ if __name__ == '__main__':
                         # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
                         tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
                         path_mapping_dict=current_mapping_dict,
-                        description_model=f'{current_mapping_dict.split("/")[-1].split("__")[1]} training using randomly split eval patch data. {current_loss_function} {current_encoder_name} 90 epochs'
+                        description_model=f'{current_mapping_dict.split("/")[-1].split("__")[1]} training using randomly split eval patch data. {current_loss_function} {current_encoder_name} 60 epochs'
                     )
