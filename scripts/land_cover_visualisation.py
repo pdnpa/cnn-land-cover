@@ -615,8 +615,16 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
 
         if suppress_zero_annot:
             for t in ax_hm.texts:
-                if float(t.get_text()) > 0.0:   # https://stackoverflow.com/questions/66099438/how-to-annot-only-values-greater-than-x-on-a-seaborn-heatmap
-                    t.set_text(t.get_text()) 
+                if float(t.get_text()) > 1.0:   # https://stackoverflow.com/questions/66099438/how-to-annot-only-values-greater-than-x-on-a-seaborn-heatmap
+                    t.set_text(t.get_text().split('.')[0])
+                elif float(t.get_text()) > 0.0:   # https://stackoverflow.com/questions/66099438/how-to-annot-only-values-greater-than-x-on-a-seaborn-heatmap
+                    str_number = t.get_text()
+                    if str_number == '1.0':
+                        t.set_text('1')
+                    elif str_number == '0.0':
+                        t.set_text('')
+                    else:
+                        t.set_text(str_number[1:]) 
                 else:
                     t.set_text("") # if not it sets an empty text
 

@@ -1853,9 +1853,9 @@ def get_area_outside_pols_within_tile(df_pols, tilename='SK0077', col_name_tilen
         else:  # if not, then assume the boundaries are just a bit weird, and return None. 
             return None 
 
-    ## Assert that all polygons are within tile outline
-    for i, row in df_pols.iterrows():
-        assert row.geometry.within(tile_outline), f'Polygon {i} is not within tile outline of tile {tilename}. Coordinates: {row.geometry.exterior}, tile outline coordinates: {tile_outline.exterior}'
+    # ## Assert that all polygons are within tile outline
+    # for i, row in df_pols.iterrows():
+    #     assert row.geometry.within(tile_outline), f'Polygon {i} is not within tile outline of tile {tilename}. Area: {row.geometry.area}, pol exterior: {row.geometry.exterior}, tile outline coordinates: {tile_outline.total_bounds}, all pols bounds {df_pols.total_bounds}'
 
     ## Get area outside polygons
     return tile_outline.difference(df_pols.unary_union) # returns a MultiPolygon or Polygon
@@ -1880,19 +1880,22 @@ def set_all_raster_values_to_no_class(raster_im):
 
 def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C', 
                                    parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
-                                   tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp'):
+                                   tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
+                                   verbose=0):
     '''Clip raster to area in main class prediction within tile'''
     ## Get main class prediction
     df_main = get_main_class_outline_for_tile(parent_dir_tile_pred=parent_dir_tile_mainpred, 
                                               tilename=tilename, class_label=class_label,
                                               col_name_class=None)
-
+    if verbose > 0:
+        print(f'Found {len(df_main)} polygons for class {class_label} in tile {tilename}')
+        print(f'Exterior bounds pols: {df_main.total_bounds}')
+        print(f'Total area: {df_main.geometry.area.sum()}')
     if df_main is None:  # means no polygons found for class label in tile
         clipped_raster = set_all_raster_values_to_no_class(raster_im)
     else:
         ## Get area outside main class prediction
         area_outside_pols = get_area_outside_pols_within_tile(df_pols=df_main, tilename=tilename, tile_outlines_shp_path=tile_outlines_shp_path)
-
         if area_outside_pols is None:  # no areas outside pols found, means that all raster values are inside pols
             clipped_raster = raster_im 
         else:

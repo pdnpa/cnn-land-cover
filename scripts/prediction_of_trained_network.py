@@ -82,15 +82,15 @@ def predict_segmentation_network(datapath_model=None, padding=44,
         lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
 if __name__ == '__main__':
-    predict_segmentation_network(datapath_model='LCU_2023-03-26-1718.data', 
-                                clip_to_main_class=False, 
-                                main_class_clip_label=2,
+    predict_segmentation_network(datapath_model='LCU_2023-03-26-1813.data', 
+                                clip_to_main_class=True, 
+                                main_class_clip_label=3,
                                 dissolve_small_pols=True,
-                                dissolve_threshold=20, 
+                                dissolve_threshold=100, 
                                 dir_mask_eval=None,
                                 override_with_fgh_layer=False,
                                 dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
-                                # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-03-22-0407_dissolved20m2_padding44/',
+                                parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-03-26-1718_dissolved20m2_padding44/',
                                 subsample_tiles_for_testing=False,
                                 tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
                                 use_tile_outlines_shp_to_predict_those_tiles_only=True                                
