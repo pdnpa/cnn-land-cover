@@ -35,6 +35,7 @@ color_dict_stand[11] = '#4B0092'
 color_dict_stand[1] = '#0e8212'
 color_dict_stand[2] = '#a33b1a'
 color_dict_stand[3] = '#465E85'
+color_dict_stand[4] = '#8b7c1e'
 
 ## Retrieve LC class specific colour mappings:
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -51,7 +52,7 @@ fig_folder = os.path.join(Path(__location__).parent, 'figures/')
 def create_lc_cmap(lc_class_name_list, unique_labels_array):
     '''Create custom colormap of LC classes, based on list of names given.'''
     lc_colours_list = [lc_colour_mapping_names[xx] if xx in lc_colour_mapping_names.keys() else color_dict_stand[ii] for ii, xx in enumerate(lc_class_name_list)]  # get list of colours based on class names
-    
+    print(lc_colours_list)
     lc_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('LC classes', colors=lc_colours_list, 
                                                                   N=len(lc_colours_list))  # create qualitative cmap of colour lists
     # formatter = plt.FuncFormatter(lambda val, loc: f'{val} ({unique_labels_array[val]}): {dict_ind_to_name[unique_labels_array[val]]}')  # create formatter for ticks/ticklabels of cbar
