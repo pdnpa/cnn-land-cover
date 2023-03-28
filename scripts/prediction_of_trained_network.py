@@ -82,9 +82,9 @@ def predict_segmentation_network(datapath_model=None, padding=44,
         lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
 if __name__ == '__main__':
-    predict_segmentation_network(datapath_model='LCU_2023-03-26-1813.data', 
+    predict_segmentation_network(datapath_model='LCU_2023-03-26-0209.data', 
                                 clip_to_main_class=True, 
-                                main_class_clip_label=3,
+                                main_class_clip_label=2,
                                 dissolve_small_pols=True,
                                 dissolve_threshold=100, 
                                 dir_mask_eval=None,
