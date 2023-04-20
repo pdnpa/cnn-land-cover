@@ -2133,7 +2133,6 @@ def use_soil_data_to_overwrite(df_lc=None, df_soil_path='/home/tplas/data/gis/Pe
     df_lc = test_validity_geometry_column(df_lc, verbose=verbose)
 
     print('Validating df_soil')
-
     df_soil = df_soil[df_soil['geometry'].intersects(df_outline.iloc[0]['geometry'])]
     df_soil = df_soil.explode()
     df_soil = test_validity_geometry_column(df_soil, verbose=verbose)
@@ -2146,8 +2145,8 @@ def use_soil_data_to_overwrite(df_lc=None, df_soil_path='/home/tplas/data/gis/Pe
         soil_merged = df_soil.dissolve()
         soil_merged = soil_merged['geometry'].iloc[0]
         
-        peat_mapping = {'D2b': 'D2d', 'D6a': 'D6c'}
-        non_peat_mapping = {'D2d': 'D2b', 'D6c': 'D6a'}
+        peat_mapping = {'D1a': 'D1b', 'D2b': 'D2d', 'D6a': 'D6c'}
+        non_peat_mapping = {'D1b': 'D1a', 'D2d': 'D2b', 'D6c': 'D6a'}
         all_keys = list(peat_mapping.keys()) + list(non_peat_mapping.keys())
         ## Loop through the soil data and replace the classes where geom overlaps with the soil data:
         count_changed, count_unchanged = 0, 0
