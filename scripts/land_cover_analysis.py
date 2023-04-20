@@ -362,6 +362,15 @@ def create_df_mapping_labels_2022_to_80s():
             for ii in range(3):  # all to be mapped back to 80s as Scrub
                 dict_80s_schema[it + ii] = val 
             it = it + 3 
+        elif val == 'Upland Heath':
+            print('splitting up heath')
+            dict_2022_schema[it] = val  # add new heath classes
+            dict_2022_schema[it + 1] = 'Upland Heath Blanket Bog'
+            dict_2022_names_to_labels[val] = 'D1a'
+            dict_2022_names_to_labels['Upland Heath Blanket Bog'] = 'D1b'
+            for ii in range(2):  # all to be mapped back to 80s as Upland Heath
+                dict_80s_schema[it + ii] = val
+            it = it + 2
         elif val == 'Wetland, Saltmarsh':
             print('adding wetland')
             dict_2022_schema[it] = 'Wetland, Saltmarsh'
@@ -392,8 +401,8 @@ def create_df_mapping_labels_2022_to_80s():
     assert len(dict_2022_schema) == len(dict_80s_schema)
 
     df_schema = pd.DataFrame({'description_2022': list(dict_2022_schema.values()),
-                            'description_80s': list(dict_80s_schema.values())})    
-        
+                              'description_80s': list(dict_80s_schema.values())})    
+
     df_schema = df_schema.assign(code_80s=[dict_old_names_to_labels[name] for name in df_schema['description_80s'].values])
     df_schema = df_schema.assign(code_2022=[dict_2022_names_to_labels[name] for name in df_schema['description_2022'].values])
     df_schema = df_schema.assign(index_2022=np.arange(len(df_schema)))
@@ -464,10 +473,12 @@ def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_
         ## Fix some human errors in the mapping:
         if 'C4' not in dict_mapping_name_to_index.keys():
             dict_mapping_name_to_index['C4'] = dict_mapping_name_to_index['C4a']
-        if 'G2' not in dict_mapping_name_to_index.keys():
-            dict_mapping_name_to_index['G2'] = dict_mapping_name_to_index['G2a']
+        if 'D1' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['D1'] = dict_mapping_name_to_index['D1a']
         if 'D2a' not in dict_mapping_name_to_index.keys():
             dict_mapping_name_to_index['D2a'] = dict_mapping_name_to_index['D2b']
+        if 'G2' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['G2'] = dict_mapping_name_to_index['G2a']
     df_lc[col_name_low_level_index] = df_lc[col_name_low_level_name].map(dict_mapping_name_to_index)
 
     classes_not_mapped = df_lc.loc[np.where(df_lc[col_name_low_level_index].isna())[0]][col_name_low_level_name].unique()
@@ -1188,24 +1199,36 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
 
         if mapping_type == 'main_categories':
             list_old_inds_new_name = [  
-                                        ([0, 43], 'NO CLASS'),
-                                        ([1, 2, 3, 4, 5, 6, 7], 'Wood and Forest Land'),
-                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], 'Moor and Heath Land'),
-                                        ([20, 21, 22], 'Agro-Pastoral Land'),
-                                        ([23, 24, 25, 26, 27, 28], 'Water and Wetland'),
-                                        ([29, 30, 31, 32, 33, 34], 'Rock and Coastal Land'),
-                                        ([35, 36, 37, 38, 39, 40, 41, 42], 'Developed Land')
+                                        ([0, 44], 'NO CLASS'),
+                                        (list(np.arange(1, 8)), 'Wood and Forest Land'),
+                                        (list(np.arange(8, 21)), 'Moor and Heath Land'),
+                                        (list(np.arange(21, 24)), 'Agro-Pastoral Land'),
+                                        (list(np.arange(24, 30)), 'Water and Wetland'),
+                                        (list(np.arange(30, 36)), 'Rock and Coastal Land'),
+                                        (list(np.arange(36, 44)), 'Developed Land')
                                     ]
             create_mapping_with_loop = False
         elif mapping_type == 'main_categories_F3inDE_noFGH':
             list_old_inds_new_name = [  
-                                        ([0, 23, 24, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43], 'NO CLASS'),
-                                        ([1, 2, 3, 4, 5, 6, 7], 'Wood and Forest Land'),
-                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25], 'Moor and Heath Land'),
-                                        ([20, 21, 22, 28], 'Agro-Pastoral Land')
+                                        ([0, 24, 25, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44], 'NO CLASS'),
+                                        (list(np.arange(1, 8)), 'Wood and Forest Land'),
+                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 26], 'Moor and Heath Land'),
+                                        ([21, 22, 23, 29], 'Agro-Pastoral Land')
                                     ]
             create_mapping_with_loop = False
+        elif mapping_type == 'C_subclasses_only':
+            list_stay = [1, 2, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. Leave out C3. 
+        elif mapping_type == 'D_subclasses_only':
+            print('INCLUDING F3D AS D CLASS')
+            list_stay = [8, 9, 10, 11, 12, 15, 16, 17, 26, 29] # these classes stay the same, everything else goes ot no-class. Remove D4 and D7. 
+        elif mapping_type == 'E_subclasses_only':
+            list_stay = [21, 22, 23] # these classes stay the same, everything else goes ot no-class. 
+        elif mapping_type == 'E_subclasses_and_F3d_only':
+            list_stay = [21, 22, 23, 29] # these classes stay the same, everything else goes ot no-class. 
+        elif mapping_type == 'all_relevant_subclasses':
+            list_stay = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 21, 22, 23, 26, 29] # these classes stay the same, everything else goes ot no-class.
         elif mapping_type == 'main_categories_from_main_classes':
+            assert False, 'deprecated'
             list_old_inds_new_name = [  
                                         ([0, 4, 5, 6], 'NO CLASS'),
                                         ([1], 'Wood and Forest Land'),
@@ -1222,17 +1245,6 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
             
             create_mapping_with_loop = False
             finish_mapping = False
-        elif mapping_type == 'C_subclasses_only':
-            list_stay = [1, 2, 3, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. 
-        elif mapping_type == 'D_subclasses_only':
-            print('INCLUDING F3D AS D CLASS')
-            list_stay = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25, 28] # these classes stay the same, everything else goes ot no-class.
-        elif mapping_type == 'E_subclasses_only':
-            list_stay = [20, 21, 22] # these classes stay the same, everything else goes ot no-class. 
-        elif mapping_type == 'E_subclasses_and_F3d_only':
-            list_stay = [20, 21, 22, 28] # these classes stay the same, everything else goes ot no-class. 
-        elif mapping_type == 'all_relevant_subclasses':
-            list_stay = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 28] # these classes stay the same, everything else goes ot no-class.
         else:
             raise ValueError(f'Unknown mapping type {mapping_type}')
 
