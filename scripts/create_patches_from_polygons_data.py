@@ -57,6 +57,7 @@ def main(
     if create_mask_tiles:
         ## LC class names have to be changed to indices (eg C1 -> 1). Check to see if exists, else create one
         if create_high_level_masks:
+            assert False, 'deprecated -- instead, create detailed masks and use dict_mapping to convert to high level masks later'
             df_lc, col_name_class_index = lca.add_main_category_index_column(df_lc=df_lc, col_ind_name=col_name_class_index,
                                             col_code_name=col_name_class_name)  
         else:

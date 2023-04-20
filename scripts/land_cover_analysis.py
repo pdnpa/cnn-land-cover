@@ -1,4 +1,5 @@
 import os, sys, copy, datetime, pickle
+import itertools
 import time, datetime
 import numpy as np
 import json
@@ -1217,16 +1218,18 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
                                     ]
             create_mapping_with_loop = False
         elif mapping_type == 'C_subclasses_only':
-            list_stay = [1, 2, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. Leave out C3. 
+            ## tuples are grouped together (ie, mapped to the same class, using name of first class in tuple)
+            list_stay = [1, 2, (4, 5, 6), 7] # these classes stay the same, everything else goes ot no-class. Leave out C3. 
         elif mapping_type == 'D_subclasses_only':
             print('INCLUDING F3D AS D CLASS')
-            list_stay = [8, 9, 10, 11, 12, 15, 16, 17, 26, 29] # these classes stay the same, everything else goes ot no-class. Remove D4 and D7. 
+            # list_stay = [(8, 9), (10, 11), 12, 15, 16, 17, 26, 29] # these classes stay the same, everything else goes ot no-class. Remove D4 and D7. 
+            list_stay = [(8, 9), (11, 10), (12, 16), (17, 15), 26, 29] # these classes stay the same, everything else goes ot no-class. Remove D4 and D7. 
         elif mapping_type == 'E_subclasses_only':
             list_stay = [21, 22, 23] # these classes stay the same, everything else goes ot no-class. 
         elif mapping_type == 'E_subclasses_and_F3d_only':
             list_stay = [21, 22, 23, 29] # these classes stay the same, everything else goes ot no-class. 
         elif mapping_type == 'all_relevant_subclasses':
-            list_stay = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 21, 22, 23, 26, 29] # these classes stay the same, everything else goes ot no-class.
+            list_stay = [1, 2, (4, 5, 6), 7, (8, 9), (11, 10), (12, 16), (17, 15), 21, 22, 23, 26, 29] # these classes stay the same, everything else goes ot no-class.
         elif mapping_type == 'main_categories_from_main_classes':
             assert False, 'deprecated'
             list_old_inds_new_name = [  
@@ -1249,12 +1252,20 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
             raise ValueError(f'Unknown mapping type {mapping_type}')
 
         if create_mapping_with_loop:
+            flat_list_stay = list(itertools.chain(*(i if isinstance(i, tuple) else (i,) for i in list_stay)))
             list_old_inds_new_name = []
-            list_out = [x for x in dict_mapping['dict_old_names'].keys() if x not in list_stay]  # all other classes
+            list_out = [x for x in dict_mapping['dict_old_names'].keys() if x not in flat_list_stay]  # all other classes
             list_old_inds_new_name.append((list_out, 'NO CLASS'))
-            for kk in dict_mapping['dict_old_names'].keys():
-                if kk in list_stay:
+
+            for element in list_stay:
+                if type(element) == int:
+                    kk = element
+                    assert kk in dict_mapping['dict_old_names'].keys(), f'kk {kk} not in dict_mapping[dict_old_names].keys()'
                     list_old_inds_new_name.append(([kk], dict_mapping['dict_old_names'][kk]))
+                elif type(element) == tuple:
+                    for kk in element:
+                        assert kk in dict_mapping['dict_old_names'].keys(), f'kk {kk} not in dict_mapping[dict_old_names].keys()'
+                    list_old_inds_new_name.append((list(element), dict_mapping['dict_old_names'][element[0]]))  # use name of first class in tuple 
 
         if finish_mapping:
             for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):

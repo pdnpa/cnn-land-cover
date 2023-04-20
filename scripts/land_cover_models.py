@@ -180,7 +180,8 @@ class DataSetPatches(torch.utils.data.Dataset):
     def create_label_mapping(self):
         '''Prep the transformation of class inds'''
         if self.path_mapping_dict is None:
-            assert False, 'WARNING: no label mapping given - so using all labels individually'
+            assert False, 'WARNING: no label mapping given'
+            ##  using all labels individually
             dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
             if self.unique_labels_arr == None:  # if no array given, presume full array:
                 self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 
