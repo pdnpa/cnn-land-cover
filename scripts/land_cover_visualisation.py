@@ -606,12 +606,13 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         ## Heatmap of confusion matrix:
         if fmt_annot is None:
             fmt_annot = '.2f' if normalise_hm else '.1f'
-        sns.heatmap(conf_mat_norm * 100 if normalise_hm else conf_mat_norm, 
+        hm = sns.heatmap(conf_mat_norm * 100 if normalise_hm else conf_mat_norm, 
                     cmap='Greens', annot=True, fmt=fmt_annot, xticklabels=shortcuts, vmin=0,
                     yticklabels=shortcuts, cbar_kws={'label': 'Occurance (%)' if normalise_hm else 'Area (km^2)'}, ax=ax_hm)
         ax_hm.set_title('Confusion matrix evaluation data', fontdict={'weight': 'bold'})
         ax_hm.set_ylabel('True labels')
         ax_hm.set_xlabel('Predicted labels')
+        hm.set_yticklabels(hm.get_yticklabels(), rotation=0, ha='right')
 
         if suppress_zero_annot:
             for t in ax_hm.texts:

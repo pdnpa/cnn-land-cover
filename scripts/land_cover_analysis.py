@@ -1495,6 +1495,7 @@ def export_df_stats_to_latex(df_stats, path_latex=None, cols_2_decimals = ['Sens
                              cols_1_decimal_perc = ['Density test set']):
     '''Export df_stats to latex'''
     df_stats = df_stats.copy()
+    print(df_stats.columns)
     df_stats.columns = [x[0].upper() + x[1:] for x in df_stats.columns]
     
     for col in cols_2_decimals:

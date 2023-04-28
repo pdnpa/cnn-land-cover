@@ -204,7 +204,7 @@ if __name__ == '__main__':
             for current_loss_function in loss_functions_list:
                 for current_mapping_dict in mapping_dicts_list:
                     count += 1
-                    if count < 30:
+                    if count < 36:
                         continue
                     print(f'\n\n\nIteration {i + 1}/{n_repetitions} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
                     # train_segmentation_network(
