@@ -1757,7 +1757,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         ## Load shp file to see how many pols there are (takes some extra time)
         dict_new_shp_files[tilename] = os.path.join(new_dir, new_dir.split('/')[-1] + '.shp')
         tmp_pols = load_pols(dict_shp_files[tilename])
-        if len(tmp_pols) > 20:
+        if len(tmp_pols) > 20 and verbose > 0:
             print(f'Loaded {len(tmp_pols)} polygons for tile {tilename}')
 
     ## Loop over tiles and apply FGH override
@@ -1788,7 +1788,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         df_intersect = df_intersect.drop(['source_1', 'source_2'], axis=1)
         df_intersect = df_intersect.explode().reset_index(drop=True)  # in case multiple polygons are created by intersection
         df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
-        df_new = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
+        df_new, _ = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
                                                     col_ind_name='class')  # add numeric main label column
         df_new.crs = df_pred.crs  # set crs
 
