@@ -112,6 +112,7 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.organise_df_patches()
         print(f'Loaded {len(self.df_patches)} patches')
         self.create_label_mapping()    
+        assert hasattr(self, 'n_classes'), 'n_classes not defined (should be defined in create_label_mapping())'
         
     def __getitem__(self, index):
         '''Function that gets data items by index. I have added timings in case this should be sped up.'''
@@ -162,17 +163,29 @@ class DataSetPatches(torch.utils.data.Dataset):
             self.df_patches = self.df_patches.sort_values('patch_name')
         self.df_patches = self.df_patches.reset_index(drop=True)
             
-    def remove_no_class_patches(self):
+    def remove_no_class_patches(self, check_unique_classes=True):
         ## Loop through df_patches, load patches.
         ## Check if any class present (that isn't no class). If not, remove from df_patches
         n_patches = len(self.df_patches)
         list_patches_stay = []
+        if check_unique_classes:
+            list_unique_classes = []
         for ind in tqdm(range(n_patches)):
             _, mask = self.__getitem__(ind)
             if mask.sum() == 0:
                 pass 
             else:
                 list_patches_stay.append(ind)
+                if check_unique_classes:
+                    list_unique_classes.append(np.unique(mask))
+        if check_unique_classes:
+            list_unique_classes = np.unique(np.concatenate(list_unique_classes))
+            bool_classes_complete = (list_unique_classes == np.arange(len(list_unique_classes))).all()
+            if bool_classes_complete is False:
+                print(f'Unique classes are not 0 to n_classes-1: {list_unique_classes}')
+            self.list_unique_classes = list_unique_classes
+        else:
+            self.list_unique_classes = None
         self.df_patches = self.df_patches.iloc[np.array(list_patches_stay)]
         self.df_patches = self.df_patches.reset_index(drop=True)
         print(f'Removed {n_patches - len(self.df_patches)} patches with no class')
@@ -180,7 +193,8 @@ class DataSetPatches(torch.utils.data.Dataset):
     def create_label_mapping(self):
         '''Prep the transformation of class inds'''
         if self.path_mapping_dict is None:
-            assert False, 'WARNING: no label mapping given - so using all labels individually'
+            assert False, 'WARNING: no label mapping given'
+            ##  using all labels individually
             dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts() 
             if self.unique_labels_arr == None:  # if no array given, presume full array:
                 self.unique_labels_arr = np.unique(np.array(list(dict_ind_to_name.keys())))  # unique sorts too 

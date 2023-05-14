@@ -110,6 +110,12 @@ def train_segmentation_network(
         test_ds.remove_no_class_patches()
         test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus)
 
+    assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
+    # assert LCU.n_classes == len(train_ds.list_unique_classes),  'Not all classes occur in train DS (or vice versa)'
+    # assert (train_ds.list_unique_classes == test_ds.list_unique_classes).all(), 'Train and test DS have different classes'
+    # if use_valid_ds:
+    #     assert (train_ds.list_unique_classes == valid_ds.list_unique_classes).all(), 'Train and valid DS have different classes'
+
     ## Save details to model:
     lcm.save_details_trainds_to_model(model=LCU, train_ds=train_ds)
     LCU.dict_training_details['batch_size'] = batch_size
@@ -126,7 +132,9 @@ def train_segmentation_network(
     ## Train using PL API - saves automatically.
     cb_metrics = cl.MetricsCallback()
     callbacks = [pl.callbacks.ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
-                                            filename="best_checkpoint-{epoch:02d}-{val_loss:.2f}"),
+                                            filename="best_checkpoint_val-{epoch:02d}-{val_loss:.2f}-{train_loss:.2f}"),
+                 pl.callbacks.ModelCheckpoint(monitor='train_loss', save_top_k=1, mode='min',
+                                            filename="best_checkpoint_train-{epoch:02d}-{val_loss:.2f}-{train_loss:.2f}"),
                 #  pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min'),
                  cb_metrics]
     trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, 
@@ -177,14 +185,14 @@ if __name__ == '__main__':
         'focal_loss'
                           ] 
     mapping_dicts_list = [
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-03-09-1537.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-03-15-1323.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl'
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
+        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
                          ]
     list_encoder_names = [
-        'resnet50', 
-        'efficientnet-b1'
+        'resnet50' 
+        # 'efficientnet-b1'
                          ]
     n_repetitions = 5
     count = -1
@@ -196,9 +204,9 @@ if __name__ == '__main__':
             for current_loss_function in loss_functions_list:
                 for current_mapping_dict in mapping_dicts_list:
                     count += 1
-                    if count < 29:
+                    if count < 36:
                         continue
-                    print(f'\n\n\nIteration {i} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
+                    print(f'\n\n\nIteration {i + 1}/{n_repetitions} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
                     # train_segmentation_network(
                     #     loss_function=current_loss_function,
                     #     dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
@@ -220,11 +228,9 @@ if __name__ == '__main__':
 
                     train_segmentation_network(
                         loss_function=current_loss_function,
-                        dir_im_patches=['/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-                                        '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/'],
+                        dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',
                         dir_mask_patches=None,
-                        dir_test_im_patches=['/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-                                            '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/'],
+                        dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',
                         dir_test_mask_patches=None,
                         mask_suffix_train='_lc_2022_detailed_mask.npy',
                         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',

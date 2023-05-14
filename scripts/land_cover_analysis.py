@@ -1,4 +1,5 @@
 import os, sys, copy, datetime, pickle
+import itertools
 import time, datetime
 import numpy as np
 import json
@@ -362,6 +363,15 @@ def create_df_mapping_labels_2022_to_80s():
             for ii in range(3):  # all to be mapped back to 80s as Scrub
                 dict_80s_schema[it + ii] = val 
             it = it + 3 
+        elif val == 'Upland Heath':
+            print('splitting up heath')
+            dict_2022_schema[it] = val  # add new heath classes
+            dict_2022_schema[it + 1] = 'Upland Heath Blanket Bog'
+            dict_2022_names_to_labels[val] = 'D1a'
+            dict_2022_names_to_labels['Upland Heath Blanket Bog'] = 'D1b'
+            for ii in range(2):  # all to be mapped back to 80s as Upland Heath
+                dict_80s_schema[it + ii] = val
+            it = it + 2
         elif val == 'Wetland, Saltmarsh':
             print('adding wetland')
             dict_2022_schema[it] = 'Wetland, Saltmarsh'
@@ -392,8 +402,8 @@ def create_df_mapping_labels_2022_to_80s():
     assert len(dict_2022_schema) == len(dict_80s_schema)
 
     df_schema = pd.DataFrame({'description_2022': list(dict_2022_schema.values()),
-                            'description_80s': list(dict_80s_schema.values())})    
-        
+                              'description_80s': list(dict_80s_schema.values())})    
+
     df_schema = df_schema.assign(code_80s=[dict_old_names_to_labels[name] for name in df_schema['description_80s'].values])
     df_schema = df_schema.assign(code_2022=[dict_2022_names_to_labels[name] for name in df_schema['description_2022'].values])
     df_schema = df_schema.assign(index_2022=np.arange(len(df_schema)))
@@ -464,10 +474,12 @@ def add_detailed_index_column(df_lc, col_name_low_level_index='Class_lowi', col_
         ## Fix some human errors in the mapping:
         if 'C4' not in dict_mapping_name_to_index.keys():
             dict_mapping_name_to_index['C4'] = dict_mapping_name_to_index['C4a']
-        if 'G2' not in dict_mapping_name_to_index.keys():
-            dict_mapping_name_to_index['G2'] = dict_mapping_name_to_index['G2a']
+        if 'D1' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['D1'] = dict_mapping_name_to_index['D1a']
         if 'D2a' not in dict_mapping_name_to_index.keys():
             dict_mapping_name_to_index['D2a'] = dict_mapping_name_to_index['D2b']
+        if 'G2' not in dict_mapping_name_to_index.keys():
+            dict_mapping_name_to_index['G2'] = dict_mapping_name_to_index['G2a']
     df_lc[col_name_low_level_index] = df_lc[col_name_low_level_name].map(dict_mapping_name_to_index)
 
     classes_not_mapped = df_lc.loc[np.where(df_lc[col_name_low_level_index].isna())[0]][col_name_low_level_name].unique()
@@ -1188,24 +1200,38 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
 
         if mapping_type == 'main_categories':
             list_old_inds_new_name = [  
-                                        ([0, 43], 'NO CLASS'),
-                                        ([1, 2, 3, 4, 5, 6, 7], 'Wood and Forest Land'),
-                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], 'Moor and Heath Land'),
-                                        ([20, 21, 22], 'Agro-Pastoral Land'),
-                                        ([23, 24, 25, 26, 27, 28], 'Water and Wetland'),
-                                        ([29, 30, 31, 32, 33, 34], 'Rock and Coastal Land'),
-                                        ([35, 36, 37, 38, 39, 40, 41, 42], 'Developed Land')
+                                        ([0, 44], 'NO CLASS'),
+                                        (list(np.arange(1, 8)), 'Wood and Forest Land'),
+                                        (list(np.arange(8, 21)), 'Moor and Heath Land'),
+                                        (list(np.arange(21, 24)), 'Agro-Pastoral Land'),
+                                        (list(np.arange(24, 30)), 'Water and Wetland'),
+                                        (list(np.arange(30, 36)), 'Rock and Coastal Land'),
+                                        (list(np.arange(36, 44)), 'Developed Land')
                                     ]
             create_mapping_with_loop = False
         elif mapping_type == 'main_categories_F3inDE_noFGH':
             list_old_inds_new_name = [  
-                                        ([0, 23, 24, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43], 'NO CLASS'),
-                                        ([1, 2, 3, 4, 5, 6, 7], 'Wood and Forest Land'),
-                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25], 'Moor and Heath Land'),
-                                        ([20, 21, 22, 28], 'Agro-Pastoral Land')
+                                        ([0, 24, 25, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44], 'NO CLASS'),
+                                        (list(np.arange(1, 8)), 'Wood and Forest Land'),
+                                        ([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 26], 'Moor and Heath Land'),
+                                        ([21, 22, 23, 29], 'Agro-Pastoral Land')
                                     ]
             create_mapping_with_loop = False
+        elif mapping_type == 'C_subclasses_only':
+            ## tuples are grouped together (ie, mapped to the same class, using name of first class in tuple)
+            list_stay = [1, 2, (4, 5, 6), 7] # these classes stay the same, everything else goes ot no-class. Leave out C3. 
+        elif mapping_type == 'D_subclasses_only':
+            print('INCLUDING F3D AS D CLASS')
+            # list_stay = [(8, 9), (10, 11), 12, 15, 16, 17, 26, 29] # these classes stay the same, everything else goes ot no-class. Remove D4 and D7. 
+            list_stay = [(8, 9), (11, 10), (12, 16), (17, 15), 26, 29] # these classes stay the same, everything else goes ot no-class. Remove D4 and D7. 
+        elif mapping_type == 'E_subclasses_only':
+            list_stay = [21, 22, 23] # these classes stay the same, everything else goes ot no-class. 
+        elif mapping_type == 'E_subclasses_and_F3d_only':
+            list_stay = [21, 22, 23, 29] # these classes stay the same, everything else goes ot no-class. 
+        elif mapping_type == 'all_relevant_subclasses':
+            list_stay = [1, 2, (4, 5, 6), 7, (8, 9), (11, 10), (12, 16), (17, 15), 21, 22, 23, 26, 29] # these classes stay the same, everything else goes ot no-class.
         elif mapping_type == 'main_categories_from_main_classes':
+            assert False, 'deprecated'
             list_old_inds_new_name = [  
                                         ([0, 4, 5, 6], 'NO CLASS'),
                                         ([1], 'Wood and Forest Land'),
@@ -1222,27 +1248,24 @@ def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tp
             
             create_mapping_with_loop = False
             finish_mapping = False
-        elif mapping_type == 'C_subclasses_only':
-            list_stay = [1, 2, 3, 4, 5, 6, 7] # these classes stay the same, everything else goes ot no-class. 
-        elif mapping_type == 'D_subclasses_only':
-            print('INCLUDING F3D AS D CLASS')
-            list_stay = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 25, 28] # these classes stay the same, everything else goes ot no-class.
-        elif mapping_type == 'E_subclasses_only':
-            list_stay = [20, 21, 22] # these classes stay the same, everything else goes ot no-class. 
-        elif mapping_type == 'E_subclasses_and_F3d_only':
-            list_stay = [20, 21, 22, 28] # these classes stay the same, everything else goes ot no-class. 
-        elif mapping_type == 'all_relevant_subclasses':
-            list_stay = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 28] # these classes stay the same, everything else goes ot no-class.
         else:
             raise ValueError(f'Unknown mapping type {mapping_type}')
 
         if create_mapping_with_loop:
+            flat_list_stay = list(itertools.chain(*(i if isinstance(i, tuple) else (i,) for i in list_stay)))
             list_old_inds_new_name = []
-            list_out = [x for x in dict_mapping['dict_old_names'].keys() if x not in list_stay]  # all other classes
+            list_out = [x for x in dict_mapping['dict_old_names'].keys() if x not in flat_list_stay]  # all other classes
             list_old_inds_new_name.append((list_out, 'NO CLASS'))
-            for kk in dict_mapping['dict_old_names'].keys():
-                if kk in list_stay:
+
+            for element in list_stay:
+                if type(element) == int:
+                    kk = element
+                    assert kk in dict_mapping['dict_old_names'].keys(), f'kk {kk} not in dict_mapping[dict_old_names].keys()'
                     list_old_inds_new_name.append(([kk], dict_mapping['dict_old_names'][kk]))
+                elif type(element) == tuple:
+                    for kk in element:
+                        assert kk in dict_mapping['dict_old_names'].keys(), f'kk {kk} not in dict_mapping[dict_old_names].keys()'
+                    list_old_inds_new_name.append((list(element), dict_mapping['dict_old_names'][element[0]]))  # use name of first class in tuple 
 
         if finish_mapping:
             for new_ind, (old_ind_list, new_name) in enumerate(list_old_inds_new_name):
@@ -1472,6 +1495,7 @@ def export_df_stats_to_latex(df_stats, path_latex=None, cols_2_decimals = ['Sens
                              cols_1_decimal_perc = ['Density test set']):
     '''Export df_stats to latex'''
     df_stats = df_stats.copy()
+    print(df_stats.columns)
     df_stats.columns = [x[0].upper() + x[1:] for x in df_stats.columns]
     
     for col in cols_2_decimals:
@@ -1733,7 +1757,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         ## Load shp file to see how many pols there are (takes some extra time)
         dict_new_shp_files[tilename] = os.path.join(new_dir, new_dir.split('/')[-1] + '.shp')
         tmp_pols = load_pols(dict_shp_files[tilename])
-        if len(tmp_pols) > 20:
+        if len(tmp_pols) > 20 and verbose > 0:
             print(f'Loaded {len(tmp_pols)} polygons for tile {tilename}')
 
     ## Loop over tiles and apply FGH override
@@ -1764,7 +1788,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         df_intersect = df_intersect.drop(['source_1', 'source_2'], axis=1)
         df_intersect = df_intersect.explode().reset_index(drop=True)  # in case multiple polygons are created by intersection
         df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
-        df_new = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
+        df_new, _ = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
                                                     col_ind_name='class')  # add numeric main label column
         df_new.crs = df_pred.crs  # set crs
 
@@ -2110,7 +2134,6 @@ def use_soil_data_to_overwrite(df_lc=None, df_soil_path='/home/tplas/data/gis/Pe
     df_lc = test_validity_geometry_column(df_lc, verbose=verbose)
 
     print('Validating df_soil')
-
     df_soil = df_soil[df_soil['geometry'].intersects(df_outline.iloc[0]['geometry'])]
     df_soil = df_soil.explode()
     df_soil = test_validity_geometry_column(df_soil, verbose=verbose)
@@ -2123,8 +2146,8 @@ def use_soil_data_to_overwrite(df_lc=None, df_soil_path='/home/tplas/data/gis/Pe
         soil_merged = df_soil.dissolve()
         soil_merged = soil_merged['geometry'].iloc[0]
         
-        peat_mapping = {'D2b': 'D2d', 'D6a': 'D6c'}
-        non_peat_mapping = {'D2d': 'D2b', 'D6c': 'D6a'}
+        peat_mapping = {'D1a': 'D1b', 'D2b': 'D2d', 'D6a': 'D6c'}
+        non_peat_mapping = {'D1b': 'D1a', 'D2d': 'D2b', 'D6c': 'D6a'}
         all_keys = list(peat_mapping.keys()) + list(non_peat_mapping.keys())
         ## Loop through the soil data and replace the classes where geom overlaps with the soil data:
         count_changed, count_unchanged = 0, 0
