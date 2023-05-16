@@ -182,13 +182,14 @@ def train_segmentation_network(
 if __name__ == '__main__':
     loss_functions_list = [
         'cross_entropy', 
-        'focal_loss'
+        # 'focal_loss'
                           ] 
     mapping_dicts_list = [
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
-        '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
+          '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
+        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
                          ]
     list_encoder_names = [
         'resnet50' 
@@ -204,8 +205,8 @@ if __name__ == '__main__':
             for current_loss_function in loss_functions_list:
                 for current_mapping_dict in mapping_dicts_list:
                     count += 1
-                    if count < 36:
-                        continue
+                    # if count < 36:
+                    #     continue
                     print(f'\n\n\nIteration {i + 1}/{n_repetitions} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
                     # train_segmentation_network(
                     #     loss_function=current_loss_function,
