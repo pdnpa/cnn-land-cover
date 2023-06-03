@@ -20,7 +20,7 @@ import pandas as pd
 import geopandas as gpd
 from geocube.api.core import make_geocube
 import gdal, osr
-import libpysal
+# import libpysal
 import loadpaths
 import patchify 
 import torch
