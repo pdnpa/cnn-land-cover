@@ -1722,11 +1722,33 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class',
 
     return gdf
 
+def load_fgh_layer(filepath_fgh_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp',
+                   col_label='lc_label', dict_code_copies={'G2': 'G2a'}, add_numeric_class_index=True):
+
+    df_schema = create_df_mapping_labels_2022_to_80s()  # load schema to map fgh names to indices 
+    fgh_layer = load_pols(filepath_fgh_layer)
+    assert len(fgh_layer.columns) == 2 and np.all([x in ['geometry', col_label] for x in fgh_layer.columns]), f'fgh_layer should have only 2 columns: geometry and {col_label}'
+    
+    if add_numeric_class_index:
+        dict_code_to_label = {df_schema['code_2022'].iloc[x]: df_schema['index_2022'].iloc[x] for x in range(len(df_schema))}
+        for undefined_code, existing_code in dict_code_copies.items():
+            dict_code_to_label[undefined_code] = dict_code_to_label[existing_code]
+        for lab in fgh_layer[col_label].unique():
+            assert lab in dict_code_to_label.keys(), lab
+        
+        ## Add column with class index:
+        fgh_layer['class'] = fgh_layer['lc_label'].map(dict_code_to_label)
+
+    return fgh_layer
+
 def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
                                            tile_predictions_folder='/home/tplas/predictions/predictions_LCU_2022-11-30-1205_dissolved1000m2/', 
-                                           new_tile_predictions_override_folder=None, verbose=0):
+                                           new_tile_predictions_override_folder=None, verbose=0,
+                                           col_name_class='Class name'):
+    col_class_code = 'lc_label'  # putting this outside args because df_fgh has this column name
     ## Load FGH layer & get list of tile paths, and new directory for tile predictions with FGH override
-    df_fgh = gpd.read_file(filepath_manual_layer)
+    df_fgh = load_fgh_layer(filepath_fgh_layer=filepath_manual_layer,
+                            add_numeric_class_index=False, col_label=col_class_code)  # should be same as below
     date_fgh_modified = str(datetime.datetime.strptime(time.ctime(os.path.getmtime(filepath_manual_layer)), '%a %b %d %H:%M:%S %Y').date())
     df_fgh['source'] = f'OS NGD retrieved {date_fgh_modified}'  # set source OS NGD 
 
@@ -1760,41 +1782,69 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         if len(tmp_pols) > 20 and verbose > 0:
             print(f'Loaded {len(tmp_pols)} polygons for tile {tilename}')
 
-    ## Loop over tiles and apply FGH override
+    ## Loop over tiles and apply FGH override - assume only work with main classes 
     mapping_dict = {'Wood and Forest Land': 'C', 'Moor and Heath Land': 'D', 
                     'Agro-Pastoral Land': 'E', 'NO CLASS': 'I'}
     for tilename, tile_pred_path in tqdm(dict_shp_files.items()):
-        if verbose > 0:
+        if verbose > 1:
             print(tilename)
         df_pred = gpd.read_file(tile_pred_path)
         df_pred = df_pred.copy()
-        ## Get rid of columns that are not needed:
-        df_pred = df_pred.drop(['class', 'area'], axis=1)
+        assert df_pred.crs == df_fgh.crs, f'Error: crs of df_pred ({df_pred.crs}) is not the same as df_fgh ({df_fgh.crs})'
+
+        ## Get rid of columns that are not needed & change main class str names to ints:
+        cols_drop = [x for x in df_pred.columns if x not in [col_name_class, 'geometry']]
+        df_pred = df_pred.drop(cols_drop, axis=1)
         if len(df_pred) == 1:  # just to verify that what's happening is what I think is happening
             assert 'polygon_id' not in df_pred.columns
         else:
-            df_pred = df_pred.drop(['polygon_id'], axis=1)
-        df_pred['lc_label'] = df_pred['Class name'].map(mapping_dict)
-        df_pred = df_pred.drop(['Class name'], axis=1)
+            if 'polygon_id' in df_pred.columns:
+                df_pred = df_pred.drop(['polygon_id'], axis=1)
+        df_pred[col_class_code] = df_pred[col_name_class].map(mapping_dict)
+        df_pred = df_pred.drop([col_name_class], axis=1)
         df_pred['source'] = 'model prediction'  # set source 
-    
+
+        ## Get FGH polygons that intersect with df_pred (to speed up the merger below)
+        tile_outline = shp.geometry.box(*df_pred.total_bounds)  ## use bouding box of df_pred to get FGH polygons that intersect with df_pred
+        df_fgh_tile = df_fgh[df_fgh.intersects(tile_outline)]  # only keep FGH polygons that intersect with df_pred
+        n_pols_fgh = len(df_fgh_tile)
+        new_pols_fgh = [] 
+        new_classes_fgh = []
+        for nn in range(n_pols_fgh):  # only keep the part of the FGH polygons that intersect with df_pred (especially because some may be large, e.g., road networks)
+            pol = df_fgh_tile.iloc[nn]['geometry']
+            pol_intersect_tile = pol.intersection(tile_outline)
+            new_pols_fgh.append(pol_intersect_tile)
+            new_classes_fgh.append(df_fgh_tile.iloc[nn][col_class_code])
+        df_fgh_tile = gpd.GeoDataFrame(geometry=new_pols_fgh)
+        df_fgh_tile[col_class_code] = new_classes_fgh
+        df_fgh_tile = test_validity_geometry_column(df_fgh_tile)
+        df_fgh_tile = df_fgh_tile.explode(index_parts=True).reset_index(drop=True)
+        df_fgh_tile['source'] = f'OS NGD retrieved {date_fgh_modified}'  # set source OS NGD
+        df_fgh_tile.crs = df_fgh.crs 
+
         ## Merge with FGH layer:
-        df_diff = gpd.overlay(df_pred, df_fgh, how='difference')  # Get df pred polygons that are not in df fgh 
-        df_diff = df_diff.explode().reset_index(drop=True)
-        df_intersect = gpd.overlay(df_pred, df_fgh, how='intersection')  # Get overlap between df pred and df fgh
-        df_intersect['lc_label'] = df_intersect['lc_label_2']  #  FGH layer has priority (and was 2nd arg in overlay() above)
+        df_diff = gpd.overlay(df_pred, df_fgh_tile, how='difference')  # Get df pred polygons that are not in df fgh 
+        df_diff = test_validity_geometry_column(df_diff)
+        df_diff = df_diff.explode(index_parts=True).reset_index(drop=True)
+        df_intersect = gpd.overlay(df_pred, df_fgh_tile, how='intersection')  # Get overlap between df pred and df fgh
+        df_intersect[col_class_code] = df_intersect[f'{col_class_code}_2']  #  FGH layer has priority (and was 2nd arg in overlay() above)
         df_intersect['source'] = df_intersect['source_2']
-        df_intersect = df_intersect.drop(['lc_label_1', 'lc_label_2'], axis=1)
+        df_intersect = df_intersect.drop([f'{col_class_code}_1', f'{col_class_code}_2'], axis=1)
         df_intersect = df_intersect.drop(['source_1', 'source_2'], axis=1)
-        df_intersect = df_intersect.explode().reset_index(drop=True)  # in case multiple polygons are created by intersection
+        df_intersect = test_validity_geometry_column(df_intersect)
+        df_intersect = df_intersect.explode(index_parts=True).reset_index(drop=True)  # in case multiple polygons are created by intersection
         df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
-        df_new, _ = add_main_category_index_column(df_lc=df_new, col_code_name='lc_label',
+
+        ## Add numeric main index, might be needed for clipping detailed predictions later):
+        df_new, _ = add_main_category_index_column(df_lc=df_new, col_code_name=col_class_code,
                                                     col_ind_name='class')  # add numeric main label column
+        ## Instead/additionally, are the codes OK?
         df_new.crs = df_pred.crs  # set crs
 
         ## Dissolve again because intersections can break up FGH polygons, which then need to be dissolved again
-        df_new = df_new.dissolve(by='lc_label', as_index=False)  
-        df_new = df_new.explode().reset_index(drop=True)
+        df_new = df_new.dissolve(by=col_class_code, as_index=False)  
+        df_new = test_validity_geometry_column(df_new)    
+        df_new = df_new.explode(index_parts=True).reset_index(drop=True)
         
         ## Save:
         new_tile_path = dict_new_shp_files[tilename]

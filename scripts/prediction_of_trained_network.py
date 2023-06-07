@@ -38,7 +38,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
     if dissolve_small_pols:
         dissolved_name = '_dissolved' + str(dissolve_threshold) + 'm2'
     else:
-        dissolved_name = ''
+        dissolved_name = '_notdissolved'
     if clip_to_main_class:
         dissolved_name = dissolved_name + f'_clipped{main_class_clip_label}'
     identifier = 'predictions_' + LCU.model_name + dissolved_name + f'_padding{padding}'
@@ -73,6 +73,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
 
     ## Override predictions with manual FGH layer:
     if override_with_fgh_layer:
+        assert clip_to_main_class is False, 'Expected that FGH override would only happen on main class predictions, but clip_to_main_class is set to True which indicates that these are detailed class predictions'
         print('######\n\nOverride predictions with manual FGH layer\n\n######')
         save_folder = lca.override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
                                                                 tile_predictions_folder=save_folder, 
@@ -82,13 +83,21 @@ def predict_segmentation_network(datapath_model=None, padding=44,
         lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
 if __name__ == '__main__':
-    predict_segmentation_network(datapath_model='LCU_2023-04-24-1259.data', 
+
+    dict_cnns_best = {  ## determined in `Evaluate trained network.ipynb`
+        'main': 'LCU_2023-04-24-1259.data',
+        'C': 'LCU_2023-04-21-1335.data',
+        'D': 'LCU_2023-04-25-2057.data',
+        'E': 'LCU_2023-04-24-1216.data'
+    }
+
+    predict_segmentation_network(datapath_model=dict_cnns_best['main'], 
                                 clip_to_main_class=False, 
                                 main_class_clip_label=3,
                                 dissolve_small_pols=False,
                                 dissolve_threshold=100, 
                                 dir_mask_eval=None,
-                                override_with_fgh_layer=False,
+                                override_with_fgh_layer=True,
                                 dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
                                 parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_dissolved20m2_padding44/',
                                 subsample_tiles_for_testing=False,
@@ -96,3 +105,4 @@ if __name__ == '__main__':
                                 tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
                                 use_tile_outlines_shp_to_predict_those_tiles_only=True                                
                                 )
+
