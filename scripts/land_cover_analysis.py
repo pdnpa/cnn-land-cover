@@ -1808,32 +1808,38 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
         tile_outline = shp.geometry.box(*df_pred.total_bounds)  ## use bouding box of df_pred to get FGH polygons that intersect with df_pred
         df_fgh_tile = df_fgh[df_fgh.intersects(tile_outline)]  # only keep FGH polygons that intersect with df_pred
         n_pols_fgh = len(df_fgh_tile)
-        new_pols_fgh = [] 
-        new_classes_fgh = []
-        for nn in range(n_pols_fgh):  # only keep the part of the FGH polygons that intersect with df_pred (especially because some may be large, e.g., road networks)
-            pol = df_fgh_tile.iloc[nn]['geometry']
-            pol_intersect_tile = pol.intersection(tile_outline)
-            new_pols_fgh.append(pol_intersect_tile)
-            new_classes_fgh.append(df_fgh_tile.iloc[nn][col_class_code])
-        df_fgh_tile = gpd.GeoDataFrame(geometry=new_pols_fgh)
-        df_fgh_tile[col_class_code] = new_classes_fgh
-        df_fgh_tile = test_validity_geometry_column(df_fgh_tile)
-        df_fgh_tile = df_fgh_tile.explode(index_parts=True).reset_index(drop=True)
-        df_fgh_tile['source'] = f'OS NGD retrieved {date_fgh_modified}'  # set source OS NGD
-        df_fgh_tile.crs = df_fgh.crs 
+        if n_pols_fgh > 0:
+            new_pols_fgh = [] 
+            new_classes_fgh = []
+            for nn in range(n_pols_fgh):  # only keep the part of the FGH polygons that intersect with df_pred (especially because some may be large, e.g., road networks)
+                pol = df_fgh_tile.iloc[nn]['geometry']
+                pol_intersect_tile = pol.intersection(tile_outline)
+                new_pols_fgh.append(pol_intersect_tile)
+                new_classes_fgh.append(df_fgh_tile.iloc[nn][col_class_code])
+            df_fgh_tile = gpd.GeoDataFrame(geometry=new_pols_fgh)
+            df_fgh_tile[col_class_code] = new_classes_fgh
+            df_fgh_tile = test_validity_geometry_column(df_fgh_tile)
+            df_fgh_tile = df_fgh_tile.explode(index_parts=True).reset_index(drop=True)
+            ## It can happen by coincidence that a polygon is split into a linestring and a polygon, so we need to remove the linestring:
+            df_fgh_tile = df_fgh_tile[df_fgh_tile.geometry.type == 'Polygon']
+            df_fgh_tile = df_fgh_tile.reset_index(drop=True)
+            df_fgh_tile['source'] = f'OS NGD retrieved {date_fgh_modified}'  # set source OS NGD
+            df_fgh_tile.crs = df_fgh.crs 
 
-        ## Merge with FGH layer:
-        df_diff = gpd.overlay(df_pred, df_fgh_tile, how='difference')  # Get df pred polygons that are not in df fgh 
-        df_diff = test_validity_geometry_column(df_diff)
-        df_diff = df_diff.explode(index_parts=True).reset_index(drop=True)
-        df_intersect = gpd.overlay(df_pred, df_fgh_tile, how='intersection')  # Get overlap between df pred and df fgh
-        df_intersect[col_class_code] = df_intersect[f'{col_class_code}_2']  #  FGH layer has priority (and was 2nd arg in overlay() above)
-        df_intersect['source'] = df_intersect['source_2']
-        df_intersect = df_intersect.drop([f'{col_class_code}_1', f'{col_class_code}_2'], axis=1)
-        df_intersect = df_intersect.drop(['source_1', 'source_2'], axis=1)
-        df_intersect = test_validity_geometry_column(df_intersect)
-        df_intersect = df_intersect.explode(index_parts=True).reset_index(drop=True)  # in case multiple polygons are created by intersection
-        df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
+            ## Merge with FGH layer:
+            df_diff = gpd.overlay(df_pred, df_fgh_tile, how='difference')  # Get df pred polygons that are not in df fgh 
+            df_diff = test_validity_geometry_column(df_diff)
+            df_diff = df_diff.explode(index_parts=True).reset_index(drop=True)
+            df_intersect = gpd.overlay(df_pred, df_fgh_tile, how='intersection')  # Get overlap between df pred and df fgh
+            df_intersect[col_class_code] = df_intersect[f'{col_class_code}_2']  #  FGH layer has priority (and was 2nd arg in overlay() above)
+            df_intersect['source'] = df_intersect['source_2']
+            df_intersect = df_intersect.drop([f'{col_class_code}_1', f'{col_class_code}_2'], axis=1)
+            df_intersect = df_intersect.drop(['source_1', 'source_2'], axis=1)
+            df_intersect = test_validity_geometry_column(df_intersect)
+            df_intersect = df_intersect.explode(index_parts=True).reset_index(drop=True)  # in case multiple polygons are created by intersection
+            df_new = gpd.GeoDataFrame(pd.concat([df_diff, df_intersect], ignore_index=True))  # Concatenate all polygons
+        else:
+            df_new = df_pred
 
         ## Add numeric main index, might be needed for clipping detailed predictions later):
         df_new, _ = add_main_category_index_column(df_lc=df_new, col_code_name=col_class_code,
