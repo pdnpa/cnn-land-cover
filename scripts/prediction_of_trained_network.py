@@ -69,7 +69,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
     print('\nResults saved!\n\n')
 
     ## Merge all tiles into one shapefile:
-    lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder, filename=f'merged_tiles_{identifier}.shp')
+    lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
 
     ## Override predictions with manual FGH layer:
     if override_with_fgh_layer:
@@ -91,18 +91,27 @@ if __name__ == '__main__':
         'E': 'LCU_2023-04-24-1216.data'
     }
 
-    predict_segmentation_network(datapath_model=dict_cnns_best['main'], 
-                                clip_to_main_class=False, 
-                                main_class_clip_label=3,
-                                dissolve_small_pols=False,
-                                dissolve_threshold=100, 
-                                dir_mask_eval=None,
-                                override_with_fgh_layer=True,
-                                dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
-                                parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_dissolved20m2_padding44/',
-                                subsample_tiles_for_testing=False,
-                                # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
-                                tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
-                                use_tile_outlines_shp_to_predict_those_tiles_only=True                                
-                                )
+    dict_cnns_clip_to_main_class = { 
+        'main': None,
+        'C': 1,
+        'D': 2,
+        'E': 3   
+    }
+
+    # model_use = 'main'
+    for model_use in ['C', 'D', 'E']:
+        predict_segmentation_network(datapath_model=dict_cnns_best[model_use], 
+                                    clip_to_main_class=False if model_use == 'main' else True, 
+                                    main_class_clip_label=dict_cnns_clip_to_main_class[model_use],
+                                    dissolve_small_pols=False,
+                                    dissolve_threshold=100, 
+                                    dir_mask_eval=None,
+                                    override_with_fgh_layer=True if model_use == 'main' else False,
+                                    dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
+                                    parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
+                                    subsample_tiles_for_testing=False,
+                                    # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
+                                    tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
+                                    use_tile_outlines_shp_to_predict_those_tiles_only=True                                
+                                    )
 

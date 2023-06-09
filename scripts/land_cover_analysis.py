@@ -1861,10 +1861,14 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
 
 def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, filename=None):
     if filename is None:
-        filename = 'merged_tiles.shp'
+        curr_dir_name = dir_indiv_tile_shp.split('/') 
+        curr_dir_name = curr_dir_name[-1] if curr_dir_name[-1] != '' else curr_dir_name[-2]  # in case dir_indiv_tile_shp ends with '/'
+        filename = f'merged_{curr_dir_name}.shp'
+        # filename = 'merged_tiles.shp'
     else:
         assert type(filename) == str
         assert filename[-4:] == '.shp'
+
     subdirs_tiles = [os.path.join(dir_indiv_tile_shp, x) for x in os.listdir(dir_indiv_tile_shp) if os.path.isdir(os.path.join(dir_indiv_tile_shp, x))]
     print(f'Merging {len(subdirs_tiles)} tiles found in {dir_indiv_tile_shp}')
     for i_tile, pred_dir in tqdm(enumerate(subdirs_tiles)):
