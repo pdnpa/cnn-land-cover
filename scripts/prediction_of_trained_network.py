@@ -11,6 +11,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
                                  dissolve_small_pols = True,
                                 dissolve_threshold = 1000,
                                 clip_to_main_class=False,
+                                col_name_class=None,  # name of column in main predictions shapefile that contains the class label (if None, found automatically if only one candidate column exists)
                                 main_class_clip_label='D',
                                 skip_factor=16,
                                 save_shp_prediction = True,
@@ -60,6 +61,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
                                 area_threshold=dissolve_threshold, skip_factor=skip_factor,
                                 padding=padding, mask_suffix=mask_suffix,
                                 clip_to_main_class=clip_to_main_class, main_class_clip_label=main_class_clip_label, 
+                                col_name_class=col_name_class,
                                 parent_dir_tile_mainpred=parent_dir_tile_mainpred, tile_outlines_shp_path=tile_outlines_shp_path,
                                 subsample_tiles_for_testing=subsample_tiles_for_testing)
 
@@ -102,7 +104,8 @@ if __name__ == '__main__':
     for model_use in ['C', 'D', 'E']:
         predict_segmentation_network(datapath_model=dict_cnns_best[model_use], 
                                     clip_to_main_class=False if model_use == 'main' else True, 
-                                    main_class_clip_label=dict_cnns_clip_to_main_class[model_use],
+                                    col_name_class='lc_label',
+                                    main_class_clip_label=model_use, # dict_cnns_clip_to_main_class[model_use],
                                     dissolve_small_pols=False,
                                     dissolve_threshold=100, 
                                     dir_mask_eval=None,

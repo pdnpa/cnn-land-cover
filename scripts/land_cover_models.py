@@ -630,7 +630,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
                         create_shp=False, verbose=1,
                         dissolve_small_pols=False, area_threshold=100,
                         reconstruct_padded_tile_edges=True,
-                        clip_to_main_class=False, main_class_clip_label='C', parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                        clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
+                        parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                         tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
     if trainer is None:
@@ -752,7 +753,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
             print(f'Now clipping to main class {main_class_clip_label}')
         assert main_class_clip_label in ['C', 'D', 'E' , 1, 2, 3], main_class_clip_label
         assert type(tilename) == str and len(tilename) == 6, tilename
-        mask_tile = lca.clip_raster_to_main_class_pred(mask_tile, tilename=tilename, class_label=main_class_clip_label,
+        mask_tile = lca.clip_raster_to_main_class_pred(mask_tile, tilename=tilename, 
+                                    col_name_class=col_name_class, class_label=main_class_clip_label,
                                     parent_dir_tile_mainpred=parent_dir_tile_mainpred,
                                     tile_outlines_shp_path=tile_outlines_shp_path)
 
@@ -797,7 +799,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                             dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, padding=0, save_shp=False, save_raster=False, save_folder=None,
                              dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
-                             clip_to_main_class=False, main_class_clip_label='C', 
+                             clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
                              parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                              tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                              subsample_tiles_for_testing=False):
@@ -862,6 +864,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                                                       save_shp=save_shp, save_raster=save_raster, save_folder=save_folder,
                                                       create_shp=True, patch_size=patch_size, padding=padding, tilename=tilename,
                                                       clip_to_main_class=clip_to_main_class, main_class_clip_label=main_class_clip_label, 
+                                                      col_name_class=col_name_class,
                                                       parent_dir_tile_mainpred=parent_dir_tile_mainpred,
                                                       tile_outlines_shp_path=tile_outlines_shp_path,                             
                                                       dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold)

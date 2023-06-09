@@ -1965,12 +1965,12 @@ def set_all_raster_values_to_no_class(raster_im):
 def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C', 
                                    parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                                    tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
-                                   verbose=0):
+                                   verbose=0, col_name_class=None):
     '''Clip raster to area in main class prediction within tile'''
     ## Get main class prediction
     df_main = get_main_class_outline_for_tile(parent_dir_tile_pred=parent_dir_tile_mainpred, 
                                               tilename=tilename, class_label=class_label,
-                                              col_name_class=None)
+                                              col_name_class=col_name_class)
     if verbose > 0:
         print(f'Found {len(df_main)} polygons for class {class_label} in tile {tilename}')
         print(f'Exterior bounds pols: {df_main.total_bounds}')
