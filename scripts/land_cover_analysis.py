@@ -1616,7 +1616,7 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
                                                                 class_dependent_area_thresholds=dict(),
                                                                 class_col='class', ignore_index=0,
                                                                 exclude_no_class_from_large_pols=True,
-                                                                verbose=0):
+                                                                verbose=1):
     '''Find polygons smaller than area_threshold and larger than area_threshold'''
     assert type(gdf) == gpd.GeoDataFrame
     assert type(class_dependent_area_thresholds) == dict, f'Class dependent area thresholds must be a dict, not {type(class_dependent_area_thresholds)}'   
@@ -1626,6 +1626,9 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
     class_array = gdf[class_col] 
     threshold_array = np.zeros_like(area_array) - 1 # -1 means no threshold
     list_classes_not_in_dict = []
+    if verbose >= 1:
+        f'Class dependent area thresholds: {class_dependent_area_thresholds}'
+        f'Classes in data: {np.unique(class_array)}'
     for class_ in np.unique(class_array):
         if class_ in class_dependent_area_thresholds.keys():
             inds = np.where(class_array == class_)[0]
@@ -1648,12 +1651,14 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
 
     return gdf, inds_pols_lower_th, inds_pols_greater_th
 
-def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', 
+def filter_small_polygons_from_gdf(gdf, class_col='class', 
+                                   area_threshold=1e1, use_class_dependent_area_thresholds=True,
+                                    class_dependent_area_thresholds={1: 0, 2: 1e3, 3: 1e3},
                                    verbose=1, max_it=5, ignore_index=0, 
                                    exclude_no_class_from_large_pols=True,
                                    convert_to_no_class_if_all_pols_too_small=False):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
-    assert type(gdf) == gpd.GeoDataFrame
+    assert type(gdf) == gpd.GeoDataFrame, f'gdf must be a GeoDataFrame, not {type(gdf)}'
     assert convert_to_no_class_if_all_pols_too_small == False, 'Putting stop here as warning.'
     n_pols_start = len(gdf)
     gdf = copy.deepcopy(gdf)
@@ -1666,12 +1671,19 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class',
     while continue_dissolving:
         if verbose > 0:
             print(f'Current iteration: {current_it}/{max_it}')
-        gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_area_threshold(gdf=gdf, area_threshold=area_threshold, 
-                                                                    class_col=class_col, ignore_index=ignore_index, 
-                                                                    exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
+        if use_class_dependent_area_thresholds:
+            gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_area_threshold_per_class(gdf=gdf, 
+                                                                        default_area_threshold=area_threshold, 
+                                                                        class_dependent_area_thresholds=class_dependent_area_thresholds,
+                                                                        class_col=class_col, ignore_index=ignore_index, 
+                                                                        exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
+        else:
+            gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_area_threshold(gdf=gdf, area_threshold=area_threshold, 
+                                                                        class_col=class_col, ignore_index=ignore_index, 
+                                                                        exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
         n_pols_start_loop = len(gdf)
         if verbose > 0 and current_it == 0:
-            print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols_start}')
+            print(f'Number of pols smaller than threshold ({area_threshold}): {len(inds_pols_lower_th)}/{n_pols_start}')
         other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
 
         if len(inds_pols_greater_th) == 0:  ## No pols greater than area threshold; 
@@ -1754,7 +1766,16 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class',
         gdf['polygon_id_in_tile'] = gdf.index
 
          ## Stop conditions: 1) no more small pols, 2) no more changes, 3) max number of iterations
-        if len(gdf[gdf['area'] < area_threshold]) == 0:
+        if use_class_dependent_area_thresholds:
+            _, inds_pols_lower_th, __ = find_pols_smaller_and_greater_than_area_threshold_per_class(gdf=gdf, 
+                                                                        default_area_threshold=area_threshold, 
+                                                                        class_dependent_area_thresholds=class_dependent_area_thresholds,
+                                                                        class_col=class_col, ignore_index=ignore_index, 
+                                                                        exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
+            n_pols_to_be_dissolved = len(inds_pols_lower_th)
+        else:
+            n_pols_to_be_dissolved = len(gdf[gdf['area'] < area_threshold])
+        if n_pols_to_be_dissolved == 0:
             if verbose > 0:
                 print(f'SUCCESS: No more polygons smaller than {area_threshold}. Stopping.')
             continue_dissolving = False
