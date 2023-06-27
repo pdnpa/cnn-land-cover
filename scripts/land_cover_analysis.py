@@ -1598,7 +1598,7 @@ def get_padding_edges_from_sizes(image_size=8000, patch_size=512, padding=42):
     end_prediction = n_pix_fit - half_pad
     return start_prediction, end_prediction
 
-def find_pols_smaller_and_greater_than_threshold(gdf, area_threshold=1e1, class_col='class',
+def find_pols_smaller_and_greater_than_area_threshold(gdf, area_threshold=1e1, class_col='class',
                                                 ignore_index=0, exclude_no_class_from_large_pols=True):
     '''Find polygons smaller than area_threshold and larger than area_threshold'''
     assert type(gdf) == gpd.GeoDataFrame
@@ -1609,6 +1609,42 @@ def find_pols_smaller_and_greater_than_threshold(gdf, area_threshold=1e1, class_
     else:
         inds_pols_greater_th = np.where(area_array >= area_threshold)[0] 
     inds_pols_lower_th = np.where(area_array < area_threshold)[0]
+
+    return gdf, inds_pols_lower_th, inds_pols_greater_th
+
+def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_area_threshold=1e1, 
+                                                                class_dependent_area_thresholds=dict(),
+                                                                class_col='class', ignore_index=0,
+                                                                exclude_no_class_from_large_pols=True,
+                                                                verbose=0):
+    '''Find polygons smaller than area_threshold and larger than area_threshold'''
+    assert type(gdf) == gpd.GeoDataFrame
+    assert type(class_dependent_area_thresholds) == dict, f'Class dependent area thresholds must be a dict, not {type(class_dependent_area_thresholds)}'   
+    assert default_area_threshold >= 0, f'Default area threshold must be >= 0, not {default_area_threshold}'
+
+    area_array = gdf['geometry'].area
+    class_array = gdf[class_col] 
+    threshold_array = np.zeros_like(area_array) - 1 # -1 means no threshold
+    list_classes_not_in_dict = []
+    for class_ in np.unique(class_array):
+        if class_ in class_dependent_area_thresholds.keys():
+            inds = np.where(class_array == class_)[0]
+            threshold_array[inds] = class_dependent_area_thresholds[class_]
+        else:
+            inds = np.where(class_array == class_)[0]
+            threshold_array[inds] = default_area_threshold
+            list_classes_not_in_dict.append(class_)
+    assert np.all(threshold_array >= 0), f'All thresholds must be >= 0, not {threshold_array}'
+    if verbose >= 1:
+        if len(list_classes_not_in_dict) > 0:
+            print(f'Class dependent area thresholds: {class_dependent_area_thresholds}')
+            print(f'Classes not in dict: {list_classes_not_in_dict}')
+
+    if exclude_no_class_from_large_pols:
+        inds_pols_greater_th = np.where(np.logical_and(area_array >= threshold_array, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
+    else:
+        inds_pols_greater_th = np.where(area_array >= threshold_array)[0] 
+    inds_pols_lower_th = np.where(area_array < threshold_array)[0]
 
     return gdf, inds_pols_lower_th, inds_pols_greater_th
 
@@ -1630,7 +1666,7 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class',
     while continue_dissolving:
         if verbose > 0:
             print(f'Current iteration: {current_it}/{max_it}')
-        gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_threshold(gdf=gdf, area_threshold=area_threshold, 
+        gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_area_threshold(gdf=gdf, area_threshold=area_threshold, 
                                                                     class_col=class_col, ignore_index=ignore_index, 
                                                                     exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
         n_pols_start_loop = len(gdf)
