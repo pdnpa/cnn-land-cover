@@ -1598,52 +1598,67 @@ def get_padding_edges_from_sizes(image_size=8000, patch_size=512, padding=42):
     end_prediction = n_pix_fit - half_pad
     return start_prediction, end_prediction
 
+def find_pols_smaller_and_greater_than_threshold(gdf, area_threshold=1e1, class_col='class',
+                                                ignore_index=0, exclude_no_class_from_large_pols=True):
+    '''Find polygons smaller than area_threshold and larger than area_threshold'''
+    assert type(gdf) == gpd.GeoDataFrame
+
+    area_array = gdf['geometry'].area
+    if exclude_no_class_from_large_pols:
+        inds_pols_greater_th = np.where(np.logical_and(area_array >= area_threshold, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
+    else:
+        inds_pols_greater_th = np.where(area_array >= area_threshold)[0] 
+    inds_pols_lower_th = np.where(area_array < area_threshold)[0]
+
+    return gdf, inds_pols_lower_th, inds_pols_greater_th
+
 def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class', 
-                                   verbose=1, max_it=5, ignore_index=0, exclude_no_class_from_large_pols=True):
+                                   verbose=1, max_it=5, ignore_index=0, 
+                                   exclude_no_class_from_large_pols=True,
+                                   convert_to_no_class_if_all_pols_too_small=False):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
     assert type(gdf) == gpd.GeoDataFrame
+    assert convert_to_no_class_if_all_pols_too_small == False, 'Putting stop here as warning.'
     n_pols_start = len(gdf)
     gdf = copy.deepcopy(gdf)
        
     ## Each iteration of the loop will dissolve polygons that are smaller than area_threshold and adjacent to a large polygon
     ## But if a small polygon is inside another small polygon, it will not be dissolved. Hence the while loop to iterate until no more small polygons are left.
     current_it = 0
-    continue_dissolving = True
-    sort_ascending = True
+    continue_dissolving = True  # multiple triggers to stop loop at end of while loop
+    sort_ascending = True  # speeds up the process
     while continue_dissolving:
         if verbose > 0:
             print(f'Current iteration: {current_it}/{max_it}')
-        area_array = gdf['geometry'].area
-        if exclude_no_class_from_large_pols:
-            inds_pols_greater_th = np.where(np.logical_and(area_array >= area_threshold, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
-        else:
-            inds_pols_greater_th = np.where(area_array >= area_threshold)[0] 
-        inds_pols_lower_th = np.where(area_array < area_threshold)[0]
+        gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_threshold(gdf=gdf, area_threshold=area_threshold, 
+                                                                    class_col=class_col, ignore_index=ignore_index, 
+                                                                    exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
         n_pols_start_loop = len(gdf)
         if verbose > 0 and current_it == 0:
             print(f'Number of pols smaller than {area_threshold}: {len(inds_pols_lower_th)}/{n_pols_start}')
         other_cols = [x for x in gdf.columns if x not in ['geometry', class_col]]
 
-        if len(inds_pols_greater_th) == 0:
-            ## No pols greater than area threshold; 
-            ## Leave as it is:
-            return gdf
-            # ## convert all small pols to no-class. Do this manually to speed up. 
-            # if verbose > 0:
-            #     print('No pols greater than area threshold. Converting all small pols to no-class')
-            # bounds_tile = tuple(gdf.total_bounds)
-            # pol_tile = shapely.geometry.box(*bounds_tile)
-            # gdf_new = gpd.GeoDataFrame(geometry=[pol_tile], crs=gdf.crs)
-            # gdf_new[class_col] = ignore_index
-            # no_class_inds_original_gdf = np.where(gdf[class_col] == ignore_index)[0]
-            # if len(no_class_inds_original_gdf) > 0:
-            #     for col_name in other_cols:
-            #         gdf_new[col_name] = gdf.iloc[no_class_inds_original_gdf[0]][col_name]
-            # else:
-            #     for col_name in other_cols:
-            #         gdf_new[col_name] = np.nan
-            # return gdf_new 
-
+        if len(inds_pols_greater_th) == 0:  ## No pols greater than area threshold; 
+            if convert_to_no_class_if_all_pols_too_small:
+                ## convert all small pols to no-class. Do this manually to speed up. 
+                if verbose > 0:
+                    print('No pols greater than area threshold. Converting all small pols to no-class')
+                bounds_tile = tuple(gdf.total_bounds)
+                pol_tile = shapely.geometry.box(*bounds_tile)
+                gdf_new = gpd.GeoDataFrame(geometry=[pol_tile], crs=gdf.crs)
+                gdf_new[class_col] = ignore_index
+                no_class_inds_original_gdf = np.where(gdf[class_col] == ignore_index)[0]
+                if len(no_class_inds_original_gdf) > 0:
+                    for col_name in other_cols:
+                        gdf_new[col_name] = gdf.iloc[no_class_inds_original_gdf[0]][col_name]
+                else:
+                    for col_name in other_cols:
+                        gdf_new[col_name] = np.nan
+                return gdf_new 
+            else: 
+                ## Leave as it is:
+                return gdf
+            
         elif len(inds_pols_greater_th) == 1:
             ## Only 1 pol greater than are; convert all small pols to this class. Do this manually to speed up. 
             if verbose > 0:
@@ -1681,7 +1696,7 @@ def filter_small_polygons_from_gdf(gdf, area_threshold=1e1, class_col='class',
                     ind_nearest_pol = list_selection_nearby_large_pols[i_large_pol]
                     convert_pol = True
                     break
-                if i_large_pol == n_sel - 2:  # this is the second last large pol, so it must be the last one. Because they are sorted by area, the last one will take most time (especially when there is 1 huge polygon at the end)
+                if i_large_pol == n_sel - 2:  # this is the second last large pol, which wasnt selected in the prior if statement, so it must be the last one. Because they are sorted by area, the last one will take most time (especially when there is 1 huge polygon at the end)
                     ind_nearest_pol = list_selection_nearby_large_pols[-1]
                     convert_pol = True
                     break
