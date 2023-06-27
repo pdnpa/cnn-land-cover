@@ -3,6 +3,7 @@ import itertools
 import time, datetime
 import numpy as np
 import json
+import shutil
 from numpy.core.multiarray import square
 from numpy.testing import print_assert_equal
 import rasterio
@@ -1859,7 +1860,8 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
     print('\n#####\n\nDone with FGH override\n\n#####\n')
     return new_tile_predictions_override_folder
 
-def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, filename=None):
+def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, filename=None,
+                               delete_individual_shp_files=False):
     if filename is None:
         curr_dir_name = dir_indiv_tile_shp.split('/') 
         curr_dir_name = curr_dir_name[-1] if curr_dir_name[-1] != '' else curr_dir_name[-2]  # in case dir_indiv_tile_shp ends with '/'
@@ -1868,6 +1870,10 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
     else:
         assert type(filename) == str
         assert filename[-4:] == '.shp'
+
+    if delete_individual_shp_files:
+        assert save_merged_shp_file, 'If delete_individual_shp_files is True, save_merged_shp_file must be True as well'
+        print('WARNING: delete_individual_shp_files is True, so individual shp files will be deleted after merging')
 
     subdirs_tiles = [os.path.join(dir_indiv_tile_shp, x) for x in os.listdir(dir_indiv_tile_shp) if os.path.isdir(os.path.join(dir_indiv_tile_shp, x))]
     print(f'Merging {len(subdirs_tiles)} tiles found in {dir_indiv_tile_shp}')
@@ -1883,6 +1889,10 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
         if not os.path.exists(dir_path_merged):
             os.mkdir(dir_path_merged)
         df_all.to_file(os.path.join(dir_path_merged, filename))
+
+        if delete_individual_shp_files:
+            for subdir in subdirs_tiles:
+                shutil.rmtree(subdir)
 
     return df_all
 

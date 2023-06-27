@@ -82,7 +82,7 @@ def predict_segmentation_network(datapath_model=None, padding=44,
                                                                 new_tile_predictions_override_folder=None, verbose=1)
 
         ## Merge all FGH_override tiles into one shapefile:
-        lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
+        lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder, delete_individual_shp_files=True)
 
 if __name__ == '__main__':
 
@@ -91,13 +91,6 @@ if __name__ == '__main__':
         'C': 'LCU_2023-04-21-1335.data',
         'D': 'LCU_2023-04-25-2057.data',
         'E': 'LCU_2023-04-24-1216.data'
-    }
-
-    dict_cnns_clip_to_main_class = { 
-        'main': None,
-        'C': 1,
-        'D': 2,
-        'E': 3   
     }
 
     # model_use = 'main'
