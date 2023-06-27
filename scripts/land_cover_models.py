@@ -629,6 +629,8 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
                         batch_size=10, save_raster=False, save_shp=False,
                         create_shp=False, verbose=1,
                         dissolve_small_pols=False, area_threshold=100,
+                        use_class_dependent_area_thresholds=False,
+                        class_dependent_area_thresholds=dict(),
                         reconstruct_padded_tile_edges=True,
                         clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
                         parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
@@ -770,7 +772,9 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
         for ii, lab in enumerate(model.dict_training_details['class_name_list']):
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
         if dissolve_small_pols:
-            gdf = lca.filter_small_polygons_from_gdf(gdf=gdf, area_threshold=area_threshold, class_col='class',
+            gdf = lca.filter_small_polygons_from_gdf(gdf=gdf, class_col='class',
+                                                     area_threshold=area_threshold, use_class_dependent_area_thresholds=use_class_dependent_area_thresholds,
+                                                     class_dependent_area_thresholds=class_dependent_area_thresholds,
                                                      verbose=verbose, exclude_no_class_from_large_pols=False if clip_to_main_class else True)  # if clip is True, then you don't want to exclude no class from large pols because everything that was clipped will be no class
             ## Then convert back to raster so they are consistent: 
             ds_dissolved_tile = lca.convert_shp_mask_to_raster(df_shp=gdf, col_name='class')
@@ -798,7 +802,10 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
 def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_predict=None,
                             dir_mask_eval=None, mask_suffix='_lc_2022_mask.tif',
                              patch_size=512, padding=0, save_shp=False, save_raster=False, save_folder=None,
-                             dissolve_small_pols=False, area_threshold=100, skip_factor=None, 
+                             dissolve_small_pols=False, area_threshold=100, 
+                             use_class_dependent_area_thresholds=False,
+                            class_dependent_area_thresholds=dict(),
+                             skip_factor=None, 
                              clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
                              parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                              tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
@@ -867,7 +874,9 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                                                       col_name_class=col_name_class,
                                                       parent_dir_tile_mainpred=parent_dir_tile_mainpred,
                                                       tile_outlines_shp_path=tile_outlines_shp_path,                             
-                                                      dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold)
+                                                      dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold,
+                                                      use_class_dependent_area_thresholds=use_class_dependent_area_thresholds,
+                                                      class_dependent_area_thresholds=class_dependent_area_thresholds)
 
         if dir_mask_eval is not None:
             tile_path_mask = os.path.join(dir_mask_eval, tilename + mask_suffix)
