@@ -12,7 +12,7 @@ def predict_segmentation_network(datapath_model=None,
                                  dissolve_small_pols=True,
                                 dissolve_threshold=1000,
                                 use_class_dependent_area_thresholds=False,
-                                class_dependent_area_thresholds=dict(),
+                                file_path_class_dependent_area_thresholds=None,
                                 clip_to_main_class=False,
                                 col_name_class=None,  # name of column in main predictions shapefile that contains the class label (if None, found automatically if only one candidate column exists)
                                 main_class_clip_label='D',
@@ -40,8 +40,19 @@ def predict_segmentation_network(datapath_model=None,
     ## Load model:
     LCU = lcm.load_model(filename=datapath_model)
     LCU.eval() 
-    if dissolve_small_pols:
+
+    if use_class_dependent_area_thresholds:
+        assert file_path_class_dependent_area_thresholds is not None, 'If use_class_dependent_area_thresholds is True, file_path_class_dependent_area_thresholds must be provided'
+        class_dependent_area_thresholds = lca.load_area_threshold_json(file_path_class_dependent_area_thresholds)
+        name_combi = file_path_class_dependent_area_thresholds.split('/')[-1].split('.')[0]
+        print(f'Using class-dependent area thresholds from {name_combi}')
+    else:
+        name_combi = None
+
+    if dissolve_small_pols and (not use_class_dependent_area_thresholds):
         dissolved_name = '_dissolved' + str(dissolve_threshold) + 'm2'
+    elif dissolve_small_pols and use_class_dependent_area_thresholds:
+        dissolved_name = f'_dissolved-{name_combi}'
     else:
         dissolved_name = '_notdissolved'
     if clip_to_main_class:
@@ -65,6 +76,7 @@ def predict_segmentation_network(datapath_model=None,
                                 area_threshold=dissolve_threshold, 
                                 use_class_dependent_area_thresholds=use_class_dependent_area_thresholds,
                                 class_dependent_area_thresholds=class_dependent_area_thresholds,
+                                name_combi_area_thresholds=name_combi,
                                 skip_factor=skip_factor,
                                 padding=padding, mask_suffix=mask_suffix,
                                 clip_to_main_class=clip_to_main_class, main_class_clip_label=main_class_clip_label, 
@@ -78,7 +90,8 @@ def predict_segmentation_network(datapath_model=None,
     print('\nResults saved!\n\n')
 
     ## Merge all tiles into one shapefile:
-    lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder)
+    lca.merge_individual_shp_files(dir_indiv_tile_shp=save_folder,
+                                    delete_individual_shp_files=False)  # set to False because they are needed for FGH override
 
     ## Override predictions with manual FGH layer:
     if override_with_fgh_layer:
@@ -100,17 +113,22 @@ if __name__ == '__main__':
         'D': 'LCU_2023-04-25-2057.data',
         'E': 'LCU_2023-04-24-1216.data'
     }
-
+    model_use = 'main'
+    folder_area_thresholds = '/home/tplas/repos/cnn-land-cover/content/area_threshold_combinations/'
+    list_combis = [os.path.join(folder_area_thresholds, x) for x in os.listdir(folder_area_thresholds) if x.endswith('.json')]
+    list_combis = list_combis[:4]
+    
     # for model_use in ['C', 'D', 'E']:
-    for model_use in ['main']:
+    # for model_use in ['main']:
+    for file_path_class_dependent_area_thresholds in list_combis:
         predict_segmentation_network(datapath_model=dict_cnns_best[model_use], 
                                     clip_to_main_class=False if model_use == 'main' else True, 
                                     col_name_class='lc_label',
                                     main_class_clip_label=model_use, # dict_cnns_clip_to_main_class[model_use],
                                     dissolve_small_pols=True,
-                                    dissolve_threshold=100, 
-                                    use_class_dependent_area_thresholds=False,
-                                    class_dependent_area_thresholds=dict(),
+                                    dissolve_threshold=0, 
+                                    use_class_dependent_area_thresholds=True,
+                                    file_path_class_dependent_area_thresholds=file_path_class_dependent_area_thresholds,
                                     dir_mask_eval=None,
                                     override_with_fgh_layer=True if model_use == 'main' else False,
                                     dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',

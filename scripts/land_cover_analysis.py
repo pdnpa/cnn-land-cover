@@ -1651,6 +1651,21 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
 
     return gdf, inds_pols_lower_th, inds_pols_greater_th
 
+def load_area_threshold_json(json_filepath):
+    '''Load area threshold json file'''
+    assert type(json_filepath) == str, f'Json filepath must be a string, not {type(json_filepath)}'
+    assert os.path.exists(json_filepath), f'File {json_filepath} does not exist'
+    with open(json_filepath, 'r') as f:
+        area_threshold_dict = json.load(f)
+
+    ## change keys to int 
+    ## assert all keys are integer numbers (as strings)
+    assert np.all([type(k) == str for k in area_threshold_dict.keys()]), f'All keys must be strings, not {type(k)}'
+    assert np.all([len(k.split('.')) == 1 for k in area_threshold_dict.keys()]), f'All keys must be integer numbers, not {k}'
+    area_threshold_dict = {int(k): v for k, v in area_threshold_dict.items()}
+
+    return area_threshold_dict
+
 def filter_small_polygons_from_gdf(gdf, class_col='class', 
                                    area_threshold=1e1, use_class_dependent_area_thresholds=True,
                                     class_dependent_area_thresholds={1: 0, 2: 1e3, 3: 1e3},

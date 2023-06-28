@@ -631,6 +631,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
                         dissolve_small_pols=False, area_threshold=100,
                         use_class_dependent_area_thresholds=False,
                         class_dependent_area_thresholds=dict(),
+                        name_combi_area_thresholds=None,
                         reconstruct_padded_tile_edges=True,
                         clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
                         parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
@@ -783,8 +784,13 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
             assert (ds_dissolved_tile['class'].y == mask_tile.y).all()
             mask_tile[:, :] = ds_dissolved_tile['class'][:, :]
         if save_shp:
-            if dissolve_small_pols:
+            if dissolve_small_pols and (not use_class_dependent_area_thresholds):
                 name_file = f'{model_name}_{tile_name}_LC-prediction_dissolved_{area_threshold}m2'
+            elif dissolve_small_pols and use_class_dependent_area_thresholds:
+                if name_combi_area_thresholds is None:
+                    name_combi_area_thresholds = 'custom'
+                    print('WARNING: name_combi_area_thresholds not specified, using "custom" as default')
+                name_file = f'{model_name}_{tile_name}_LC-prediction_dissolved-{name_combi_area_thresholds}'
             else:
                 name_file = f'{model_name}_{tile_name}_LC-prediction'
             save_path = os.path.join(save_folder, name_file)
@@ -805,6 +811,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                              dissolve_small_pols=False, area_threshold=100, 
                              use_class_dependent_area_thresholds=False,
                             class_dependent_area_thresholds=dict(),
+                             name_combi_area_thresholds=None,
                              skip_factor=None, 
                              clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
                              parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
@@ -833,7 +840,10 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
         dict_df_stats = None
         dict_conf_mat = None 
 
-    if area_threshold == 0 and dissolve_small_pols is True:
+    if use_class_dependent_area_thresholds:
+        dissolve_small_pols = True
+
+    if area_threshold == 0 and dissolve_small_pols is True and (not use_class_dependent_area_thresholds):
         dissolve_small_pols = False
         print('WARNING: area_threshold is 0, so no polygons will be dissolved.')
     if area_threshold > 0 and dissolve_small_pols is False:
@@ -856,6 +866,8 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
             f.write(f'skip_factor: {skip_factor}\n')
             f.write(f'dissolve_small_pols: {dissolve_small_pols}\n')
             f.write(f'area_threshold: {area_threshold}\n')
+            f.write(f'use_class_dependent_area_thresholds: {use_class_dependent_area_thresholds}\n')
+            f.write(f'class_dependent_area_thresholds: {class_dependent_area_thresholds}\n')
             f.write(f'patch_size: {patch_size}\n')
             f.write(f'padding: {padding}\n')
             f.write(f'dir_im: {dir_im}\n')
@@ -876,7 +888,8 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                                                       tile_outlines_shp_path=tile_outlines_shp_path,                             
                                                       dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold,
                                                       use_class_dependent_area_thresholds=use_class_dependent_area_thresholds,
-                                                      class_dependent_area_thresholds=class_dependent_area_thresholds)
+                                                      class_dependent_area_thresholds=class_dependent_area_thresholds,
+                                                      name_combi_area_thresholds=name_combi_area_thresholds)
 
         if dir_mask_eval is not None:
             tile_path_mask = os.path.join(dir_mask_eval, tilename + mask_suffix)
