@@ -627,13 +627,13 @@ def predict_single_batch_from_testdl_or_batch(model, test_dl=None, batch=None, n
 
 def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_size=512, padding=0,
                         batch_size=10, save_raster=False, save_shp=False,
-                        create_shp=False, verbose=1,
+                        create_shp=False, verbose=1, df_schema=None,
                         dissolve_small_pols=False, area_threshold=100,
                         use_class_dependent_area_thresholds=False,
                         class_dependent_area_thresholds=dict(),
                         name_combi_area_thresholds=None,
                         reconstruct_padded_tile_edges=True,
-                        clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
+                        clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,  # col_name_class used for BOTH clip_to_main_class and dissolve_small_pols
                         parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
                         tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                         save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
@@ -772,8 +772,23 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
         gdf['Class name'] = 'A'
         for ii, lab in enumerate(model.dict_training_details['class_name_list']):
            gdf['Class name'].iloc[gdf['class'] == ii] = lab 
+        if main_class_clip_label in ['C', 'D', 'E']:  # detailed class model 
+            if df_schema is None:
+                df_schema = lca.create_df_mapping_labels_2022_to_80s() 
+            gdf[col_name_class] = gdf['Class name'].map(df_schema.set_index('description_2022')['code_2022'])
+        else:  # main class model
+            mapping_dict_main_class = {'C': 'Wood and Forest Land',
+                                        'D': 'Moor and Heath Land',
+                                        'E': 'Agro-Pastoral Land',
+                                        'F': 'Water and Wetland',
+                                        'G': 'Rock and Coastal Land',
+                                        'H': 'Developed Land',
+                                        'I': 'Unclassified Land',
+                                        '0': 'NO CLASS'} 
+            mapping_dict_main_class = {v: k for k, v in mapping_dict_main_class.items()}
+            gdf[col_name_class] = gdf['Class name'].map(mapping_dict_main_class)
         if dissolve_small_pols:
-            gdf = lca.filter_small_polygons_from_gdf(gdf=gdf, class_col='class',
+            gdf = lca.filter_small_polygons_from_gdf(gdf=gdf, class_col='class', label_col=col_name_class,
                                                      area_threshold=area_threshold, use_class_dependent_area_thresholds=use_class_dependent_area_thresholds,
                                                      class_dependent_area_thresholds=class_dependent_area_thresholds,
                                                      verbose=verbose, exclude_no_class_from_large_pols=False if clip_to_main_class else True)  # if clip is True, then you don't want to exclude no class from large pols because everything that was clipped will be no class
@@ -783,6 +798,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
             assert (ds_dissolved_tile['class'].x == mask_tile.x).all()
             assert (ds_dissolved_tile['class'].y == mask_tile.y).all()
             mask_tile[:, :] = ds_dissolved_tile['class'][:, :]
+        gdf['source'] = 'model prediction'
         if save_shp:
             if dissolve_small_pols and (not use_class_dependent_area_thresholds):
                 name_file = f'{model_name}_{tile_name}_LC-prediction_dissolved_{area_threshold}m2'
@@ -873,6 +889,8 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
             f.write(f'dir_im: {dir_im}\n')
             f.write(f'dir_mask_eval: {dir_mask_eval}\n')
 
+    df_schema = lca.create_df_mapping_labels_2022_to_80s()
+
     ## Loop across tiles:
     print(f'Predicting {len(list_tiff_tiles)} tiles')
     for i_tile, tilepath in tqdm(enumerate(list_tiff_tiles)):
@@ -889,7 +907,8 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                                                       dissolve_small_pols=dissolve_small_pols, area_threshold=area_threshold,
                                                       use_class_dependent_area_thresholds=use_class_dependent_area_thresholds,
                                                       class_dependent_area_thresholds=class_dependent_area_thresholds,
-                                                      name_combi_area_thresholds=name_combi_area_thresholds)
+                                                      name_combi_area_thresholds=name_combi_area_thresholds,
+                                                      df_schema=df_schema)
 
         if dir_mask_eval is not None:
             tile_path_mask = os.path.join(dir_mask_eval, tilename + mask_suffix)

@@ -300,6 +300,7 @@ def add_main_category_name_column(df_lc, col_code_name='Class_Code', col_label_n
     return df_lc
 
 def create_mapping_label_names_to_codes():
+    '''WARNING: deprecated. Only to be used in combination with create_df_mapping_labels_2022_to_80s(), which updates it'''
     dict_name_to_code = {'NO CLASS': '0',
                         'Broadleaved High Forest': 'C1',
                         'Coniferous High Forest': 'C2',
@@ -1615,15 +1616,18 @@ def find_pols_smaller_and_greater_than_area_threshold(gdf, area_threshold=1e1, c
 def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_area_threshold=1e1, 
                                                                 class_dependent_area_thresholds=dict(),
                                                                 class_col='class', ignore_index=0,
+                                                                label_col='lc_label',
                                                                 exclude_no_class_from_large_pols=True,
                                                                 verbose=1):
     '''Find polygons smaller than area_threshold and larger than area_threshold'''
     assert type(gdf) == gpd.GeoDataFrame
     assert type(class_dependent_area_thresholds) == dict, f'Class dependent area thresholds must be a dict, not {type(class_dependent_area_thresholds)}'   
     assert default_area_threshold >= 0, f'Default area threshold must be >= 0, not {default_area_threshold}'
+    assert class_col in gdf.columns, f'Class column {class_col} not in gdf columns {gdf.columns}'
+    assert label_col in gdf.columns, f'Label column {label_col} not in gdf columns {gdf.columns}'
 
     area_array = gdf['geometry'].area
-    class_array = gdf[class_col] 
+    class_array = gdf[label_col] 
     threshold_array = np.zeros_like(area_array) - 1 # -1 means no threshold
     list_classes_not_in_dict = []
     if verbose >= 1:
@@ -1651,22 +1655,23 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
 
     return gdf, inds_pols_lower_th, inds_pols_greater_th
 
-def load_area_threshold_json(json_filepath):
+def load_area_threshold_json(json_filepath, keys_are_int=False):
     '''Load area threshold json file'''
     assert type(json_filepath) == str, f'Json filepath must be a string, not {type(json_filepath)}'
     assert os.path.exists(json_filepath), f'File {json_filepath} does not exist'
     with open(json_filepath, 'r') as f:
         area_threshold_dict = json.load(f)
 
-    ## change keys to int 
-    ## assert all keys are integer numbers (as strings)
-    assert np.all([type(k) == str for k in area_threshold_dict.keys()]), f'All keys must be strings, not {type(k)}'
-    assert np.all([len(k.split('.')) == 1 for k in area_threshold_dict.keys()]), f'All keys must be integer numbers, not {k}'
-    area_threshold_dict = {int(k): v for k, v in area_threshold_dict.items()}
+    if keys_are_int:
+        ## change keys to int 
+        ## assert all keys are integer numbers (as strings)
+        assert np.all([type(k) == str for k in area_threshold_dict.keys()]), f'All keys must be strings, not {type(k)}'
+        assert np.all([len(k.split('.')) == 1 for k in area_threshold_dict.keys()]), f'All keys must be integer numbers, not {k}'
+        area_threshold_dict = {int(k): v for k, v in area_threshold_dict.items()}
 
     return area_threshold_dict
 
-def filter_small_polygons_from_gdf(gdf, class_col='class', 
+def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
                                    area_threshold=1e1, use_class_dependent_area_thresholds=True,
                                     class_dependent_area_thresholds={1: 0, 2: 1e3, 3: 1e3},
                                    verbose=1, max_it=5, ignore_index=0, 
@@ -1691,7 +1696,8 @@ def filter_small_polygons_from_gdf(gdf, class_col='class',
                                                                         default_area_threshold=area_threshold, 
                                                                         class_dependent_area_thresholds=class_dependent_area_thresholds,
                                                                         class_col=class_col, ignore_index=ignore_index, 
-                                                                        exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
+                                                                        exclude_no_class_from_large_pols=exclude_no_class_from_large_pols,
+                                                                        label_col=label_col)
         else:
             gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_area_threshold(gdf=gdf, area_threshold=area_threshold, 
                                                                         class_col=class_col, ignore_index=ignore_index, 
