@@ -10,7 +10,7 @@ import land_cover_models as lcm
 def predict_segmentation_network(datapath_model=None, 
                                  padding=44, 
                                  dissolve_small_pols=True,
-                                dissolve_threshold=1000,
+                                dissolve_threshold=1000,  # only used if dissolve_small_pols=True AND use_class_dependent_area_thresholds=False
                                 use_class_dependent_area_thresholds=False,
                                 file_path_class_dependent_area_thresholds=None,
                                 clip_to_main_class=False,
@@ -43,12 +43,17 @@ def predict_segmentation_network(datapath_model=None,
     LCU.eval() 
 
     if use_class_dependent_area_thresholds:
+        dissolve_threshold = None  # reset if using dict of class-dependent thresholds
         assert file_path_class_dependent_area_thresholds is not None, 'If use_class_dependent_area_thresholds is True, file_path_class_dependent_area_thresholds must be provided'
-        class_dependent_area_thresholds = lca.load_area_threshold_json(file_path_class_dependent_area_thresholds)
+        class_dependent_area_thresholds, dissolve_threshold = lca.load_area_threshold_json(file_path_class_dependent_area_thresholds)
+        if dissolve_threshold is None:  # not defined in json file:
+            dissolve_threshold = 0
+            print('WARNING: dissolve_threshold not defined in json file, using 0 instead')
         name_combi = file_path_class_dependent_area_thresholds.split('/')[-1].split('.')[0]
         print(f'Using class-dependent area thresholds from {name_combi}')
     else:
         name_combi = None
+        class_dependent_area_thresholds = None
 
     if dissolve_small_pols and (not use_class_dependent_area_thresholds):
         dissolved_name = '_dissolved' + str(dissolve_threshold) + 'm2'
@@ -122,30 +127,32 @@ if __name__ == '__main__':
     list_combis = list_combis[:4]
     
     # for model_use in ['C', 'D', 'E']:
-    # for model_use in ['main']:
-    for file_path_class_dependent_area_thresholds in list_combis:
-        if 'th-combi-1.json' in file_path_class_dependent_area_thresholds:
-            pass 
-        else:
-            print("MOVING ON")
-            continue
+    for model_use in ['main']:
+    # for file_path_class_dependent_area_thresholds in list_combis:
+    #     if 'th-combi-1.json' in file_path_class_dependent_area_thresholds:
+    #         pass 
+    #     else:
+    #         print("MOVING ON")
+    #         continue
         predict_segmentation_network(datapath_model=dict_cnns_best[model_use], 
                                     clip_to_main_class=False if model_use == 'main' else True, 
                                     col_name_class='lc_label',
                                     main_class_clip_label=model_use, # dict_cnns_clip_to_main_class[model_use],
-                                    dissolve_small_pols=True,
+                                    dissolve_small_pols=False,
                                     dissolve_threshold=10, 
-                                    use_class_dependent_area_thresholds=True,
-                                    file_path_class_dependent_area_thresholds=file_path_class_dependent_area_thresholds,
+                                    use_class_dependent_area_thresholds=False,
+                                    # file_path_class_dependent_area_thresholds=file_path_class_dependent_area_thresholds,
                                     dir_mask_eval=None,
                                     override_with_fgh_layer=True if model_use == 'main' else False,
                                     dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
                                     parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
-                                    subsample_tiles_for_testing=True,
+                                    subsample_tiles_for_testing=False,
                                     # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
                                     tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
-                                    use_tile_outlines_shp_to_predict_those_tiles_only=True,
-                                    delete_individual_tile_predictions=True,         
-                                    parent_save_folder = '/home/tplas/predictions/testing_grounds/'                      
+                                    use_tile_outlines_shp_to_predict_those_tiles_only=False,
+                                    delete_individual_tile_predictions=False,         
+                                    # parent_save_folder = '/home/tplas/predictions/testing_grounds/',
+                                    parent_save_folder='/media/data-hdd/gis_pd/predictions/all_tiles_pd_notdissolved/',
+                                    merge_tiles_into_one_shp=False                      
                                     )
 
