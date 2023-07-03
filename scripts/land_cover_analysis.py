@@ -1662,6 +1662,13 @@ def load_area_threshold_json(json_filepath, keys_are_int=False):
     with open(json_filepath, 'r') as f:
         area_threshold_dict = json.load(f)
 
+    if 'default' in area_threshold_dict.keys():
+        default_area_threshold = area_threshold_dict['default']
+        assert default_area_threshold >= 0, f'Default area threshold must be >= 0, not {default_area_threshold}'
+        area_threshold_dict.pop('default')
+    else:
+        default_area_threshold = None 
+
     if keys_are_int:
         ## change keys to int 
         ## assert all keys are integer numbers (as strings)
@@ -1669,7 +1676,7 @@ def load_area_threshold_json(json_filepath, keys_are_int=False):
         assert np.all([len(k.split('.')) == 1 for k in area_threshold_dict.keys()]), f'All keys must be integer numbers, not {k}'
         area_threshold_dict = {int(k): v for k, v in area_threshold_dict.items()}
 
-    return area_threshold_dict
+    return area_threshold_dict, default_area_threshold
 
 def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
                                    area_threshold=1e1, use_class_dependent_area_thresholds=True,
