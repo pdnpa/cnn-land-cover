@@ -26,7 +26,7 @@ def predict_segmentation_network(datapath_model=None,
                                 # dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
                                 mask_suffix='_lc_2022_main_mask.tif',
                                 parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
-                                tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
+                                tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',  # used BOTH for selecting tiles to predict AND for clipping predictions to tile outlines
                                 use_tile_outlines_shp_to_predict_those_tiles_only=False,
                                 delete_individual_tile_predictions=False,
                                 merge_tiles_into_one_shp=True,
@@ -126,8 +126,8 @@ if __name__ == '__main__':
     list_combis = [os.path.join(folder_area_thresholds, x) for x in os.listdir(folder_area_thresholds) if x.endswith('.json')]
     list_combis = list_combis[:4]
     
-    # for model_use in ['C', 'D', 'E']:
-    for model_use in ['main']:
+    for model_use in ['C', 'D', 'E']:
+    # for model_use in ['main']:
     # for file_path_class_dependent_area_thresholds in list_combis:
     #     if 'th-combi-1.json' in file_path_class_dependent_area_thresholds:
     #         pass 
@@ -145,10 +145,12 @@ if __name__ == '__main__':
                                     dir_mask_eval=None,
                                     override_with_fgh_layer=True if model_use == 'main' else False,
                                     dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
-                                    parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
-                                    subsample_tiles_for_testing=False,
+                                    # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
+                                    parent_dir_tile_mainpred='/media/data-hdd/gis_pd/predictions/all_tiles_pd_notdissolved/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/individual_tiles/',
+                                    subsample_tiles_for_testing=True,
                                     # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
-                                    tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
+                                    # tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
+                                    tile_outlines_shp_path='../content/landscape_character_grid/Landscape_Character_Grid_tight.shp',
                                     use_tile_outlines_shp_to_predict_those_tiles_only=False,
                                     delete_individual_tile_predictions=False,         
                                     # parent_save_folder = '/home/tplas/predictions/testing_grounds/',

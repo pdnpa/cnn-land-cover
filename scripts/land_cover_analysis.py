@@ -2103,7 +2103,8 @@ def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C'
         clipped_raster = set_all_raster_values_to_no_class(raster_im)
     else:
         ## Get area outside main class prediction
-        area_outside_pols = get_area_outside_pols_within_tile(df_pols=df_main, tilename=tilename, tile_outlines_shp_path=tile_outlines_shp_path)
+        area_outside_pols = get_area_outside_pols_within_tile(df_pols=df_main, tilename=tilename, 
+                                                              tile_outlines_shp_path=tile_outlines_shp_path)
         if area_outside_pols is None:  # no areas outside pols found, means that all raster values are inside pols
             clipped_raster = raster_im 
         else:
