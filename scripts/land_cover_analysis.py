@@ -1961,6 +1961,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
     return new_tile_predictions_override_folder
 
 def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, filename=None,
+                               dir_save_merger=None,
                                delete_individual_shp_files=False, list_tile_ids_to_merge=None):
     if filename is None:
         curr_dir_name = dir_indiv_tile_shp.split('/') 
@@ -1970,6 +1971,11 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
     else:
         assert type(filename) == str
         assert filename[-4:] == '.shp'
+
+    if dir_save_merger is None:
+        dir_save_merger = dir_indiv_tile_shp
+    else:  
+        assert os.path.exists(dir_save_merger), f'Directory {dir_save_merger} does not exist'
 
     if delete_individual_shp_files:
         assert save_merged_shp_file, 'If delete_individual_shp_files is True, save_merged_shp_file must be True as well'
@@ -1993,7 +1999,7 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
             df_all = pd.concat([df_all, df_tmp], ignore_index=True)
     
     if save_merged_shp_file:
-        dir_path_merged = os.path.join(dir_indiv_tile_shp, filename.rstrip('.shp'))
+        dir_path_merged = os.path.join(dir_save_merger, filename.rstrip('.shp'))
         if not os.path.exists(dir_path_merged):
             os.mkdir(dir_path_merged)
         df_all.to_file(os.path.join(dir_path_merged, filename))
