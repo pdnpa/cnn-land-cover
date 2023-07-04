@@ -1961,7 +1961,7 @@ def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/da
     return new_tile_predictions_override_folder
 
 def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, filename=None,
-                               delete_individual_shp_files=False):
+                               delete_individual_shp_files=False, list_tile_ids_to_merge=None):
     if filename is None:
         curr_dir_name = dir_indiv_tile_shp.split('/') 
         curr_dir_name = curr_dir_name[-1] if curr_dir_name[-1] != '' else curr_dir_name[-2]  # in case dir_indiv_tile_shp ends with '/'
@@ -1976,6 +1976,14 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
         print('WARNING: delete_individual_shp_files is True, so individual shp files will be deleted after merging')
 
     subdirs_tiles = [os.path.join(dir_indiv_tile_shp, x) for x in os.listdir(dir_indiv_tile_shp) if os.path.isdir(os.path.join(dir_indiv_tile_shp, x))]
+    n_original_tiles = len(subdirs_tiles)
+    if list_tile_ids_to_merge is None:
+        pass
+    else:
+        subdirs_tiles = [x for x in subdirs_tiles if x.split('/')[-1].split('_')[2] in list_tile_ids_to_merge]
+        assert len(subdirs_tiles) > 0, f'No tiles found in {dir_indiv_tile_shp} with tile ids {list_tile_ids_to_merge}'
+        assert len(subdirs_tiles) == len(list_tile_ids_to_merge), f'Found {len(subdirs_tiles)} tiles in {dir_indiv_tile_shp} with tile ids {list_tile_ids_to_merge}, but expected {len(list_tile_ids_to_merge)}'
+        print(f'Found {len(subdirs_tiles)}/{n_original_tiles} tiles in {dir_indiv_tile_shp} with tile ids')
     print(f'Merging {len(subdirs_tiles)} tiles found in {dir_indiv_tile_shp}')
     for i_tile, pred_dir in tqdm(enumerate(subdirs_tiles)):
         if i_tile == 0:
