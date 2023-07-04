@@ -147,7 +147,7 @@ if __name__ == '__main__':
                                     dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
                                     # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
                                     parent_dir_tile_mainpred='/media/data-hdd/gis_pd/predictions/all_tiles_pd_notdissolved/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/individual_tiles/',
-                                    subsample_tiles_for_testing=True,
+                                    subsample_tiles_for_testing=False,
                                     # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
                                     # tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
                                     tile_outlines_shp_path='../content/landscape_character_grid/Landscape_Character_Grid_tight.shp',
