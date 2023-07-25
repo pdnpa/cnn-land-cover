@@ -104,7 +104,7 @@ def predict_segmentation_network(datapath_model=None,
     if override_with_fgh_layer:
         assert clip_to_main_class is False, 'Expected that FGH override would only happen on main class predictions, but clip_to_main_class is set to True which indicates that these are detailed class predictions'
         print('######\n\nOverride predictions with manual FGH layer\n\n######')
-        save_folder_fgh = lca.override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
+        save_folder_fgh = lca.override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/fgh_layer_v2/fgh_layer_v2.shp',  #'/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
                                                                 tile_predictions_folder=save_folder, 
                                                                 new_tile_predictions_override_folder=None, verbose=1)
 
@@ -126,8 +126,8 @@ if __name__ == '__main__':
     list_combis = [os.path.join(folder_area_thresholds, x) for x in os.listdir(folder_area_thresholds) if x.endswith('.json')]
     list_combis = list_combis[:4]
     
-    for model_use in ['C', 'D', 'E']:
-    # for model_use in ['main']:
+    # for model_use in ['C', 'D', 'E']:
+    for model_use in ['main']:
     # for file_path_class_dependent_area_thresholds in list_combis:
     #     if 'th-combi-1.json' in file_path_class_dependent_area_thresholds:
     #         pass 
@@ -150,8 +150,9 @@ if __name__ == '__main__':
                                     subsample_tiles_for_testing=False,
                                     # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
                                     # tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
-                                    tile_outlines_shp_path='../content/landscape_character_grid/Landscape_Character_Grid_tight.shp',
-                                    use_tile_outlines_shp_to_predict_those_tiles_only=False,
+                                    # tile_outlines_shp_path='../content/landscape_character_grid/Landscape_Character_Grid_tight.shp',
+                                    tile_outlines_shp_path='/home/tplas/repos/cnn-land-cover/content/tiles_qr/tiles_qr.shp',
+                                    use_tile_outlines_shp_to_predict_those_tiles_only=True,
                                     delete_individual_tile_predictions=False,         
                                     # parent_save_folder = '/home/tplas/predictions/testing_grounds/',
                                     parent_save_folder='/media/data-hdd/gis_pd/predictions/all_tiles_pd_notdissolved/',
