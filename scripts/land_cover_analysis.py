@@ -2047,7 +2047,7 @@ def get_area_outside_pols_within_tile(df_pols, tilename='SK0077', col_name_tilen
     ## Get tile outline
     df_tile_outlines = load_pols(tile_outlines_shp_path)
     df_tile_outlines = df_tile_outlines[df_tile_outlines[col_name_tilenames] == tilename]
-    assert len(df_tile_outlines) == 1, f'Found {len(df_tile_outlines)} tile outlines for tilename {tilename}'
+    assert len(df_tile_outlines) == 1, f'Found {len(df_tile_outlines)} tile outlines for tilename {tilename}: \nPrinting df_outlines:\n\n {df_tile_outlines}'
     tile_outline = df_tile_outlines.iloc[0].geometry 
 
     ## Handle special cases:

@@ -32,7 +32,7 @@ def predict_segmentation_network(datapath_model=None,
                                 merge_tiles_into_one_shp=True,
                                 ):
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
-
+    assert (use_tile_outlines_shp_to_predict_those_tiles_only and override_with_fgh_layer) is False, 'Currently not implemented to only use selection of tiles for FGH override (as is done in tile prediction wrapper). Either implement or remove this assert and always override with FGH layer on all tiles'
     ##Parameters:
     if datapath_model is None:
         # datapath_model = 'LCU_2023-01-23-2018.data'
@@ -64,7 +64,7 @@ def predict_segmentation_network(datapath_model=None,
     if clip_to_main_class:
         dissolved_name = dissolved_name + f'_clipped{main_class_clip_label}'
     identifier = 'predictions_' + LCU.model_name + dissolved_name + f'_padding{padding}'
-    save_folder = os.path.join(parent_save_folder, identifier)
+    save_folder = os.path.join(parent_save_folder, identifier, 'individual_tiles')
 
     if use_tile_outlines_shp_to_predict_those_tiles_only:
         df_tile_outlines = lca.load_pols(tile_outlines_shp_path)
@@ -126,8 +126,8 @@ if __name__ == '__main__':
     list_combis = [os.path.join(folder_area_thresholds, x) for x in os.listdir(folder_area_thresholds) if x.endswith('.json')]
     list_combis = list_combis[:4]
     
-    # for model_use in ['C', 'D', 'E']:
-    for model_use in ['main']:
+    for model_use in ['C', 'D', 'E']:
+    # for model_use in ['main']:
     # for file_path_class_dependent_area_thresholds in list_combis:
     #     if 'th-combi-1.json' in file_path_class_dependent_area_thresholds:
     #         pass 
