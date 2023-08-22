@@ -51,6 +51,7 @@ def dissolve_predicted_tiles(
     ## Loop through all tiles and dissolve
     with tqdm(enumerate(list_tiles)) as tbar:
         for i_tile, tile_folder in tbar:
+            print(tile_folder)
             tbar.set_description('Dissolving tiles, iteration %i' % i_tile)
             ## Load tile:
             full_path_tile_folder = os.path.join(path_to_predicted_tiles, tile_folder)
