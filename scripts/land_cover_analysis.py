@@ -1812,7 +1812,7 @@ def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
         n_pols_end_loop = len(gdf)
         if verbose > 0:
             print(f'Number of new polygons: {n_pols_end_loop}, number of old polygons: {n_pols_start_loop}')
-        gdf['polygon_id_in_tile'] = gdf.index
+        gdf['pol_id_til'] = gdf.index
 
          ## Stop conditions: 1) no more small pols, 2) no more changes, 3) max number of iterations
         if use_class_dependent_area_thresholds:
