@@ -37,20 +37,37 @@ color_dict_stand[2] = '#a33b1a'
 color_dict_stand[3] = '#465E85'
 color_dict_stand[4] = '#8b7c1e'
 
-## Retrieve LC class specific colour mappings:
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-with open(os.path.join(Path(__location__).parent, 'content/lc_colour_mapping.json'), 'r') as f:
-    lc_colour_mapping_inds = json.load(f, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})  # mapping from class ind to colour hex
-
-# dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts()
-df_schema = lca.create_df_mapping_labels_2022_to_80s()
-dict_ind_to_name = {df_schema.iloc[x]['index_2022']: df_schema.iloc[x]['description_2022'] for x in range(len(df_schema))}
-lc_colour_mapping_names = {dict_ind_to_name[k]: v for k, v in lc_colour_mapping_inds.items() if k in dict_ind_to_name.keys()}
-
 fig_folder = os.path.join(Path(__location__).parent, 'figures/')
+
+def create_lc_colour_mapping_names():
+    ## Retrieve LC class specific colour mappings:
+    with open(os.path.join(Path(__location__).parent, 'content/lc_colour_mapping.json'), 'r') as f:
+        lc_colour_mapping_inds = json.load(f, object_hook=lambda d: {int(k) if k.lstrip('-').isdigit() else k: v for k, v in d.items()})  # mapping from class ind to colour hex
+
+    with open(os.path.join(Path(__location__).parent, 'content/lc_colour_mapping_by_label.json'), 'r') as f:
+        lc_colour_mapping_labels = json.load(f)
+
+    # dict_ind_to_name, dict_name_to_ind = lca.get_lc_mapping_inds_names_dicts()
+    df_schema = lca.create_df_mapping_labels_2022_to_80s()
+    dict_ind_to_name = {df_schema.iloc[x]['index_2022']: df_schema.iloc[x]['description_2022'] for x in range(len(df_schema))}
+    dict_label_to_name = {df_schema.iloc[x]['code_2022']: df_schema.iloc[x]['description_2022'] for x in range(len(df_schema))}
+    dict_label_to_name['C'] = 'Wood and Forest Land'
+    dict_label_to_name['D'] = 'Moor and Heath Land'
+    dict_label_to_name['E'] = 'Agro-Pastoral Land'
+    dict_label_to_name['F'] = 'Water and Wetland'
+    dict_label_to_name['G'] = 'Rock and Coastal Land'
+    dict_label_to_name['H'] = 'Developed Land'
+    dict_label_to_name['I'] = 'Unclassified Land'
+    # lc_colour_mapping_names = {dict_ind_to_name[k]: v for k, v in lc_colour_mapping_inds.items() if k in dict_ind_to_name.keys()}
+    lc_colour_mapping_names = {dict_label_to_name[k]: v for k, v in lc_colour_mapping_labels.items() if k in dict_label_to_name.keys()}
+    return lc_colour_mapping_names
+
+lc_colour_mapping_names = create_lc_colour_mapping_names()
 
 def create_lc_cmap(lc_class_name_list, unique_labels_array):
     '''Create custom colormap of LC classes, based on list of names given.'''
+    lc_colour_mapping_names = create_lc_colour_mapping_names()
     lc_colours_list = [lc_colour_mapping_names[xx] if xx in lc_colour_mapping_names.keys() else color_dict_stand[ii] for ii, xx in enumerate(lc_class_name_list)]  # get list of colours based on class names
     lc_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('LC classes', colors=lc_colours_list, 
                                                                   N=len(lc_colours_list))  # create qualitative cmap of colour lists
@@ -399,6 +416,9 @@ def plot_comparison_class_balance_train_test(train_patches_mask, test_patches_ma
     freq_train = freq_train[arg_train]
 
     ## Get inds, names and density:
+    df_schema = lca.create_df_mapping_labels_2022_to_80s()
+    dict_ind_to_name = {df_schema.iloc[x]['index_2022']: df_schema.iloc[x]['description_2022'] for x in range(len(df_schema))}
+    
     assert (class_ind_train == class_ind_test).all(), 'there is a unique class in either one of the splits => build in a way to accomodate this by adding a 0 count'
     inds_classes = class_ind_test  # assuming they are equal given the assert bove
     if names_classes is None:

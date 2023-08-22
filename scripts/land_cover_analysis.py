@@ -343,8 +343,8 @@ def create_mapping_label_names_to_codes():
 
     return dict_name_to_code
 
-def create_df_mapping_labels_2022_to_80s():
-    tmp = create_empty_label_mapping_dict()
+def create_df_mapping_labels_2022_to_80s(verbose=0):
+    tmp = create_empty_label_mapping_dict(verbose=verbose)
     dict_old_names = tmp['dict_old_names']
     dict_old_names_to_labels = create_mapping_label_names_to_codes()
 
@@ -355,7 +355,8 @@ def create_df_mapping_labels_2022_to_80s():
     ## Loop through all 80s classes and insert 2022 additions where applicable:
     for key, val in dict_old_names.items():
         if val == 'Scrub':
-            print('adding scrub')
+            if verbose > 0:
+                print('adding scrub')
             dict_2022_schema[it] = val  # add new scrub classes
             dict_2022_schema[it + 1] = 'Scrub Pasture'
             dict_2022_schema[it + 2] = 'Woodland/Scrub Edge'
@@ -366,7 +367,8 @@ def create_df_mapping_labels_2022_to_80s():
                 dict_80s_schema[it + ii] = val 
             it = it + 3 
         elif val == 'Upland Heath':
-            print('splitting up heath')
+            if verbose > 0:
+                print('splitting up heath')
             dict_2022_schema[it] = val  # add new heath classes
             dict_2022_schema[it + 1] = 'Upland Heath Blanket Bog'
             dict_2022_names_to_labels[val] = 'D1a'
@@ -375,7 +377,8 @@ def create_df_mapping_labels_2022_to_80s():
                 dict_80s_schema[it + ii] = val
             it = it + 2
         elif val == 'Wetland, Saltmarsh':
-            print('adding wetland')
+            if verbose > 0:
+                print('adding wetland')
             dict_2022_schema[it] = 'Wetland, Saltmarsh'
             dict_2022_schema[it + 1] = 'Wetland, Wet Grassland and Rush Pasture'
             dict_2022_names_to_labels[val] = 'F3c'
@@ -384,7 +387,8 @@ def create_df_mapping_labels_2022_to_80s():
             dict_80s_schema[it + 1] = 'Rough Pasture'  # map back as rough pasture
             it = it + 2
         elif val == 'Major Transport Routes':
-            print('adding transport')
+            if verbose > 0:
+                print('adding transport')
             dict_2022_schema[it] = val
             dict_2022_schema[it + 1] = 'Minor Transport Routes'
             dict_2022_schema[it + 2] = 'Urban Greenspace'
@@ -1137,11 +1141,12 @@ def undo_zscore_single_image(im_ds, f_preprocess):
     assert im_ds.dtype == torch.float32, f'Expected image to have dtype float32 but instead it has {im_ds.dtype}'
     return im_ds
 
-def create_empty_label_mapping_dict():
+def create_empty_label_mapping_dict(verbose=1):
     '''Create empty dict with right format for label mapping.
     Corresponds to LC80 schema
     '''
-    print('WARNING: creating label mapping dictionary corresponding to LC80 schema (ie missing few classes)')
+    if verbose > 0:
+        print('WARNING: creating label mapping dictionary corresponding to LC80 schema (ie missing few classes)')
     dict_ind_to_name, _ = get_lc_mapping_inds_names_dicts(add_main_classes_at_end=False)  # get labels of PD
 
     ## Add labels to dict that don't exist PD (for sake of completeness):
