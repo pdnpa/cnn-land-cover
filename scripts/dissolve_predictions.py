@@ -1,6 +1,6 @@
 ## Dissolving predictions, per tile and then merging. 
 
-import os, sys
+import os, sys, json
 # import datetime
 # import loadpaths
 import land_cover_analysis as lca
@@ -19,7 +19,10 @@ def dissolve_predicted_tiles(
         exclude_no_class_from_large_pols=True,
         test_run=False,
 ):
-    
+    assert exclude_no_class_from_large_pols
+    if file_path_class_dependent_area_thresholds is not None and use_class_dependent_area_thresholds is False:
+        print('WARNING: file_path_class_dependent_area_thresholds is provided but use_class_dependent_area_thresholds is False, so the file_path_class_dependent_area_thresholds will not be used')
+
     if use_class_dependent_area_thresholds:
         dissolve_threshold = None  # reset if using dict of class-dependent thresholds
         assert file_path_class_dependent_area_thresholds is not None, 'If use_class_dependent_area_thresholds is True, file_path_class_dependent_area_thresholds must be provided'
@@ -78,11 +81,26 @@ def dissolve_predicted_tiles(
             
             if test_run:  
                 dict_test_run[name_tile_dissolved] = (gdf, gdf_dissolved)
-                # return gdf, gdf_dissolved
+                return gdf, gdf_dissolved
     if test_run:
         return dict_test_run
     else:
         return None
+
+def save_area_threshold_dict(dict_customise={}, default=1000, name_combi='th-combi-unspecified'):
+    assert type(dict_customise) == dict, 'dict_customise must be a dict'
+    assert default >= 0 
+    assert type(name_combi) == str
+
+    dict_area_thresholds = {}
+    for k, v in dict_customise.items():
+        dict_area_thresholds[k] = v
+    
+    dict_area_thresholds['default'] = default
+
+    save_path = f'/home/tplas/repos/cnn-land-cover/content/area_threshold_combinations/{name_combi}.json'
+    with open(save_path, 'w') as f:
+        json.dump(dict_area_thresholds, f)
 
 if __name__ == "__main__":
     _ = dissolve_predicted_tiles()

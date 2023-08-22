@@ -1600,15 +1600,22 @@ def get_padding_edges_from_sizes(image_size=8000, patch_size=512, padding=42):
     return start_prediction, end_prediction
 
 def find_pols_smaller_and_greater_than_area_threshold(gdf, area_threshold=1e1, class_col='class',
+                                                        label_col='lc_label', labels_to_ignore=[],
                                                 ignore_index=0, exclude_no_class_from_large_pols=True):
     '''Find polygons smaller than area_threshold and larger than area_threshold'''
     assert type(gdf) == gpd.GeoDataFrame
-
+    assert class_col in gdf.columns, f'Class column {class_col} not in gdf columns {gdf.columns}'
+    assert label_col in gdf.columns, f'Label column {label_col} not in gdf columns {gdf.columns}'
+    assert gdf[class_col].dtype == int, f'Class column {class_col} must be int, not {gdf[class_col].dtype}' 
+    assert gdf[label_col].dtype == np.object_, f'Label column {label_col} must be object, not {gdf[label_col].dtype}'
+    
     area_array = gdf['geometry'].area
     if exclude_no_class_from_large_pols:
-        inds_pols_greater_th = np.where(np.logical_and(area_array >= area_threshold, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
-    else:
-        inds_pols_greater_th = np.where(area_array >= area_threshold)[0] 
+        inds_pols_use_larger_th = np.logical_and(inds_pols_use_larger_th, gdf[class_col] != ignore_index)  # don't take into account no-class (index by ignore_index) for large pols
+    if len(labels_to_ignore) > 0:
+        inds_pols_use_larger_th = np.logical_and(inds_pols_use_larger_th, np.logical_not(np.isin(gdf[label_col], labels_to_ignore)))  # don't take into account no-class (index by ignore_index) for large pols
+        
+    inds_pols_greater_th = np.where(inds_pols_use_larger_th)[0] 
     inds_pols_lower_th = np.where(area_array < area_threshold)[0]
 
     return gdf, inds_pols_lower_th, inds_pols_greater_th
@@ -1616,6 +1623,7 @@ def find_pols_smaller_and_greater_than_area_threshold(gdf, area_threshold=1e1, c
 def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_area_threshold=1e1, 
                                                                 class_dependent_area_thresholds=dict(),
                                                                 class_col='class', ignore_index=0,
+                                                                labels_to_ignore=[],
                                                                 label_col='lc_label',
                                                                 exclude_no_class_from_large_pols=True,
                                                                 verbose=1):
@@ -1625,9 +1633,15 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
     assert default_area_threshold >= 0, f'Default area threshold must be >= 0, not {default_area_threshold}'
     assert class_col in gdf.columns, f'Class column {class_col} not in gdf columns {gdf.columns}'
     assert label_col in gdf.columns, f'Label column {label_col} not in gdf columns {gdf.columns}'
+    assert gdf[class_col].dtype == int, f'Class column {class_col} must be int, not {gdf[class_col].dtype}' 
+    assert gdf[label_col].dtype == np.object_, f'Label column {label_col} must be object, not {gdf[label_col].dtype}'
+    assert type(labels_to_ignore) == list
 
     area_array = gdf['geometry'].area
     class_array = gdf[label_col] 
+    types_threshold_keys = [type(k) for k in class_dependent_area_thresholds.keys()]
+    assert len(set(types_threshold_keys)) == 1, f'All keys in class dependent area thresholds must be of the same type, not {types_threshold_keys}'
+    assert list(set(types_threshold_keys))[0] == str, f'All keys in class dependent area thresholds must be str, not {list(set(types_threshold_keys))[0]}. This is because lc_label is used (eg C1, C2 etc.) instead of int classes.'
     threshold_array = np.zeros_like(area_array) - 1 # -1 means no threshold
     list_classes_not_in_dict = []
     if verbose >= 1:
@@ -1647,10 +1661,14 @@ def find_pols_smaller_and_greater_than_area_threshold_per_class(gdf, default_are
             print(f'Class dependent area thresholds: {class_dependent_area_thresholds}')
             print(f'Classes not in dict: {list_classes_not_in_dict}')
 
+    inds_pols_use_larger_th = area_array >= threshold_array
+
     if exclude_no_class_from_large_pols:
-        inds_pols_greater_th = np.where(np.logical_and(area_array >= threshold_array, gdf[class_col] != ignore_index))[0]  # don't take into account no-class (index by ignore_index) for large pols
-    else:
-        inds_pols_greater_th = np.where(area_array >= threshold_array)[0] 
+        inds_pols_use_larger_th = np.logical_and(inds_pols_use_larger_th, gdf[class_col] != ignore_index)  # don't take into account no-class (index by ignore_index) for large pols
+    if len(labels_to_ignore) > 0:
+        inds_pols_use_larger_th = np.logical_and(inds_pols_use_larger_th, np.logical_not(np.isin(gdf[label_col], labels_to_ignore)))  # don't take into account no-class (index by ignore_index) for large pols
+        
+    inds_pols_greater_th = np.where(inds_pols_use_larger_th)[0] 
     inds_pols_lower_th = np.where(area_array < threshold_array)[0]
 
     return gdf, inds_pols_lower_th, inds_pols_greater_th
@@ -1682,6 +1700,7 @@ def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
                                    area_threshold=1e1, use_class_dependent_area_thresholds=True,
                                     class_dependent_area_thresholds={1: 0, 2: 1e3, 3: 1e3},
                                    verbose=1, max_it=5, ignore_index=0, 
+                                   labels_to_ignore=['F', 'F2', 'G', 'G2', 'G2a', 'H', 'H1a', 'H1b', 'H1c', 'H1d', 'H2a', 'H2b', 'H3a', 'H3b',' I', '0'],
                                    exclude_no_class_from_large_pols=True,
                                    convert_to_no_class_if_all_pols_too_small=False):
     '''Filter small polygons by changing all polygons with area < area_threshold to label of neighbour'''
@@ -1703,11 +1722,13 @@ def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
                                                                         default_area_threshold=area_threshold, 
                                                                         class_dependent_area_thresholds=class_dependent_area_thresholds,
                                                                         class_col=class_col, ignore_index=ignore_index, 
+                                                                        labels_to_ignore=labels_to_ignore,
                                                                         exclude_no_class_from_large_pols=exclude_no_class_from_large_pols,
                                                                         label_col=label_col)
         else:
             gdf, inds_pols_lower_th, inds_pols_greater_th = find_pols_smaller_and_greater_than_area_threshold(gdf=gdf, area_threshold=area_threshold, 
                                                                         class_col=class_col, ignore_index=ignore_index, 
+                                                                        labels_to_ignore=labels_to_ignore,
                                                                         exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
         n_pols_start_loop = len(gdf)
         if verbose > 0 and current_it == 0:
@@ -1799,6 +1820,7 @@ def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
                                                                         default_area_threshold=area_threshold, 
                                                                         class_dependent_area_thresholds=class_dependent_area_thresholds,
                                                                         class_col=class_col, ignore_index=ignore_index, 
+                                                                        labels_to_ignore=labels_to_ignore,
                                                                         exclude_no_class_from_large_pols=exclude_no_class_from_large_pols)
             n_pols_to_be_dissolved = len(inds_pols_lower_th)
         else:
