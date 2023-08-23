@@ -627,7 +627,7 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         if fmt_annot is None:
             fmt_annot = '.2f' if normalise_hm else '.1f'
         hm = sns.heatmap(conf_mat_norm * 100 if normalise_hm else conf_mat_norm, 
-                    cmap='Greens', annot=True, fmt=fmt_annot, xticklabels=shortcuts, vmin=0,
+                    cmap='Greys', annot=True, fmt=fmt_annot, xticklabels=shortcuts, vmin=0,
                     yticklabels=shortcuts, cbar_kws={'label': 'Occurance (%)' if normalise_hm else 'Area (km^2)'}, ax=ax_hm)
         ax_hm.set_title('Confusion matrix evaluation data', fontdict={'weight': 'bold'})
         ax_hm.set_ylabel('True labels')
