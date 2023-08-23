@@ -607,8 +607,9 @@ def plot_difference_total_lc_from_dfs(dict_dfs={}):
 def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None, print_table=True,
                            dim_truth=0, normalise_hm=True, skip_factor=1, fmt_annot=None,
-                           text_under_mat=False, suppress_zero_annot=False,
-                           dict_override_shortcuts={}):
+                           text_under_mat=False, print_main_text=True, suppress_zero_annot=False,
+                           dict_override_shortcuts={},
+                           title_hm='Confusion matrix evaluation data'):
 
     df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes = \
         lca.compute_stats_from_confusion_mat(model=model, conf_mat=conf_mat, class_name_list=class_name_list,
@@ -629,7 +630,7 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
         hm = sns.heatmap(conf_mat_norm * 100 if normalise_hm else conf_mat_norm, 
                     cmap='Greys', annot=True, fmt=fmt_annot, xticklabels=shortcuts, vmin=0,
                     yticklabels=shortcuts, cbar_kws={'label': 'Occurance (%)' if normalise_hm else 'Area (km^2)'}, ax=ax_hm)
-        ax_hm.set_title('Confusion matrix evaluation data', fontdict={'weight': 'bold'})
+        ax_hm.set_title(title_hm, fontdict={'weight': 'bold'})
         ax_hm.set_ylabel('True labels')
         ax_hm.set_xlabel('Predicted labels')
         hm.set_yticklabels(hm.get_yticklabels(), rotation=0, ha='right')
@@ -663,19 +664,20 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
             tab.scale(1.1, 2)
             tab.auto_set_font_size(False)
             tab.set_fontsize(10)
-            if text_under_mat:
-                x_text = -2.7
-                y_text_top, y_text_bottom = -0.35, -0.45
-            else:
-                x_text = -0.2
-                y_text_top, y_text_bottom = 1.27, 1.15
+            if print_main_text:
+                if text_under_mat:
+                    x_text = -2.7
+                    y_text_top, y_text_bottom = -0.35, -0.45
+                else:
+                    x_text = -0.2
+                    y_text_top, y_text_bottom = 1.27, 1.15
 
-            ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=x_text, y=y_text_bottom, clip_on=False)
-            if conf_mat is None:
-                conf_mat = model.test_confusion_mat
-            ## Total area: counts pixels & divides by resolution. Then scale by skip-factor squared to account for skipped pixelss
-            ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6) * (skip_factor ** 2)), 1)} km^2', 
-                        x=x_text, y=y_text_top, clip_on=False)  # because each tile is 8000^2 pixels = 1km^2
+                ax_stats.text(s=f'Overall accuracy: {np.round(overall_accuracy * 100, 1)}%', x=x_text, y=y_text_bottom, clip_on=False)
+                if conf_mat is None:
+                    conf_mat = model.test_confusion_mat
+                ## Total area: counts pixels & divides by resolution. Then scale by skip-factor squared to account for skipped pixelss
+                ax_stats.text(s=f'Total area of evaluation data: {np.round(np.sum(conf_mat / (64 * 1e6) * (skip_factor ** 2)), 1)} km^2', 
+                            x=x_text, y=y_text_top, clip_on=False)  # because each tile is 8000^2 pixels = 1km^2
             naked(ax_stats)
 
     return df_stats_per_class, overall_accuracy, sub_accuracy, (ax_hm, ax_stats)
