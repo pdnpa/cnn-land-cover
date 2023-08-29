@@ -38,6 +38,7 @@ def dissolve_predicted_tiles(
 
     df_mapping = lca.create_df_mapping_labels_2022_to_80s()
     mapping_dict_label_to_class = dict(zip(df_mapping['code_2022'], df_mapping['index_2022']))
+    mapping_dict_label_to_class['G2'] = mapping_dict_label_to_class['G2a']
     class_col = 'class'
 
     ## List all individual tiles 
@@ -104,4 +105,8 @@ def save_area_threshold_dict(dict_customise={}, default=1000, name_combi='th-com
         json.dump(dict_area_thresholds, f)
 
 if __name__ == "__main__":
-    _ = dissolve_predicted_tiles()
+    _ = dissolve_predicted_tiles(
+        use_class_dependent_area_thresholds=True,
+        file_path_class_dependent_area_thresholds='/home/tplas/repos/cnn-land-cover/content/area_threshold_combinations/th-combi-2023-08-22.json',
+        test_run=False
+    )
