@@ -780,3 +780,66 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
         ax2.set_ylabel('Equivalent number of full patches')
 
     return ax, classes_plot
+
+def readable_p_exact(p_val):
+    '''Convert a p-value (float) to a readable string, without ceiling.'''
+    if type(p_val) !=  float:
+        p_val = float(p_val)
+
+    if p_val >= 0.01:
+        read_p = str(np.round(p_val, 2))
+    elif p_val >= 0.001: 
+        read_p = str(np.round(p_val, 3))
+    else:
+        tmp = np.format_float_scientific(p_val, precision=0)  # round to nearest
+        p_val = tmp[0] + tmp[2:]  # skip dot
+        if p_val[2] == 'e':
+            assert p_val[:4] == '10e-', p_val
+            tmp_exp = int(p_val[-2:])
+            p_val = f'1e-{str(tmp_exp - 1).zfill(2)}'
+
+        if len(p_val) > 5:
+            assert len(p_val) == 6 and p_val[1:3] == 'e-', p_val 
+            exponent = p_val[-3:]
+            read_p = f'{p_val[0]}x' + r"$10^{{-{tmp}}}$".format(tmp=exponent)  # for curly brackets explanation see https://stackoverflow.com/questions/53781815/superscript-format-in-matplotlib-plot-legend
+        else:
+            assert p_val[2] == '-', f'p value is greater than 1, p val: {p_val}'
+
+            if int(p_val[-2:]) < 10:
+                exponent = p_val[-1]
+            else:
+                exponent = p_val[-2:]
+            read_p = f'{p_val[0]}x' + r"$10^{{-{tmp}}}$".format(tmp=exponent)  # for curly brackets explanation see https://stackoverflow.com/questions/53781815/superscript-format-in-matplotlib-plot-legend
+
+            if read_p == '1x$10^{-3}$':  # can happen from rounding up fronm eg 0.0099 
+                read_p = '0.001'
+    return read_p
+
+def readable_p_significance_statement(p_val, n_bonf=None,
+                                      upper_criterion_1_asterisk=0.05,
+                                      upper_criterion_2_asterisks=0.01,
+                                      upper_criterion_3_asterisks=0.001):
+    '''Convert a p-value (float) to significance notation (p < 0.001, p < 0.01, p < 0.05, n.s.; as well as asterisks).'''
+    assert type(upper_criterion_1_asterisk) == float
+    assert type(upper_criterion_2_asterisks) == float
+    assert type(upper_criterion_3_asterisks) == float
+
+    if type(p_val) != float:
+        p_val = float(p_val)
+    if n_bonf is None:
+        n_bonf = 1
+
+    if p_val < upper_criterion_3_asterisks / n_bonf:
+        str_p = f'p < {upper_criterion_3_asterisks}'
+        str_short = '***'
+    elif p_val < upper_criterion_2_asterisks / n_bonf:
+        str_p = f'p < {upper_criterion_2_asterisks}'
+        str_short = '**'
+    elif p_val < upper_criterion_1_asterisk / n_bonf:
+        str_p = f'p < {upper_criterion_1_asterisk}'
+        str_short = '*'
+    else:
+        str_p = f'p = {np.round(p_val, 2)}'
+        str_short = 'n.s.'
+
+    return str_p, str_short
