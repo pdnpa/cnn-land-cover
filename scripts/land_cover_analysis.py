@@ -1435,6 +1435,7 @@ def compute_confusion_mat_from_two_masks(mask_true, mask_pred, lc_class_name_lis
 
 def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=None,
                                      dim_truth=0, normalise_hm=True, remove_no_class_if_present=True,
+                                     class_indices_to_remove=[],
                                      dict_override_shortcuts={}):
     '''Given a confusion matrix, compute precision/sensitivity/accuracy etc stats'''
     if model is not None:
@@ -1449,6 +1450,12 @@ def compute_stats_from_confusion_mat(model=None, conf_mat=None, class_name_list=
     assert len(class_name_list) == conf_mat.shape[0], f'{n_classes}, {len(class_name_list)}, {conf_mat.shape[0]}'
     assert (conf_mat >= 0).all()
     assert dim_truth == 0, 'if true labels are on the other axis, code below doesnt work. Add transpose here..?'
+    if len(class_indices_to_remove) > 0:
+        conf_mat = np.delete(conf_mat, class_indices_to_remove, axis=0)
+        conf_mat = np.delete(conf_mat, class_indices_to_remove, axis=1)
+        class_name_list = [x for i, x in enumerate(class_name_list) if i not in class_indices_to_remove]
+        n_classes = len(class_name_list)    
+    
     if remove_no_class_if_present:
         if class_name_list[0] in ['NO CLASS', '0']:
             print('Removing NO CLASS from confusion matrix')

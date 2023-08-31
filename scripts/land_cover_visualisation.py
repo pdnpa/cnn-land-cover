@@ -608,19 +608,22 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None, print_table=True,
                            dim_truth=0, normalise_hm=True, skip_factor=1, fmt_annot=None,
                            text_under_mat=False, print_main_text=True, suppress_zero_annot=False,
-                           dict_override_shortcuts={},
+                           dict_override_shortcuts={}, remove_no_class_if_present=True,
+                           class_indices_to_remove=[],
                            title_hm='Confusion matrix evaluation data'):
 
     df_stats_per_class, overall_accuracy, sub_accuracy, conf_mat_norm, shortcuts, n_classes = \
         lca.compute_stats_from_confusion_mat(model=model, conf_mat=conf_mat, class_name_list=class_name_list,
                                          dim_truth=dim_truth, normalise_hm=normalise_hm,
-                                         dict_override_shortcuts=dict_override_shortcuts)
+                                         dict_override_shortcuts=dict_override_shortcuts,
+                                         class_indices_to_remove=class_indices_to_remove,
+                                         remove_no_class_if_present=remove_no_class_if_present)
 
     if plot_results:
         if ax_hm is None or (ax_stats is None and print_table):
             fig = plt.figure(figsize=(9, 4), constrained_layout=False)
             gs_hm = fig.add_gridspec(nrows=1, ncols=1, left=0.05, right=0.58, bottom=0.05, top=0.95)
-            gs_stats = fig.add_gridspec(nrows=1, ncols=1, left=0.7, right=0.95, bottom=0.05, top=0.68)
+            gs_stats = fig.add_gridspec(nrows=1, ncols=1, left=0.7, right=0.95, bottom=0.05, top=0.9)
             ax_hm = fig.add_subplot(gs_hm[0])
             ax_stats = fig.add_subplot(gs_stats[0])
         
