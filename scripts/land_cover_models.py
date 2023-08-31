@@ -456,9 +456,9 @@ class LandCoverUNet(pl.LightningModule):
                     n_match = int((det_output[y == ic_true] == ic_pred).sum()) 
                     self.test_confusion_mat[ic_true, ic_pred] += n_match  # just add to existing matrix; so it can be done in batches
             if self.first_class_is_no_class:
-                conf_mat_use= self.test_confusion_mat[1:, 1:]
+                conf_mat_use = self.test_confusion_mat[1:, 1:]
             else:
-                conf_mat_use= self.test_confusion_mat
+                conf_mat_use = self.test_confusion_mat
             overall_accuracy = conf_mat_use.diagonal().sum() / conf_mat_use.sum() 
             self.log('test_overall_accuracy', overall_accuracy)
 
@@ -987,6 +987,26 @@ def two_stage_patch_prediction(model_main, dict_models_detailed,
         pred_final[inds] = pred_det[main_class][inds]
 
     return pred_final, total_cn_list
+
+def relabel_twostage_pred_to_testds(class_name_list_twostage, class_name_list_testds,
+                                    pred_tensor):
+    '''Relabels two stage prediction to test ds'''
+    assert type(class_name_list_twostage) == list and type(class_name_list_testds) == list
+    assert class_name_list_testds[0] == 'NO CLASS'
+    assert class_name_list_twostage[0] == 'NO CLASS'
+    assert type(pred_tensor) == torch.Tensor
+    dict_mapping = {}
+    for i, cn in enumerate(class_name_list_twostage):
+        if cn in class_name_list_testds:
+            dict_mapping[i] = class_name_list_testds.index(cn)
+        else:
+            dict_mapping[i] = 0
+
+    pred_tensor = pred_tensor.clone()
+    pred_tensor = pred_tensor.apply_(lambda x: dict_mapping[x])
+    return pred_tensor  
+
+
 
 def save_details_trainds_to_model(model, train_ds):
     '''Save details of train data set to model'''
