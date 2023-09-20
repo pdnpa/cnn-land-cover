@@ -2,7 +2,7 @@
 
 * content\evaluation_polygons\landscape_character_2022_detailed_CFGH-override
 
-Merging the OS NGD and NFI data with mainclass predictions was done using vector data overlayed on raster data. As such, surrounding the CFGH overide layer, there are many (sub) pixels that have a null value. This created a 'saw teeth' effect along the CFGH overide polygons. To fix this in GIS the following method is employed susccesfully. 
+Merging the OS NGD and NFI layer with mainclass prediction layer was done using NGD/NFI vector data overlayed on (raster-)pixelated prediction vector data. As a result, surrounding the CFGH overide layer, there are many (sub) pixels that have a null value, or overlap between NGD/NFI and prediction polgons. This created a 'saw teeth' effect along the CFGH overide polygons. To fix this in GIS the following method is employed succesfully. 
 
 *QGIS 3.10 & ARC GIS pro 3.1.3 used in this process*
 
