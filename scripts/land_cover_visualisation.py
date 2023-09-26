@@ -709,7 +709,8 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
                                           ax=None, dict_train_test_split=None,
                                           colour_dict=None,
                                           rotation_xticklabels=90, plot_dual_axis=True,
-                                          classes_ignore=['0','F2', 'F', 'G', 'G2', 'H', 'H1a', 'H1b', 'H2a', 'H2b', 'H3a', 'H3b']):
+                                          classes_ignore=['0','F2', 'F', 'G', 'G2', 'H', 'H1a', 'H1b', 'H2a', 'H2b', 'H3a', 'H3b'],
+                                          class_codes_override=None):
 
     df_patches_only_concat = pd.concat(list(dict_pols_per_patch.values()))
     unique_classes = df_patches_only_concat[col_name_class].unique()
@@ -743,12 +744,21 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
                 dict_total_area[key][c] = area_m / 1e6
                 dict_total_patches[key][c] = area_m  / (64 * 64)  # convert to patches
 
+    print(dict_total_area)
     if dict_train_test_split is None:
         classes_plot = list(dict_total_area.keys())
     else:
         classes_plot = list(dict_total_area[list(dict_total_area.keys())[0]].keys())
         # print(list(dict_total_area[list(dict_total_area.keys())[0]].keys()))
         # print(list(dict_total_area[list(dict_total_area.keys())[1]].keys()))
+    xticklabels = copy.deepcopy(classes_plot)    
+    if class_codes_override is not None:
+        if dict_train_test_split:
+            print('WARNING: not sure if this works with train test split')
+        ## replace classes_plot elements with class_codes_override
+        for i, c in enumerate(xticklabels):
+            if c in class_codes_override.keys():
+                xticklabels[i] = class_codes_override[c]
 
     ## Bar plot of total area of each class
     if ax is None:
@@ -765,7 +775,7 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
             ax.bar(x_arr + i * width, dict_total_area[key].values(), 
                    width=width, label=key, facecolor=colour_dict[key])
         ax.set_xticks(x_arr + width / 2)
-        ax.set_xticklabels(classes_plot, rotation=rotation_xticklabels)
+        ax.set_xticklabels(xticklabels, rotation=rotation_xticklabels)
     ax.set_ylabel('Area (km' + r"$^2$" + ')')
     ax.set_title(f'Total area of each class in the {len(dict_pols_per_patch)} evaluation patches');
     ax.legend(frameon=False)
