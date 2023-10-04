@@ -28,7 +28,7 @@ plt.rcParams['ytick.left'] = True
 color_dict_stand = {}
 for ii, x in enumerate(plt.rcParams['axes.prop_cycle']()):
     color_dict_stand[ii] = x['color']
-    if ii > 8:
+    if ii > 80:
         break  # after 8 it repeats (for ever)
 color_dict_stand[10] = '#994F00'
 color_dict_stand[11] = '#4B0092'
