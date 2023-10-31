@@ -707,7 +707,7 @@ def plot_convergence_model(model, ax=None, metric='val_loss', colour_line='k',
 
 def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Class_low',
                                           ax=None, dict_train_test_split=None,
-                                          colour_dict=None,
+                                          colour_dict=None, upper_lim_area=None, alpha_bars=1,
                                           rotation_xticklabels=90, plot_dual_axis=True,
                                           classes_ignore=['0','F2', 'F', 'G', 'G2', 'H', 'H1a', 'H1b', 'H2a', 'H2b', 'H3a', 'H3b'],
                                           class_codes_override=None):
@@ -744,7 +744,7 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
                 dict_total_area[key][c] = area_m / 1e6
                 dict_total_patches[key][c] = area_m  / (64 * 64)  # convert to patches
 
-    print(dict_total_area)
+    # print(dict_total_area)
     if dict_train_test_split is None:
         classes_plot = list(dict_total_area.keys())
     else:
@@ -773,7 +773,7 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
             assert classes_plot == list(dict_total_area[key].keys()), f'Classes are not the same. Difference: {classes_plot} and {dict_total_area[key].keys()}'
             x_arr = np.arange(len(classes_plot))
             ax.bar(x_arr + i * width, dict_total_area[key].values(), 
-                   width=width, label=key, facecolor=colour_dict[key])
+                   width=width, label=key, alpha=alpha_bars, facecolor=colour_dict[key])
         ax.set_xticks(x_arr + width / 2)
         ax.set_xticklabels(xticklabels, rotation=rotation_xticklabels)
     ax.set_ylabel('Area (km' + r"$^2$" + ')')
@@ -788,9 +788,19 @@ def plot_distribution_train_test_classes(dict_pols_per_patch, col_name_class='Cl
             for i, key in enumerate(dict_total_area.keys()):
                 x_arr = np.arange(len(classes_plot))
                 ax2.bar(x_arr + i * width, dict_total_patches[key].values(), 
-                        width=width, alpha=0.5, facolor=colour_dict[key])
-        # ax2.bar(classes_plot, dict_total_patches.values(), alpha=0.5)
-        ax2.set_ylabel('Equivalent number of full patches')
+                        width=width, alpha=alpha_bars, facecolor=colour_dict[key])
+        ax2.set_ylabel('Equivalent # of patches')
+        ax2.spines['top'].set_visible(False)
+
+    key_1 = list(dict_total_area.keys())[0]
+    key_2 = list(dict_total_area[key_1].keys())[0]
+    ratio_patches_area = dict_total_patches[key_1][key_2] / dict_total_area[key_1][key_2]
+    ## set ylim of ax2 to be the same as ax1 (using ratio to convert):
+    if upper_lim_area is not None:
+        # ax2.set_ylim(ax.get_ylim()[0] * ratio_patches_area, ax.get_ylim()[1] * ratio_patches_area)
+        ax.set_ylim([0, upper_lim_area])
+        if plot_dual_axis:
+            ax2.set_ylim([0, upper_lim_area * ratio_patches_area])
 
     return ax, classes_plot
 
