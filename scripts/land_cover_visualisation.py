@@ -608,6 +608,7 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                            plot_results=True, ax_hm=None, ax_stats=None, print_table=True,
                            dim_truth=0, normalise_hm=True, skip_factor=1, fmt_annot=None,
                            text_under_mat=False, print_main_text=True, suppress_zero_annot=False,
+                           suppress_leading_zeros=True,
                            dict_override_shortcuts={}, remove_no_class_if_present=True,
                            class_indices_to_remove=[],
                            title_hm='Confusion matrix evaluation data'):
@@ -649,7 +650,8 @@ def plot_confusion_summary(model=None, conf_mat=None, class_name_list=None,
                     elif str_number == '0.0':
                         t.set_text('')
                     else:
-                        t.set_text(str_number[1:]) 
+                        if suppress_leading_zeros:
+                            t.set_text(str_number[1:]) 
                 else:
                     t.set_text("") # if not it sets an empty text
 
