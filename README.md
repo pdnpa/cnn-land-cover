@@ -1,4 +1,8 @@
-# Automated classification of land cover using CNNs
+# Multi-stage semantic segmentation of land cover in the Peak District using high-resolution RGB aerial imagery
+
+This is the code corresponding to the following publication. If you use our code, please cite:
+
+van der Plas, T.L.; Geikie, S.T.; Alexander, D.G.; Simms, D.M. Multi-Stage Semantic Segmentation Quantifies Fragmentation of Small Habitats at a Landscape Scale. _Remote Sensing_ **2023**, 15, 5277. [https://doi.org/10.3390/rs15225277](https://doi.org/10.3390/rs15225277)
 
 ### Table of contents:
 - All code is in modules in `cnn-land-cover/scripts/`
