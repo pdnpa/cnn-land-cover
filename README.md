@@ -14,6 +14,6 @@ van der Plas, T.L.; Geikie, S.T.; Alexander, D.G.; Simms, D.M. Multi-Stage Seman
 - User-specific file paths are stored in `content/data_paths.json`.
 
 ### Data:
-- The data for training and testing can be found at this [https://cord.cranfield.ac.uk/articles/dataset/Very_high_resolution_aerial_photography_and_annotated_land_cover_data_of_the_Peak_District_National_Park/24221314](CORD repository).
+- The data for training and testing can be found at this [CORD repository](https://cord.cranfield.ac.uk/articles/dataset/Very_high_resolution_aerial_photography_and_annotated_land_cover_data_of_the_Peak_District_National_Park/24221314).
 - Additionally, we have created an interpretation key of all land cover classes at [https://reports.peakdistrict.gov.uk/interpretation-key/docs/introduction.html](https://reports.peakdistrict.gov.uk/interpretation-key/docs/introduction.html)
-- For more details, please see our [https://www.mdpi.com/2072-4292/15/22/5277](Remote Sensing) publication. 
+- For more details, please see our [Remote Sensing](https://www.mdpi.com/2072-4292/15/22/5277) publication. 
