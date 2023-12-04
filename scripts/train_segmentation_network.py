@@ -13,8 +13,9 @@ from pytorch_lightning import loggers as pl_loggers
 from prediction_of_trained_network import predict_segmentation_network
     
 def train_segmentation_network(
+        # n_cpus=8,
+        use_mac_sil=False,
         batch_size=10,
-        n_cpus=8,
         n_max_epochs=30,
         optimise_learning_rate=False,
         transform_training_data=True,
@@ -51,8 +52,16 @@ def train_segmentation_network(
         tile_patch_train = None
         tile_patch_test = None
 
-    lca.check_torch_ready(check_gpu=True, assert_versions=True)
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
+    if use_mac_sil:
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Users/t.vanderplas/models/')
+        n_cpus = 12
+        acc_use = 'mps'
+        lca.check_torch_ready(check_mps=True, check_gpu=False, assert_versions=True)
+    else:
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
+        n_cpus = 8
+        acc_use = 'gpu'
+        lca.check_torch_ready(check_gpu=True, assert_versions=True)
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
@@ -74,7 +83,7 @@ def train_segmentation_network(
                                 random_transform_data=transform_training_data)
     train_ds.remove_no_class_patches()  # remove all patches that have no class                              
     assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
-    train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
+    train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus, persistent_workers=True)
 
     assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
     if train_ds.class_name_list[0] in ['NO CLASS', '0']:
@@ -94,7 +103,7 @@ def train_segmentation_network(
                                     path_mapping_dict=path_mapping_dict)
         valid_ds.remove_no_class_patches()
         assert valid_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
-        valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus)
+        valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus, persistent_workers=True)
 
     ## Create test dataloader:
     if evaluate_on_test_ds:
@@ -108,7 +117,7 @@ def train_segmentation_network(
                                     subsample_patches=False,
                                     path_mapping_dict=path_mapping_dict)
         test_ds.remove_no_class_patches()
-        test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus)
+        test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus, persistent_workers=True)
 
     assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
     # assert LCU.n_classes == len(train_ds.list_unique_classes),  'Not all classes occur in train DS (or vice versa)'
@@ -137,7 +146,7 @@ def train_segmentation_network(
                                             filename="best_checkpoint_train-{epoch:02d}-{val_loss:.2f}-{train_loss:.2f}"),
                 #  pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min'),
                  cb_metrics]
-    trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, 
+    trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator=acc_use, devices=1, 
                          logger=tb_logger, callbacks=callbacks)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
     # # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
     # trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
@@ -185,11 +194,12 @@ if __name__ == '__main__':
         # 'focal_loss'
                           ] 
     mapping_dicts_list = [
-          '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
+        #   '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
         # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
         # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
-        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
+        # # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
         # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
+        '/Users/t.vanderplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
                          ]
     list_encoder_names = [
         'resnet50' 
@@ -228,11 +238,12 @@ if __name__ == '__main__':
                     # )
 
                     train_segmentation_network(
+                        use_mac_sil=True,
                         loss_function=current_loss_function,
-                        dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',
-                        dir_mask_patches=None,
-                        dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',
-                        dir_test_mask_patches=None,
+                        dir_im_patches='/Users/t.vanderplas/data/remote_sensing/pd_lc_annotated_patches_data/python_format/images_python_all/',
+                        dir_mask_patches='/Users/t.vanderplas/data/remote_sensing/pd_lc_annotated_patches_data/python_format/masks_python_all/',
+                        dir_test_im_patches='/Users/t.vanderplas/data/remote_sensing/pd_lc_annotated_patches_data/python_format/images_python_all/',
+                        dir_test_mask_patches='/Users/t.vanderplas/data/remote_sensing/pd_lc_annotated_patches_data/python_format/masks_python_all/',
                         mask_suffix_train='_lc_2022_detailed_mask.npy',
                         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
                         perform_and_save_predictions=False,
@@ -240,7 +251,7 @@ if __name__ == '__main__':
                         clip_to_main_class=False,
                         dissolve_small_pols=True,
                         dissolve_threshold=20,
-                        n_max_epochs=60,
+                        n_max_epochs=5,
                         encoder_name=current_encoder_name,
                         # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
                         tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
