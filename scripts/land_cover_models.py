@@ -460,7 +460,7 @@ class LandCoverUNet(pl.LightningModule):
             else:
                 conf_mat_use = self.test_confusion_mat
             overall_accuracy = conf_mat_use.diagonal().sum() / conf_mat_use.sum() 
-            self.log('test_overall_accuracy', overall_accuracy)
+            self.log('test_overall_accuracy', float(overall_accuracy))
 
     def validation_step(self, batch, batch_idx):
         '''Done during training (with unseen data), eg after each epoch.
