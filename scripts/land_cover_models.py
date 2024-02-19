@@ -5,7 +5,6 @@ from tqdm import tqdm
 import datetime
 import random
 import pickle
-import pandas as pd
 import loadpaths
 import pandas as pd 
 import geopandas as gpd
@@ -37,7 +36,7 @@ class DataSetPatches(torch.utils.data.Dataset):
                  list_tile_names=None, list_tile_patches_use=None,
                  preprocessing_func=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
-                 path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
+                 path_mapping_dict=os.path.join(path_dict['home'], 'repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2023-04-20-1541.pkl')):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
         self.mask_dir = mask_dir
@@ -545,7 +544,7 @@ class LandCoverUNet(pl.LightningModule):
             print(f'LCU model saved as {self.filename} at {self.filepath}')
         return self.filepath
 
-def load_model(folder='/home/tplas/models', filename='', verbose=1):
+def load_model(folder=f'{path_dict["home"]}/models', filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)

@@ -20,7 +20,8 @@ from shapely.geometry import shape
 import pandas as pd
 import geopandas as gpd
 from geocube.api.core import make_geocube
-import gdal, osr
+# import gdal, osr
+from osgeo import gdal, osr
 # import libpysal
 import loadpaths
 import patchify 
@@ -76,12 +77,12 @@ def get_all_tifs_from_subdirs(dirpath):
     list_tiffs = sum(list_tiffs, [])
     return list_tiffs
 
-def load_coords_from_geotiff(tiff_file_path):
+def load_coords_from_geotiff(tiff_file_path, project_epsg=27700):
     '''Create rectangular polygon based on coords of geotiff file'''
     ## from https://stackoverflow.com/questions/50191648/gis-geotiff-gdal-python-how-to-get-coordinates-from-pixel and https://gis.stackexchange.com/questions/126467/determining-if-shapefile-and-raster-overlap-in-python-using-ogr-gdal
     raster = gdal.Open(tiff_file_path)
     raster_epsg = int(osr.SpatialReference(raster.GetProjection()).GetAttrValue('AUTHORITY', 1))
-    assert_epsg(raster_epsg)
+    assert_epsg(raster_epsg, project_epsg=project_epsg)
     x_left, px_width, x_rot, y_top, y_rot, px_height = raster.GetGeoTransform()
     # print(raster.GetGeoTransform())
     n_pix_x = raster.RasterXSize
