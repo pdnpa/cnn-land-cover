@@ -20,4 +20,4 @@ dependencies:
   - cudatoolkit=10.0.130
   - pillow=6.2.1
   - pytorch-lightning
-prefix: /home/tplas/anaconda3/envs/geo
+prefix: /home/david/anaconda3/envs/geo
