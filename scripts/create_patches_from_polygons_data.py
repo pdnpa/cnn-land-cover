@@ -3,10 +3,10 @@
 
 import sys, os, datetime
 from tqdm import tqdm
-import loadpaths
+# import loadpaths
 import land_cover_analysis as lca
 
-path_dict = loadpaths.loadpaths()
+# path_dict = loadpaths.loadpaths()
 
 def main(
             path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',

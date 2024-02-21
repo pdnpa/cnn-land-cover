@@ -223,10 +223,14 @@ def load_landcover_detailed(pol_path, high_level_col='Class_high', low_level_col
     
     return df_lc, df_lc_manual, df_concat_manual, list_tiles_with_manual_pols
 
-def get_lc_mapping_inds_names_dicts(pol_path=path_dict['lc_80s_path'], 
+def get_lc_mapping_inds_names_dicts(pol_path=None, 
                                     col_class_ind='LC_N_80', col_class_names='LC_D_80',
                                     add_main_classes_at_end=False):
     '''Get mapping between LC class inds and names'''
+    if pol_path is None:
+        assert 'lc_80s_path' in path_dict.keys(), 'Expected to find lc_80s_path in path_dict. See data_paths.json file'
+        assert os.path.exist(path_dict['lc_80s_path']), f'Path {path_dict["lc_80s_path"]} does not exist'
+        pol_path = path_dict['lc_80s_path']
     _, dict_ind_to_name = load_landcover(pol_path=pol_path, col_class_ind=col_class_ind, 
                                          col_class_names=col_class_names)
     dict_ind_to_name[0] = 'NO CLASS'

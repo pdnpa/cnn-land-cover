@@ -2,7 +2,6 @@
 
 import os, sys, json, pickle
 import datetime
-import loadpaths
 import land_cover_analysis as lca
 import land_cover_visualisation as lcv
 import land_cover_models as lcm

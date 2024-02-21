@@ -11,7 +11,9 @@ van der Plas, T.L.; Geikie, S.T.; Alexander, D.G.; Simms, D.M. Multi-Stage Seman
 ### Installation:
 - `geo.yml` contains all python package versions used for this repo. Create a new virtual environment with all these packages with Anaconda by typing in terminal: `conda env create -f geo.yml` and then `conda activate geo`. 
 - Next, install final packages using pip: `pip install geocube==0.1.0`, `pip install patchify`, `pip install segmentation-models-pytorch`, `pip install torchsummary`, `pip install pytorch==1.12.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html`, `pip install torch-tb-profiler`, `pip install -U kaleido`
-- User-specific file paths are stored in `content/data_paths.json`.
+- User-specific file paths are stored in `content/data_paths.json`. There is "new-username" template that you can use to enter your paths (using your computer username).
+ 
+
 
 ### Data:
 - The data for training and testing can be found at this [CORD repository](https://cord.cranfield.ac.uk/articles/dataset/Very_high_resolution_aerial_photography_and_annotated_land_cover_data_of_the_Peak_District_National_Park/24221314).

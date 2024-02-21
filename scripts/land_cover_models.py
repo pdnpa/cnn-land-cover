@@ -5,8 +5,6 @@ from tqdm import tqdm
 import datetime
 import random
 import pickle
-import pandas as pd
-import loadpaths
 import pandas as pd 
 import geopandas as gpd
 import rasterio
@@ -25,8 +23,6 @@ import pytorch_lightning as pl
 import land_cover_analysis as lca
 import land_cover_visualisation as lcv
 import custom_losses as cl
-
-path_dict = loadpaths.loadpaths()
 
 class DataSetPatches(torch.utils.data.Dataset):
     '''Data set for images & masks. Saves file paths, but only loads into memory during __getitem__.

@@ -1,12 +1,7 @@
 ## Dissolving predictions, per tile and then merging. 
 
 import os, sys, json
-# import datetime
-# import loadpaths
 import land_cover_analysis as lca
-# import land_cover_visualisation as lcv
-# import land_cover_models as lcm
-# import geopandas as gpd
 from tqdm import tqdm 
 
 def dissolve_predicted_tiles(
