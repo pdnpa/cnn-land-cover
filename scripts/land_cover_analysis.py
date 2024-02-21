@@ -860,7 +860,10 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
         if filename[-4:] != '.tif':
             filename = filename + '.tif'
         if maskdir is None:  # use default path for mask files 
+            assert 'mask_path' in path_dict.keys(), 'Expected to find mask_path in path_dict. See data_paths.json file'
+            assert os.path.exist(path_dict['mask_path']), f'Path {path_dict["mask_path"]} does not exist'
             maskdir = path_dict['mask_path']
+            
         # print(maskdir, filename)
         filepath = os.path.join(maskdir, filename)
         cube[col_name].rio.to_raster(filepath)
@@ -918,11 +921,19 @@ def create_image_mask_patches(image, mask=None, patch_size=512, padding=0, verbo
     
     return patches_img, patches_mask
 
-def create_all_patches_from_dir(dir_im=path_dict['image_path'], 
-                                dir_mask=path_dict['mask_path'], 
+def create_all_patches_from_dir(dir_im=None, 
+                                dir_mask=None, 
                                 mask_fn_suffix='_lc_80s_mask.tif',
                                 patch_size=512, search_subdir_im=False):
     '''Create patches from all images & masks in given dirs.'''
+    if dir_im is None:
+        assert 'image_path' in path_dict.keys(), 'Expected to find image_path in path_dict. See data_paths.json file'
+        assert os.path.exist(path_dict['image_path']), f'Path {path_dict["image_path"]} does not exist'
+        dir_im = path_dict['image_path']  
+    if dir_mask is None:
+        assert 'mask_path' in path_dict.keys(), 'Expected to find mask_path in path_dict. See data_paths.json file'
+        assert os.path.exist(path_dict['mask_path']), f'Path {path_dict["mask_path"]} does not exist'
+        dir_mask = path_dict['mask_path']    
     if search_subdir_im:
         im_paths = get_all_tifs_from_subdirs(dir_im)
     else:
