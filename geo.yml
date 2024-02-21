@@ -16,8 +16,8 @@ dependencies:
   - tqdm
   - rioxarray
   - pytorch=1.2.0
-  - torchvision=0.4.0
+  - torchvision==0.4.0
   - cudatoolkit=10.0.130
-  - pillow=6.2.1
+  - pillow==6.2.1
   - pytorch-lightning
 prefix: /home/david/anaconda3/envs/geo
