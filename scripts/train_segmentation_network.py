@@ -55,13 +55,15 @@ def train_segmentation_network(
     if use_mac_sil:
         tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Users/t.vanderplas/models/')
         n_cpus = 12
-        acc_use = 'mps'
-        lca.check_torch_ready(check_mps=True, check_gpu=False, assert_versions=True)
+        acc_use = 'gpu'
+        lca.check_torch_ready(check_mps=False, check_gpu=False, assert_versions=True)
+        folder_save = '/Users/t.vanderplas/models/'
     else:
         tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
         n_cpus = 8
         acc_use = 'gpu'
         lca.check_torch_ready(check_gpu=True, assert_versions=True)
+        folder_save = '/home/tplas/models/'
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
@@ -178,10 +180,10 @@ def train_segmentation_network(
     ## Save:
     if save_full_model is False:  # to save memory, don't save weights
         LCU.base = None 
-    path_lcu = LCU.save_model(metrics=cb_metrics.metrics)  
+    path_lcu = LCU.save_model(folder=folder_save, metrics=cb_metrics.metrics)  
 
     if perform_and_save_predictions:
-        predict_segmentation_network(datapath_model=path_lcu.lstrip('/home/tplas/models'),
+        predict_segmentation_network(datapath_model=path_lcu.lstrip(folder_save),
                                      clip_to_main_class=clip_to_main_class, 
                                      main_class_clip_label=main_class_clip_label,
                                      dissolve_small_pols=dissolve_small_pols,
@@ -239,6 +241,7 @@ if __name__ == '__main__':
 
                     train_segmentation_network(
                         use_mac_sil=True,
+                        batch_size=5,
                         loss_function=current_loss_function,
                         dir_im_patches='/Users/t.vanderplas/data/remote_sensing/pd_lc_annotated_patches_data/python_format/images_python_all/',
                         dir_mask_patches='/Users/t.vanderplas/data/remote_sensing/pd_lc_annotated_patches_data/python_format/masks_python_all/',
@@ -251,7 +254,7 @@ if __name__ == '__main__':
                         clip_to_main_class=False,
                         dissolve_small_pols=True,
                         dissolve_threshold=20,
-                        n_max_epochs=5,
+                        n_max_epochs=2,
                         encoder_name=current_encoder_name,
                         # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
                         tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
