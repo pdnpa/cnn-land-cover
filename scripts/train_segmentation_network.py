@@ -25,8 +25,8 @@ def train_segmentation_network(
         save_full_model=True,
         mask_suffix_train='_lc_hab_mask.npy',
         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-        mask_dir_name_train='masks_detailed_annotation',  # only relevant if no dir_mask_patches is given
-        mask_dir_name_test='masks_detailed_annotation',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
         use_valid_ds=True,
         evaluate_on_test_ds=True,
         perform_and_save_predictions=False,
