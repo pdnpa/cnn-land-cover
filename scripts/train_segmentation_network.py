@@ -23,7 +23,7 @@ def train_segmentation_network(
         loss_function='focal_loss',  # 'cross_entropy'
         encoder_name='resnet50',  #'efficientnet-b1'
         save_full_model=True,
-        mask_suffix_train='_lc_hab_mask.npy',
+        mask_suffix_train='_lc_2022_detailed_mask.npy',
         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
         mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
         mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
@@ -168,7 +168,7 @@ def train_segmentation_network(
     ## Save:
     if save_full_model is False:  # to save memory, don't save weights
         LCU.base = None 
-    path_lcu = LCU.save_model(metrics=cb_metrics.metrics)  
+    path_lcu = LCU.save_model(folder=dir_tb, metrics=cb_metrics.metrics)  
 
     if perform_and_save_predictions:
         predict_segmentation_network(datapath_model=path_lcu.lstrip(dir_tb),
