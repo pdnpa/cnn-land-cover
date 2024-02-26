@@ -15,17 +15,18 @@ import sklearn.cluster, sklearn.model_selection
 from tqdm import tqdm
 import shapely as shp
 import shapely.validation
-from rasterio.features import shapes
+from rasterio.zfeatures import shapes
 from shapely.geometry import shape
 import pandas as pd
 import geopandas as gpd
 from geocube.api.core import make_geocube
-import gdal, osr
+# import gdal, osr
+from osgeo import gdal, osr
 # import libpysal
 import loadpaths
 import patchify 
 import torch
-from torch import nn
+# from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import segmentation_models_pytorch as smp
