@@ -15,8 +15,8 @@ import sklearn.cluster, sklearn.model_selection
 from tqdm import tqdm
 import shapely as shp
 import shapely.validation
-from rasterio.zfeatures import shapes
-from shapely.geometry import shape
+# from rasterio.zfeatures import shapes
+# from shapely.geometry import shape
 import pandas as pd
 import geopandas as gpd
 from geocube.api.core import make_geocube
