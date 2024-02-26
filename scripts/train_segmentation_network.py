@@ -34,16 +34,12 @@ def train_segmentation_network(
         tile_patch_train_test_split_dict_path=None,  # '../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl'
         main_class_clip_label='D',
         description_model='D class training using habitat data. Focal loss resnet 30 epochs',
-        #path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
-        #dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
-        #dir_mask_patches='/home/tplas/data/gis/habitat_training/masks_hab/',
-        #dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-        #dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/'
-        path_mapping_dict='/home/david/Documents/GitHub/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
+        path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
         dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
-        dir_mask_patches='/home/tplas/data/gis/habitat_training/masks_hab/',
+        dir_mask_patches=None,  # if None, mask_dir_name_train is used
         dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-        dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/'
+        dir_test_mask_patches=None, # if None, mask_dir_name_test is used
+        dir_tb='/home/david/models/'
                                 ):
 
     if tile_patch_train_test_split_dict_path is not None:
@@ -56,7 +52,7 @@ def train_segmentation_network(
         tile_patch_test = None
 
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/david/models/') # set to /david/
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir=dir_tb) # set to /david/
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
@@ -155,7 +151,6 @@ def train_segmentation_network(
         # print(f'Optimised learning rate to {bs_finder.suggestion()}')
 
     if use_valid_ds:
-        # trainer.fit(model=LCU, train_dataloaders=train_dl, valid_dataloaders=valid_dl) 
         trainer.fit(LCU, train_dl, valid_dl) 
     else:
         trainer.fit(model=LCU, train_dataloaders=train_dl) 
@@ -176,7 +171,7 @@ def train_segmentation_network(
     path_lcu = LCU.save_model(metrics=cb_metrics.metrics)  
 
     if perform_and_save_predictions:
-        predict_segmentation_network(datapath_model=path_lcu.lstrip('/home/tplas/models'),
+        predict_segmentation_network(datapath_model=path_lcu.lstrip(dir_tb),
                                      clip_to_main_class=clip_to_main_class, 
                                      main_class_clip_label=main_class_clip_label,
                                      dissolve_small_pols=dissolve_small_pols,
@@ -189,11 +184,11 @@ if __name__ == '__main__':
         # 'focal_loss'
                           ] 
     mapping_dicts_list = [
-          '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
-        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
-        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
-        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
-        # '/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
+          '/../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
+        # '../content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
+        # '../content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
+        # '../content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
+        # '../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
                          ]
     list_encoder_names = [
         'resnet50' 
@@ -212,25 +207,7 @@ if __name__ == '__main__':
                     # if count < 36:
                     #     continue
                     print(f'\n\n\nIteration {i + 1}/{n_repetitions} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
-                    # train_segmentation_network(
-                    #     loss_function=current_loss_function,
-                    #     dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
-                    #     dir_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
-                    #     dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/images_detailed_annotation/',
-                    #     dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/masks_detailed_annotation/',
-                    #     mask_suffix_train='_lc_2022_detailed_mask.npy',
-                    #     mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-                    #     perform_and_save_predictions=False,
-                    #     # main_class_clip_label='E',
-                    #     clip_to_main_class=False,
-                    #     dissolve_small_pols=True,
-                    #     dissolve_threshold=20,
-                    #     n_max_epochs=60,
-                    #     path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-                    #     # path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-03-17-0957.pkl',
-                    #     description_model=f'main class training using eval patch data. {current_loss_function} resnet 60 epochs'
-                    # )
-
+                    
                     train_segmentation_network(
                         loss_function=current_loss_function,
                         dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',

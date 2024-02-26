@@ -33,7 +33,7 @@ class DataSetPatches(torch.utils.data.Dataset):
                  list_tile_names=None, list_tile_patches_use=None,
                  preprocessing_func=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
-                 path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
+                 path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
         self.mask_dir = mask_dir

@@ -33,15 +33,3 @@
       }
     }
 }
-"new_username":
-  {"paths":{
-    "image_path": "/path/to/aerial/rgb-images/",
-    "mask_path": "/path/to/aerial/annotated-lc-masks/",
-    "pd_outline": "........../cnn-land-cover/content/National_Park/National_Park.shp",
-    "lc_80s_path": "/path/to/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp",
-    "landscape_character_grid_path": "........../cnn-land-cover/content/landscape_character_grid/Landscape_Character_Grid.shp",
-    "evaluation_50tiles": "........./cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
-    "evaluation_50tiles_polygons": "........../cnn-land-cover/content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp"
-    }
-}
-}
