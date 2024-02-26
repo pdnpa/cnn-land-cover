@@ -23,10 +23,10 @@ def train_segmentation_network(
         loss_function='focal_loss',  # 'cross_entropy'
         encoder_name='resnet50',  #'efficientnet-b1'
         save_full_model=True,
-        mask_suffix_train='_lc_2022_detailed_mask.npy',
+        mask_suffix_train='_lc_hab_mask.npy',
         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-        mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
-        mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_train='masks_detailed_annotation',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_test='masks_detailed_annotation',  # only relevant if no dir_mask_patches is given
         use_valid_ds=True,
         evaluate_on_test_ds=True,
         perform_and_save_predictions=False,
@@ -168,7 +168,7 @@ def train_segmentation_network(
     ## Save:
     if save_full_model is False:  # to save memory, don't save weights
         LCU.base = None 
-    path_lcu = LCU.save_model(folder=dir_tb, metrics=cb_metrics.metrics)  
+    path_lcu = LCU.save_model(metrics=cb_metrics.metrics)  
 
     if perform_and_save_predictions:
         predict_segmentation_network(datapath_model=path_lcu.lstrip(dir_tb),
@@ -194,7 +194,7 @@ if __name__ == '__main__':
         'resnet50' 
         # 'efficientnet-b1'
                          ]
-    n_repetitions = 5
+    n_repetitions = 1
     count = -1
 
     ## loop through all combinations of loss functions and mapping dicts:
@@ -210,18 +210,18 @@ if __name__ == '__main__':
                     
                     train_segmentation_network(
                         loss_function=current_loss_function,
-                        dir_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',
+                        dir_im_patches='/home/david/documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
                         dir_mask_patches=None,
-                        dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_all_tiles/images_detailed_annotation/',
+                        dir_test_im_patches='/home/david/documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
                         dir_test_mask_patches=None,
                         mask_suffix_train='_lc_2022_detailed_mask.npy',
                         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
                         perform_and_save_predictions=False,
                         # main_class_clip_label='E',
                         clip_to_main_class=False,
-                        dissolve_small_pols=True,
+                        dissolve_small_pols=False,
                         dissolve_threshold=20,
-                        n_max_epochs=60,
+                        n_max_epochs=5,
                         encoder_name=current_encoder_name,
                         # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
                         tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',

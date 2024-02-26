@@ -23,9 +23,9 @@
       "pd_outline": "/home/thijs/Google Drive/peak district/data/National_Park/National_Park.shp"
               }
     },
-  "new_username":
+  "david":
     {"paths":{
-      "lc_80s_path": "/path/to/Landscape_Character_80s 2019-08-29 10-00-34/Landscape_Character_80s.shp"
+      "lc_80s_path": "/home/david/documents/ADP/Landscape_Character_80s/Landscape_Character_80s.shp"
       }
     }
 }
