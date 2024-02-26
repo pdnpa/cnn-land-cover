@@ -13,7 +13,7 @@ from prediction_of_trained_network import predict_segmentation_network
     
 def train_segmentation_network(
         batch_size=10,
-        n_cpus=8,
+        n_cpus=16, # set to 16 /david/
         n_max_epochs=30,
         optimise_learning_rate=False,
         transform_training_data=True,
@@ -34,7 +34,12 @@ def train_segmentation_network(
         tile_patch_train_test_split_dict_path=None,  # '../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl'
         main_class_clip_label='D',
         description_model='D class training using habitat data. Focal loss resnet 30 epochs',
-        path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
+        #path_mapping_dict='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
+        #dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
+        #dir_mask_patches='/home/tplas/data/gis/habitat_training/masks_hab/',
+        #dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
+        #dir_test_mask_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/'
+        path_mapping_dict='/home/david/Documents/GitHub/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
         dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
         dir_mask_patches='/home/tplas/data/gis/habitat_training/masks_hab/',
         dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
@@ -51,7 +56,7 @@ def train_segmentation_network(
         tile_patch_test = None
 
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/tplas/models/')
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/home/david/models/') # set to /david/
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
