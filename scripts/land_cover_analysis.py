@@ -230,7 +230,7 @@ def get_lc_mapping_inds_names_dicts(pol_path=None,
     '''Get mapping between LC class inds and names'''
     if pol_path is None:
         assert 'lc_80s_path' in path_dict.keys(), 'Expected to find lc_80s_path in path_dict. See data_paths.json file'
-        assert os.path.exist(path_dict['lc_80s_path']), f'Path {path_dict["lc_80s_path"]} does not exist'
+        assert os.path.exists(path_dict['lc_80s_path']), f'Path {path_dict["lc_80s_path"]} does not exist'
         pol_path = path_dict['lc_80s_path']
     _, dict_ind_to_name = load_landcover(pol_path=pol_path, col_class_ind=col_class_ind, 
                                          col_class_names=col_class_names)
