@@ -1394,9 +1394,9 @@ def check_torch_ready(verbose=1, check_gpu=True, assert_versions=False):
         # print(f'Torchvision version is {torchvision.__version__}')  # not using torchvision at the moment though .. 
         print(f'Segmentation-models-pytorch version is {smp.__version__}')
     if assert_versions:
-        assert torch.__version__ == '1.12.1+cu102'
+        assert torch.__version__ == '2.2.1' # '1.12.1+cu102' /david/
         # assert torchvision.__version__ == '0.13.1+cu102'
-        assert smp.__version__ == '0.3.0'
+        assert smp.__version__ == '0.3.3' # '0.3.0' /david/
 
 def change_tensor_to_max_class_prediction(pred, expected_square_size=512, disallow_0=True):
     '''CNN typically outputs a prediction for each class. This function finds the max/most likely

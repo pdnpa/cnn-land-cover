@@ -520,7 +520,7 @@ class LandCoverUNet(pl.LightningModule):
          
         return 
 
-    def save_model(self, folder='/home/tplas/models/', verbose=1, metrics=None):
+    def save_model(self, folder='/home/david/models/', verbose=1, metrics=None):
         '''Save model'''
         ## Save v_num that is used for tensorboard
         self.v_num = self.logger.version

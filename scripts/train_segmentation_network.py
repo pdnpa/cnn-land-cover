@@ -10,9 +10,14 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from prediction_of_trained_network import predict_segmentation_network
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # double check GPU ID
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # catch errors during memory allocation
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'  # For TensorFlow compatibility
+
     
 def train_segmentation_network(
-        batch_size=10,
+        batch_size=5, # /david/ cuda memory issue
         n_cpus=16, # set to 16 /david/
         n_max_epochs=30,
         optimise_learning_rate=False,
@@ -25,8 +30,8 @@ def train_segmentation_network(
         save_full_model=True,
         mask_suffix_train='_lc_hab_mask.npy',
         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-        mask_dir_name_train='masks_detailed_annotation',  # only relevant if no dir_mask_patches is given
-        mask_dir_name_test='masks_detailed_annotation',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
         use_valid_ds=True,
         evaluate_on_test_ds=True,
         perform_and_save_predictions=False,
@@ -34,7 +39,7 @@ def train_segmentation_network(
         tile_patch_train_test_split_dict_path=None,  # '../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl'
         main_class_clip_label='D',
         description_model='D class training using habitat data. Focal loss resnet 30 epochs',
-        path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-03-10-1154.pkl',
+        path_mapping_dict="../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl", # 2023-03-10-1154.pkl /david/
         dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
         dir_mask_patches=None,  # if None, mask_dir_name_train is used
         dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
@@ -56,6 +61,7 @@ def train_segmentation_network(
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
+    print("Path to mapping dictionary /david/:", path_mapping_dict)
     tmp_path_dict = pickle.load(open(path_mapping_dict, 'rb'))
     n_classes = len(tmp_path_dict['dict_new_names'])
     LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
@@ -184,7 +190,7 @@ if __name__ == '__main__':
         # 'focal_loss'
                           ] 
     mapping_dicts_list = [
-          '/../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
+          '../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl'
         # '../content/label_mapping_dicts/label_mapping_dict__C_subclasses_only__2023-04-20-1540.pkl',
         # '../content/label_mapping_dicts/label_mapping_dict__D_subclasses_only__2023-04-20-1540.pkl',
         # '../content/label_mapping_dicts/label_mapping_dict__E_subclasses_and_F3d_only__2023-04-20-1541.pkl',
@@ -221,7 +227,7 @@ if __name__ == '__main__':
                         clip_to_main_class=False,
                         dissolve_small_pols=False,
                         dissolve_threshold=20,
-                        n_max_epochs=5,
+                        n_max_epochs=2,
                         encoder_name=current_encoder_name,
                         # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
                         tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
