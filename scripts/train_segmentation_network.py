@@ -210,9 +210,9 @@ if __name__ == '__main__':
                     
                     train_segmentation_network(
                         loss_function=current_loss_function,
-                        dir_im_patches='/home/david/documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
+                        dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
                         dir_mask_patches=None,
-                        dir_test_im_patches='/home/david/documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
+                        dir_test_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
                         dir_test_mask_patches=None,
                         mask_suffix_train='_lc_2022_detailed_mask.npy',
                         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
