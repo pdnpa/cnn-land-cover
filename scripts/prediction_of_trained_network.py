@@ -17,16 +17,16 @@ def predict_segmentation_network(datapath_model=None,
                                 main_class_clip_label='D',
                                 skip_factor=16,
                                 save_shp_prediction=True,
-                                parent_save_folder='/home/tplas/predictions/',
+                                parent_save_folder='/home/david/predictions/',
                                 override_with_fgh_layer=False,
                                 subsample_tiles_for_testing=False,
-                                dir_im_pred='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
+                                dir_im_pred='/home/david/Documents/ADP/RGB_12.5cm/',
                                 dir_mask_eval=None,
-                                fgh_layer_path='/home/tplas/data/gis/fgh_layer_v2/fgh_layer_v2.shp',
+                                fgh_layer_path='../content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp',
                                 # dir_mask_eval='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_main_annotation/',
                                 mask_suffix='_lc_2022_main_mask.tif',
-                                parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
-                                tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',  # used BOTH for selecting tiles to predict AND for clipping predictions to tile outlines
+                                parent_dir_tile_mainpred='/home/david/predictions/predictions_LCU_2024-02-29-2018_dissolved1000m2_padding44_FGH-override/',
+                                tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',  # used BOTH for selecting tiles to predict AND for clipping predictions to tile outlines
                                 use_tile_outlines_shp_to_predict_those_tiles_only=False,
                                 delete_individual_tile_predictions=False,
                                 merge_tiles_into_one_shp=True,
@@ -46,7 +46,7 @@ def predict_segmentation_network(datapath_model=None,
     ##Parameters:
     if datapath_model is None:
         # datapath_model = 'LCU_2023-01-23-2018.data'
-        datapath_model = 'LCU_2023-02-16-2258.data'  
+        datapath_model = 'LCU_2024-02-29-2258.data'  
 
     ## Load model:
     LCU = lcm.load_model(filename=datapath_model)
@@ -126,10 +126,10 @@ def predict_segmentation_network(datapath_model=None,
 if __name__ == '__main__':
 
     dict_cnns_best = {  ## determined in `Evaluate trained network.ipynb`
-        'main': 'LCU_2023-04-24-1259.data',
-        'C': 'LCU_2023-04-21-1335.data',
-        'D': 'LCU_2023-04-25-2057.data',
-        'E': 'LCU_2023-04-24-1216.data'
+        'main': '/home/david/models/LCU_2023-04-24-1259.data',
+        'C': '/home/david/models/LCU_2023-04-21-1335.data',
+        'D': '/home/david/models/LCU_2023-04-25-2057.data',
+        'E': '/home/david/models/LCU_2023-04-24-1216.data'
     }
     model_use = 'D'
     folder_area_thresholds = '../content/area_threshold_combinations/'
@@ -154,9 +154,9 @@ if __name__ == '__main__':
                                     # file_path_class_dependent_area_thresholds=file_path_class_dependent_area_thresholds,
                                     dir_mask_eval=None,
                                     override_with_fgh_layer=True if model_use == 'main' else False,
-                                    dir_im_pred='/media/data-hdd/gis_pd/all_pd_tiles/',
+                                    dir_im_pred='/home/david/predictions_gis/all_pd_tiles/',
                                     # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
-                                    parent_dir_tile_mainpred='/media/data-hdd/gis_pd/predictions/all_tiles_pd_notdissolved/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/individual_tiles/',
+                                    parent_dir_tile_mainpred='/home/david/predictions_gis/all_pd_tiles_notdissolved/',
                                     subsample_tiles_for_testing=False,
                                     # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
                                     # tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
@@ -164,7 +164,7 @@ if __name__ == '__main__':
                                     tile_outlines_shp_path='../content/tiles_qr/tiles_qr.shp',
                                     use_tile_outlines_shp_to_predict_those_tiles_only=True,
                                     delete_individual_tile_predictions=False,         
-                                    parent_save_folder='/media/data-hdd/gis_pd/predictions/all_tiles_pd_notdissolved/',
+                                    parent_save_folder='/home/david/predictions_gis/all_tiles_pd_notdissolved/',
                                     merge_tiles_into_one_shp=False                      
                                     )
 
