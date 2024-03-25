@@ -556,6 +556,28 @@ def load_model(folder='/home/tplas/models', filename='', verbose=1):
 
     return LCU 
 
+def load_model_from_statedict(folder='/home/thijs/Google Drive/peak district/models/2024-03-22/saved_cnn_models/', 
+                              filename='main_LCU_2023-04-24-1259.pth', verbose=1):
+    model_type = filename.split('_')[0]
+    assert model_type in ['main', 'C', 'D', 'E'], f'Unknown model type {model_type}'
+    if model_type == 'main':
+        n_classes = 4
+    elif model_type == 'C':
+        n_classes = 5
+    elif model_type == 'D':
+        n_classes = 7
+    elif model_type == 'E':
+        n_classes = 5
+        
+    encoder_name = 'resnet50'
+    LCU = LandCoverUNet(n_classes=n_classes, encoder_name=encoder_name,
+                         loss_function='cross_entropy', skip_factor_eval=1,
+                          first_class_is_no_class=False)
+    
+    LCU.load_state_dict(torch.load(os.path.join(folder, filename)))
+
+    return LCU
+
 def get_batch_from_ds(ds, batch_size=5, start_ind=0):
     '''Given DS, retrieve a batch of data (for plotting etc)'''
     tmp_items = []
