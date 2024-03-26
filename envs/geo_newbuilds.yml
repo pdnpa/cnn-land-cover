@@ -1,0 +1,20 @@
+name: geo_tor
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - cpuonly
+  - pytorch
+  - torchaudio
+  - torchvision
+  - geopandas
+  - numpy
+  - pandas
+  - scipy
+  - seaborn
+  - xarray
+  - jupyter
+  - tqdm
+  - torchmetrics
+  - lightning
+prefix: /home/thijs/anaconda3/envs/geo_tor
