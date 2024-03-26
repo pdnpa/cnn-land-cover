@@ -1,7 +1,15 @@
 {
   "tplas":
     {"paths": {
-      "models": "/home/tplas/models/"
+      "models": "/home/tplas/models/",
+      "parent_dir_tile_mainpred": "/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/",
+      "save_folder": "/home/tplas/predictions/",
+      "im_patches": "",
+      "im_tiles": "",
+      "fgh_layer": "/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp",
+      "path_habitat_prio": "/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Priority/Habitats - Priority.shp",
+      "path_habitat_nonprio": "/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Non Priority/Habitats - Non Priority.shp",
+      "peaty_soils_layer": "/home/tplas/data/gis/Peaty_Soils_Location/Peaty_Soils_Location_(England)___BGS_&_NSRI.shp"
               }
     },
   "thijs": 
@@ -16,7 +24,18 @@
     },
   "david":
     {"paths":{
-      "models": "/home/david/models/"
+      "models": "/home/david/models/",
+      "parent_dir_tile_mainpred": "/home/david/predictions/predictions_LCU_2024-02-29-2018_dissolved1000m2_padding44_FGH-override/",
+      "save_folder": "/home/david/predictions/",
+      "im_patches": "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/",
+      "im_tiles": "/home/david/Documents/ADP/RGB_12.5cm/"
+      }
+    },
+    "new-username":
+    {"paths":{
+      "models": "",
+      "save_folder": "",
+      "im_patches": "[INSERT PATH TO DATA REPOSITORY HERE]/pd_lc_annotated_patches_data/python_format/images_python_all/"
       }
     }
 }

@@ -40,7 +40,7 @@ def train_segmentation_network(
         main_class_clip_label='D',
         description_model='D class training using habitat data. Focal loss resnet 30 epochs',
         path_mapping_dict="../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl", # 2023-03-10-1154.pkl /david/
-        dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
+        dir_im_patches=path_dict['im_patches'],
         dir_mask_patches=None,  # if None, mask_dir_name_train is used
         dir_test_im_patches=None,  # if None, dir_im_patches is used    
         dir_test_mask_patches=None, # if None, mask_dir_name_test is used
@@ -76,7 +76,7 @@ def train_segmentation_network(
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
-    print("Path to mapping dictionary /david/:", path_mapping_dict)
+    print("Path to mapping dictionary:", path_mapping_dict)
     tmp_path_dict = pickle.load(open(path_mapping_dict, 'rb'))
     n_classes = len(tmp_path_dict['dict_new_names'])
     LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 

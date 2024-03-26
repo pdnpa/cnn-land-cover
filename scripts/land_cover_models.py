@@ -650,9 +650,13 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
                         name_combi_area_thresholds=None,
                         reconstruct_padded_tile_edges=True,
                         clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,  # col_name_class used for BOTH clip_to_main_class and dissolve_small_pols
-                        parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                        parent_dir_tile_mainpred=path_dict['parent_dir_tile_mainpred'],
                         tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
-                        save_folder='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205'):
+                        save_folder=path_dict['save_folder']):
+    assert os.path.exists(parent_dir_tile_mainpred), f'parent_dir_tile_mainpred {parent_dir_tile_mainpred} does not exist'
+    assert os.path.exists(tile_outlines_shp_path), f'tile_outlines_shp_path {tile_outlines_shp_path} does not exist'
+    assert os.path.exists(save_folder), f'save_folder {save_folder} does not exist'
+    
     if trainer is None:
         trainer = pl.Trainer(max_epochs=10, accelerator='gpu', devices=1, enable_progress_bar=False)  # run on GPU; and set max_epochs.
     if save_shp or dissolve_small_pols:
@@ -846,10 +850,12 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                              name_combi_area_thresholds=None,
                              skip_factor=None, 
                              clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
-                             parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                             parent_dir_tile_mainpred=path_dict['parent_dir_tile_mainpred'],
                              tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                              subsample_tiles_for_testing=False):
     '''Wrapper function that predicts & reconstructs full tile.'''
+    if clip_to_main_class:
+        assert os.path.exists(parent_dir_tile_mainpred), f'parent_dir_tile_mainpred {parent_dir_tile_mainpred} does not exist. If using clip_to_main_class, this should be given. (see content/data_paths.json)'
     if padding > 0:
         assert type(padding) == int and padding % 2 == 0, 'Padding should be even number'
     ## Get list of all image tiles to predict
@@ -885,7 +891,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
 
     if save_shp:
         if save_folder is None:
-            save_folder = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_predicted/predictions_LCU_2022-11-30-1205_dissolved_1000m2'
+            save_folder = path_dict['save_folder']
             print(f'No save folder given, so saving to {save_folder}')
         elif not os.path.exists(save_folder):
             os.makedirs(save_folder)

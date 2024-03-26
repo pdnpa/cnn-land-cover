@@ -822,6 +822,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     # assert len(unique_gtypes) == 1 and unique_gtypes[0] == shapely.geometry.polygon.Polygon, f'Expected all geometries to be of type Polygon but got {unique_gtypes}'
     ## Convert shape to raster:
     assert len(df_shp) > 0, 'df_shp is empty'
+    assert os.path.exists(maskdir)
     cube = make_geocube(df_shp, measurements=[col_name],
                         interpolate_na_method=interpolation,
                         # like=ex_tile,  # use resolution of example tiff
@@ -859,12 +860,7 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
         assert type(filename) == str, 'filename must be string'
         if filename[-4:] != '.tif':
             filename = filename + '.tif'
-        if maskdir is None:  # use default path for mask files 
-            assert 'mask_path' in path_dict.keys(), 'Expected to find mask_path in path_dict. See data_paths.json file'
-            assert os.path.exist(path_dict['mask_path']), f'Path {path_dict["mask_path"]} does not exist'
-            maskdir = path_dict['mask_path']
             
-        # print(maskdir, filename)
         filepath = os.path.join(maskdir, filename)
         cube[col_name].rio.to_raster(filepath)
         if verbose > 0:
@@ -926,14 +922,8 @@ def create_all_patches_from_dir(dir_im=None,
                                 mask_fn_suffix='_lc_80s_mask.tif',
                                 patch_size=512, search_subdir_im=False):
     '''Create patches from all images & masks in given dirs.'''
-    if dir_im is None:
-        assert 'image_path' in path_dict.keys(), 'Expected to find image_path in path_dict. See data_paths.json file'
-        assert os.path.exist(path_dict['image_path']), f'Path {path_dict["image_path"]} does not exist'
-        dir_im = path_dict['image_path']  
-    if dir_mask is None:
-        assert 'mask_path' in path_dict.keys(), 'Expected to find mask_path in path_dict. See data_paths.json file'
-        assert os.path.exist(path_dict['mask_path']), f'Path {path_dict["mask_path"]} does not exist'
-        dir_mask = path_dict['mask_path']    
+    assert os.path.exists(dir_im), f'Image dir {dir_im} does not exist'
+    assert os.path.exists(dir_mask), f'Mask dir {dir_mask} does not exist'
     if search_subdir_im:
         im_paths = get_all_tifs_from_subdirs(dir_im)
     else:
@@ -1877,9 +1867,9 @@ def filter_small_polygons_from_gdf(gdf, class_col='class', label_col='lc_label',
 
     return gdf
 
-def load_fgh_layer(filepath_fgh_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp',
+def load_fgh_layer(filepath_fgh_layer=path_dict['fgh_layer'],
                    col_label='lc_label', dict_code_copies={'G2': 'G2a'}, add_numeric_class_index=True):
-
+    assert os.path.exists(filepath_fgh_layer), f'File {filepath_fgh_layer} does not exist. If using default value for filepath_fgh_layer, make sure path_dict is set correctly in content/data_paths.json)'
     df_schema = create_df_mapping_labels_2022_to_80s()  # load schema to map fgh names to indices 
     fgh_layer = load_pols(filepath_fgh_layer)
     assert len(fgh_layer.columns) == 2 and np.all([x in ['geometry', col_label] for x in fgh_layer.columns]), f'fgh_layer should have only 2 columns: geometry and {col_label}'
@@ -1896,10 +1886,11 @@ def load_fgh_layer(filepath_fgh_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fg
 
     return fgh_layer
 
-def override_predictions_with_manual_layer(filepath_manual_layer='/home/tplas/data/gis/tmp_fgh_layer/tmp_fgh_layer.shp', 
-                                           tile_predictions_folder='/home/tplas/predictions/predictions_LCU_2022-11-30-1205_dissolved1000m2/', 
+def override_predictions_with_manual_layer(filepath_manual_layer=path_dict['fgh_layer'], 
+                                           tile_predictions_folder=path_dict['save_folder'], 
                                            new_tile_predictions_override_folder=None, verbose=0,
                                            col_name_class='Class name'):
+    assert os.path.exists(filepath_manual_layer), f'File {filepath_manual_layer} does not exist. If using default value for filepath_manual_layer, make sure path_dict is set correctly in content/data_paths.json)'
     col_class_code = 'lc_label'  # putting this outside args because df_fgh has this column name
     ## Load FGH layer & get list of tile paths, and new directory for tile predictions with FGH override
     df_fgh = load_fgh_layer(filepath_fgh_layer=filepath_manual_layer,
@@ -2064,10 +2055,11 @@ def merge_individual_shp_files(dir_indiv_tile_shp, save_merged_shp_file=True, fi
 
     return df_all
 
-def get_main_class_outline_for_tile(parent_dir_tile_pred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+def get_main_class_outline_for_tile(parent_dir_tile_pred=path_dict['parent_dir_tile_mainpred'],
                                     tilename='SK0077', class_label='C', col_name_class=None):
     '''Retrieve main class predictions for a given tile and class label'''
     ## Get path to shp file
+    assert os.path.exists(parent_dir_tile_pred), f'Path {parent_dir_tile_pred} does not exist. If using default value for parent_dir_tile_pred, make sure path_dict is set correctly in content/data_paths.json)'
     path_list = [x for x in os.listdir(parent_dir_tile_pred) if tilename in x]
     assert len(path_list) == 1, f'Found {len(path_list)} paths for tilename {tilename}'
     path_shp = os.path.join(parent_dir_tile_pred, path_list[0], path_list[0] + '.shp')
@@ -2141,10 +2133,11 @@ def set_all_raster_values_to_no_class(raster_im):
     return raster_im
 
 def clip_raster_to_main_class_pred(raster_im, tilename='SK0077', class_label='C', 
-                                   parent_dir_tile_mainpred='/home/tplas/predictions/predictions_LCU_2023-01-23-2018_dissolved1000m2_padding44_FGH-override/',
+                                   parent_dir_tile_mainpred=path_dict['parent_dir_tile_mainpred'],
                                    tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
                                    verbose=0, col_name_class=None):
     '''Clip raster to area in main class prediction within tile'''
+    assert os.path.exists(parent_dir_tile_mainpred), f'Path {parent_dir_tile_mainpred} does not exist. If using default value for parent_dir_tile_mainpred, make sure path_dict is set correctly in content/data_paths.json)'
     ## Get main class prediction
     df_main = get_main_class_outline_for_tile(parent_dir_tile_pred=parent_dir_tile_mainpred, 
                                               tilename=tilename, class_label=class_label,
@@ -2251,11 +2244,14 @@ def create_patch_grid_for_df_outlines(df_tile_outlines, resolution=0.125, patch_
     df_patch_grid_all.crs = df_tile_outlines.crs
     return df_patch_grid_all
 
-def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Priority/Habitats - Priority.shp',
-                         path_habitat_nonprio='/home/tplas/data/gis/Nature recovery network UK habitat data/Habitats - Non Priority/Habitats - Non Priority.shp',
+def prepare_habitat_data(path_habitat_prio=path_dict['path_habitat_prio'],
+                         path_habitat_nonprio=path_dict['path_habitat_nonprio'],
                          path_dict_mapping='../content/habitat_data_annotations/dict_mapping_habitat.json',
-                         col_hab = 'UK_BAP', save_df=False, save_path='~/tmp/habitat_data_annotations/habitat_data_annotations.shp',
+                         col_hab = 'UK_BAP', save_df=False, save_path=path_dict['save_folder'],
                          get_intersection=True, add_tag_col=False, verbose=1):
+    assert os.path.exists(path_habitat_prio), f'Path {path_habitat_prio} does not exist (see content/data_paths.json)'
+    assert os.path.exists(path_habitat_nonprio), f'Path {path_habitat_nonprio} does not exist (see content/data_paths.json)'
+    assert os.path.exists(save_path), f'Path {save_path} does not exist (see content/data_paths.json)'
     if verbose > 0:
         print('Loading habitat data...')
     df_prio = load_pols(path_habitat_prio)
@@ -2363,9 +2359,10 @@ def prepare_habitat_data(path_habitat_prio='/home/tplas/data/gis/Nature recovery
 
     return df_merged
     
-def use_soil_data_to_overwrite(df_lc=None, df_soil_path='/home/tplas/data/gis/Peaty_Soils_Location/Peaty_Soils_Location_(England)___BGS_&_NSRI.shp',
+def use_soil_data_to_overwrite(df_lc=None, df_soil_path=path_dict['peaty_soils_layer'],
                                col_lc_label='Class_low', soil_data_name='Natural England Peaty Soils',
                                verbose=1):
+    assert os.path.exist(df_soil_path), f'Path {df_soil_path} does not exist (see content/data_paths.json)'
     df_soil = load_pols(df_soil_path)
     df_outline = load_pols(path_dict['pd_outline'])
 

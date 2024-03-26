@@ -5,17 +5,22 @@ This is the code corresponding to the following publication. If you use our code
 van der Plas, T.L.; Geikie, S.T.; Alexander, D.G.; Simms, D.M. Multi-Stage Semantic Segmentation Quantifies Fragmentation of Small Habitats at a Landscape Scale. _Remote Sensing_ **2023**, 15, 5277. [https://doi.org/10.3390/rs15225277](https://doi.org/10.3390/rs15225277)
 
 ### Repository contents:
-- All code is in modules in `cnn-land-cover/scripts/`
+- All code is in organised modules in `cnn-land-cover/scripts/`
 - Example notebooks of how to use these modules, as well as the figure-generating notebooks, are located in `cnn-land-cover/notebooks/`
 
 ### Installation:
-- `geo.yml` contains all python package versions used for this repo. Create a new virtual environment with all these packages with Anaconda by typing in terminal: `conda env create -f geo.yml` and then `conda activate geo`. 
-- Next, install final packages using pip: `pip install geocube==0.1.0`, `pip install patchify`, `pip install segmentation-models-pytorch`, `pip install torchsummary`, `pip install pytorch==1.12.1+cu102 -f https://download.pytorch.org/whl/torch_stable.html`, `pip install torch-tb-profiler`, `pip install -U kaleido`
-- User-specific file paths are stored in `content/data_paths.json`. There is "new-username" template that you can use to enter your paths (using your computer username).
- 
+1. To ensure you've got all the necessary packages, follow the instructions in `envs/envs_readme.md` to install a new conda environment with the correct set of packages.
+2. Set your user-specific file paths in `content/data_paths.json`. There is "new-username" template that you can use to enter your paths (using your computer username).
+3. If you want to train new models using the same data set as [our paper](https://doi.org/10.3390/rs15225277), you can download the images from this [data repository](https://cord.cranfield.ac.uk/articles/dataset/Very_high_resolution_aerial_photography_and_annotated_land_cover_data_of_the_Peak_District_National_Park/24221314)
+4. _Download models_. 
+5. _Download extra files if possible, or run without_
 
+### Usage
+1. _Example notebooks_
+2. _Run training script_
+3. _Run prediction script_
+4. _Figure notebooks_
 
-### Data:
-- The data for training and testing can be found at this [CORD repository](https://cord.cranfield.ac.uk/articles/dataset/Very_high_resolution_aerial_photography_and_annotated_land_cover_data_of_the_Peak_District_National_Park/24221314).
+### Miscellaneous:
 - Additionally, we have created an interpretation key of all land cover classes at [https://reports.peakdistrict.gov.uk/interpretation-key/docs/introduction.html](https://reports.peakdistrict.gov.uk/interpretation-key/docs/introduction.html)
 - For more details, please see our [Remote Sensing](https://www.mdpi.com/2072-4292/15/22/5277) publication. 

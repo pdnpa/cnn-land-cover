@@ -19,7 +19,9 @@ def loadpaths(username=None):
 
     json_path = os.path.join(Path(__location__).parent, 'content/data_paths.json')
     json_path = str(json_path)
-
+    path_repo = Path(__location__).parent
+    path_repo = str(path_repo)
+    
     if username is None:
         username = getpass.getuser()  # get username of PC account
 
@@ -31,9 +33,8 @@ def loadpaths(username=None):
             # Expand tildes in the json paths
             user_paths_dict = {k: str(v) for k, v in user_paths_dict.items()}
         else:
-            user_paths_dict = {}
-            for k in ['models']:
-                user_paths_dict[k] = ''
+            user_paths_dict = config_info['new-username']['paths'] 
+            print('WARNING: Username not found in data_paths.json. Using default paths for new-username.')
 
     dict_add_relative = {
       "pd_outline": "content/National_Park/National_Park.shp",
@@ -43,13 +44,11 @@ def loadpaths(username=None):
       "evaluation_50tiles": "content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
       "evaluation_50tiles_polygons": "content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp"
     }
-    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-    path_repo = Path(__location__).parent
-    path_repo = str(path_repo)
-    user_paths_dict['repo'] = path_repo
 
     for k, v in dict_add_relative.items():
         if k not in user_paths_dict.keys():     
             user_paths_dict[k] = os.path.join(path_repo, v)
+
+    user_paths_dict['repo'] = path_repo
 
     return {k: os.path.expanduser(v) for k, v in user_paths_dict.items()}
