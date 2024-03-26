@@ -7,7 +7,8 @@ import loadpaths
 
 path_dict = loadpaths.loadpaths()
 
-def predict_segmentation_network(datapath_model=None, 
+def predict_segmentation_network(filename_model=None, 
+                                 folder_model=path_dict['models'],
                                  padding=44, 
                                  dissolve_small_pols=True,
                                 dissolve_threshold=1000,  # only used if dissolve_small_pols=True AND use_class_dependent_area_thresholds=False
@@ -44,13 +45,14 @@ def predict_segmentation_network(datapath_model=None,
     '''
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
     assert (use_tile_outlines_shp_to_predict_those_tiles_only and override_with_fgh_layer) is False, 'Currently not implemented to only use selection of tiles for FGH override (as is done in tile prediction wrapper). Either implement or remove this assert and always override with FGH layer on all tiles'
-    ##Parameters:
-    if datapath_model is None:
-        # datapath_model = 'LCU_2023-01-23-2018.data'
-        datapath_model = 'LCU_2024-02-29-2258.data'  
+    datapath_model = os.path.join(folder_model, filename_model)
+    assert os.path.exists(datapath_model), f'Model file not found at {datapath_model}. Have you set the correct models path in content/data_paths.json?'
 
-    ## Load model:
-    LCU = lcm.load_model(filename=datapath_model)
+    ## Load model (ensure folder is correct):
+    if datapath_model.endswith('.data'):  # full model
+        LCU = lcm.load_model(filename=filename_model, folder=folder_model)
+    elif datapath_model.endswith('.pth'):  # only the weights, load as follows: 
+        LCU = lcm.load_model_from_state_dict(filename=filename_model, folder=folder_model)
     LCU.eval() 
 
     if use_class_dependent_area_thresholds:
@@ -135,18 +137,14 @@ if __name__ == '__main__':
         'E': 'LCU_2023-04-24-1216.data'
     }
 
-    for k, v in dict_cnns_best.items():
-        dict_cnns_best[k] = os.path.join(path_dict['models'], v)
-
     for model_use in ['C', 'D', 'E']:
-        predict_segmentation_network(datapath_model=dict_cnns_best[model_use], 
+        predict_segmentation_network(filename_model=dict_cnns_best[model_use], 
                                     clip_to_main_class=False if model_use == 'main' else True, 
                                     col_name_class='lc_label',
                                     main_class_clip_label=model_use, # dict_cnns_clip_to_main_class[model_use],
                                     dissolve_small_pols=False,
                                     dissolve_threshold=10, 
                                     use_class_dependent_area_thresholds=False,
-                                    dir_mask_eval=None,
                                     override_with_fgh_layer=True if model_use == 'main' else False,
                                     dir_im_pred='/home/david/predictions_gis/all_pd_tiles/',
                                     # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
@@ -158,4 +156,3 @@ if __name__ == '__main__':
                                     parent_save_folder='/home/david/predictions_gis/all_tiles_pd_notdissolved/',
                                     merge_tiles_into_one_shp=False                      
                                     )
-

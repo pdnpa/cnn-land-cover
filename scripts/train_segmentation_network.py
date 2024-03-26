@@ -213,6 +213,7 @@ if __name__ == '__main__':
                          ]
     list_encoder_names = [
         'resnet50' 
+        # 'resnet18'
         # 'efficientnet-b1'
                          ]
     n_repetitions = 1

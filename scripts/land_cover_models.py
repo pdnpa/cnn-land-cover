@@ -299,13 +299,10 @@ class DataSetPatchesTwoMasks(DataSetPatches):
                                         'mask_filepath': self.list_mask_npys,
                                         'mask_2_filepath': self.list_mask_2_npys})
 
-
 class LandCoverUNet(pl.LightningModule):
     '''
     UNet for semantic segmentation. Build using API of pytorch lightning
     (see: https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html)
-    
-    
     '''
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
                  lr=1e-3, loss_function='cross_entropy', skip_factor_eval=1,
@@ -558,8 +555,8 @@ def load_model(folder=path_dict["models"], filename='', verbose=1):
 
     return LCU 
 
-def load_model_from_statedict(folder='/home/thijs/Google Drive/peak district/models/2024-03-22/saved_cnn_models/', 
-                              filename='main_LCU_2023-04-24-1259.pth', verbose=1):
+def load_model_from_statedict(folder=path_dict["models"], 
+                              filename='main_LCU_2023-04-24-1259.pth', encoder_name='resnet50'):
     model_type = filename.split('_')[0]
     assert model_type in ['main', 'C', 'D', 'E'], f'Unknown model type {model_type}'
     if model_type == 'main':
@@ -571,7 +568,6 @@ def load_model_from_statedict(folder='/home/thijs/Google Drive/peak district/mod
     elif model_type == 'E':
         n_classes = 5
         
-    encoder_name = 'resnet50'
     LCU = LandCoverUNet(n_classes=n_classes, encoder_name=encoder_name,
                          loss_function='cross_entropy', skip_factor_eval=1,
                           first_class_is_no_class=False)
