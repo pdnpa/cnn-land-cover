@@ -1,9 +1,9 @@
 ## File tor train a LCU
 
-import os, sys, json, pickle
+import os, pickle
 import datetime
 import land_cover_analysis as lca
-# import land_cover_visualisation as lcv
+import loadpaths
 import land_cover_models as lcm
 import custom_losses as cl
 import torch
@@ -15,6 +15,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # double check GPU ID
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # catch errors during memory allocation
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'  # For TensorFlow compatibility
 
+path_dict = loadpaths.loadpaths()
     
 def train_segmentation_network(
         batch_size=5, # /david/ cuda memory issue
@@ -26,26 +27,26 @@ def train_segmentation_network(
         learning_rate=1e-3,
         dissolve_small_pols=True,
         dissolve_threshold=1000,
-        loss_function='focal_loss',  # 'cross_entropy'
+        loss_function='cross_entropy',  # 'focal_loss'
         encoder_name='resnet50',  #'efficientnet-b1'
         save_full_model=True,
-        mask_suffix_train='_lc_hab_mask.npy',
+        mask_suffix_train='_lc_2022_detailed_mask.npy',
         mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
-        mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
-        mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
         use_valid_ds=True,
         evaluate_on_test_ds=True,
         perform_and_save_predictions=False,
         clip_to_main_class=True,
-        tile_patch_train_test_split_dict_path=None,  # '../content/evaluation_sample_50tiles/train_test_split_80tiles.pkl'
+        tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
         main_class_clip_label='D',
         description_model='D class training using habitat data. Focal loss resnet 30 epochs',
         path_mapping_dict="../content/label_mapping_dicts/label_mapping_dict__all_relevant_subclasses__2023-04-20-1540.pkl", # 2023-03-10-1154.pkl /david/
-        dir_im_patches='/home/tplas/data/gis/habitat_training/images/',
+        dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
         dir_mask_patches=None,  # if None, mask_dir_name_train is used
-        dir_test_im_patches='/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',
+        dir_test_im_patches=None,  # if None, dir_im_patches is used    
         dir_test_mask_patches=None, # if None, mask_dir_name_test is used
-        dir_tb='/home/david/models/'
+        mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
+        mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
+        dir_tb=path_dict['models']
                                 ):
 
     if tile_patch_train_test_split_dict_path is not None:
@@ -57,18 +58,21 @@ def train_segmentation_network(
         tile_patch_train = None
         tile_patch_test = None
 
+    assert os.path.exists(dir_im_patches), f'Path to image patches does not exist: {dir_im_patches}'
+    if dir_test_im_patches is None:
+        dir_test_im_patches = dir_im_patches
+
     if use_mac_sil:
         tb_logger = pl_loggers.TensorBoardLogger(save_dir=dir_tb)
         n_cpus = 12
         acc_use = 'gpu'
         lca.check_torch_ready(check_mps=False, check_gpu=False, assert_versions=True)
-        folder_save = '/Users/t.vanderplas/models/'
     else:
         tb_logger = pl_loggers.TensorBoardLogger(save_dir=dir_tb)
         n_cpus = 8
         acc_use = 'gpu'
         lca.check_torch_ready(check_gpu=True, assert_versions=True)
-        folder_save = '/home/tplas/models/'
+    folder_save = dir_tb
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
@@ -212,29 +216,22 @@ if __name__ == '__main__':
         # 'efficientnet-b1'
                          ]
     n_repetitions = 1
-    count = -1
-
+    
     ## loop through all combinations of loss functions and mapping dicts:
     print('starting training')
+    count = -1
     for i in range(n_repetitions):
         for current_encoder_name in list_encoder_names:
             for current_loss_function in loss_functions_list:
                 for current_mapping_dict in mapping_dicts_list:
                     count += 1
-                    # if count < 36:
-                    #     continue
                     print(f'\n\n\nIteration {i + 1}/{n_repetitions} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
                     
                     train_segmentation_network(
-                        use_mac_sil=True,
+                        use_mac_sil=False,
                         batch_size=5,
                         loss_function=current_loss_function,
                         dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
-                        dir_mask_patches=None,
-                        dir_test_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
-                        dir_test_mask_patches=None,
-                        mask_suffix_train='_lc_2022_detailed_mask.npy',
-                        mask_suffix_test_ds='_lc_2022_detailed_mask.npy',
                         perform_and_save_predictions=False,
                         # main_class_clip_label='E',
                         clip_to_main_class=False,
@@ -242,8 +239,6 @@ if __name__ == '__main__':
                         dissolve_threshold=20,
                         n_max_epochs=2,
                         encoder_name=current_encoder_name,
-                        # tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-21-1600.pkl',
-                        tile_patch_train_test_split_dict_path='../content/evaluation_sample_50tiles/train_test_split_80tiles_2023-03-22-2131.pkl',
                         path_mapping_dict=current_mapping_dict,
                         description_model=f'{current_mapping_dict.split("/")[-1].split("__")[1]} training using randomly split eval patch data. {current_loss_function} {current_encoder_name} 60 epochs'
                     )

@@ -9,10 +9,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from cycler import cycler
 import seaborn as sns
 import rasterio, rasterio.plot
-import xarray as xr
-import rioxarray as rxr
+# import xarray as xrp
+# import rioxarray as rxr
 import pandas as pd
-import geopandas as gpd
+# import geopandas as gpd
 import torch
 import land_cover_analysis as lca
 

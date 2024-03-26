@@ -1,10 +1,11 @@
 ## Perform prediction on full tiles using a trained model on a test set
 
-import os, sys, json, pickle
-import datetime
+import os, pickle
 import land_cover_analysis as lca
-import land_cover_visualisation as lcv
 import land_cover_models as lcm
+import loadpaths 
+
+path_dict = loadpaths.loadpaths()
 
 def predict_segmentation_network(datapath_model=None, 
                                  padding=44, 
@@ -54,7 +55,9 @@ def predict_segmentation_network(datapath_model=None,
 
     if use_class_dependent_area_thresholds:
         dissolve_threshold = None  # reset if using dict of class-dependent thresholds
-        assert file_path_class_dependent_area_thresholds is not None, 'If use_class_dependent_area_thresholds is True, file_path_class_dependent_area_thresholds must be provided'
+        if file_path_class_dependent_area_thresholds is None:
+            file_path_class_dependent_area_thresholds = os.path.join(path_dict['repo'], 'content/area_threshold_combinations/th-combi-2023-08-22.json')
+            print(f'Using default class-dependent area thresholds from {file_path_class_dependent_area_thresholds}')
         class_dependent_area_thresholds, dissolve_threshold = lca.load_area_threshold_json(file_path_class_dependent_area_thresholds)
         if dissolve_threshold is None:  # not defined in json file:
             dissolve_threshold = 0
@@ -126,24 +129,16 @@ def predict_segmentation_network(datapath_model=None,
 if __name__ == '__main__':
 
     dict_cnns_best = {  ## determined in `Evaluate trained network.ipynb`
-        'main': '/home/david/models/LCU_2023-04-24-1259.data',
-        'C': '/home/david/models/LCU_2023-04-21-1335.data',
-        'D': '/home/david/models/LCU_2023-04-25-2057.data',
-        'E': '/home/david/models/LCU_2023-04-24-1216.data'
+        'main': 'LCU_2023-04-24-1259.data',
+        'C': 'LCU_2023-04-21-1335.data',
+        'D': 'LCU_2023-04-25-2057.data',
+        'E': 'LCU_2023-04-24-1216.data'
     }
-    model_use = 'D'
-    folder_area_thresholds = '../content/area_threshold_combinations/'
-    list_combis = [os.path.join(folder_area_thresholds, x) for x in os.listdir(folder_area_thresholds) if x.endswith('.json')]
-    list_combis = list_combis[:4]
-    
+
+    for k, v in dict_cnns_best.items():
+        dict_cnns_best[k] = os.path.join(path_dict['models'], v)
+
     for model_use in ['C', 'D', 'E']:
-    # for model_use in ['main']:
-    # for file_path_class_dependent_area_thresholds in list_combis:
-    #     if 'th-combi-1.json' in file_path_class_dependent_area_thresholds:
-    #         pass 
-    #     else:
-    #         print("MOVING ON")
-    #         continue
         predict_segmentation_network(datapath_model=dict_cnns_best[model_use], 
                                     clip_to_main_class=False if model_use == 'main' else True, 
                                     col_name_class='lc_label',
@@ -151,16 +146,12 @@ if __name__ == '__main__':
                                     dissolve_small_pols=False,
                                     dissolve_threshold=10, 
                                     use_class_dependent_area_thresholds=False,
-                                    # file_path_class_dependent_area_thresholds=file_path_class_dependent_area_thresholds,
                                     dir_mask_eval=None,
                                     override_with_fgh_layer=True if model_use == 'main' else False,
                                     dir_im_pred='/home/david/predictions_gis/all_pd_tiles/',
                                     # parent_dir_tile_mainpred = '/home/tplas/predictions/predictions_LCU_2023-04-24-1259_notdissolved_padding44_FGH-override/',
                                     parent_dir_tile_mainpred='/home/david/predictions_gis/all_pd_tiles_notdissolved/',
                                     subsample_tiles_for_testing=False,
-                                    # tile_outlines_shp_path = '../content/rush_tiles/rush_primaryhabitat_tiles.shp',
-                                    # tile_outlines_shp_path='../content/evaluation_sample_50tiles/eval_all_tile_outlines/eval_all_tile_outlines.shp',
-                                    # tile_outlines_shp_path='../content/landscape_character_grid/Landscape_Character_Grid_tight.shp',
                                     tile_outlines_shp_path='../content/tiles_qr/tiles_qr.shp',
                                     use_tile_outlines_shp_to_predict_those_tiles_only=True,
                                     delete_individual_tile_predictions=False,         

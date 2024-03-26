@@ -1,8 +1,7 @@
-from json import encoder
-import os, sys, copy, shutil
+# from json import encoder
+import os, copy
 import numpy as np
 from tqdm import tqdm
-import datetime
 import random
 import pickle
 import loadpaths
@@ -16,14 +15,16 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
-import torchmetrics
-from torchvision import transforms
+# import torchmetrics
+# from torchvision import transforms
 import torchvision.transforms.functional as TF
 import segmentation_models_pytorch as smp
 import pytorch_lightning as pl
 import land_cover_analysis as lca
 import land_cover_visualisation as lcv
 import custom_losses as cl
+
+path_dict = loadpaths.loadpaths()
 
 class DataSetPatches(torch.utils.data.Dataset):
     '''Data set for images & masks. Saves file paths, but only loads into memory during __getitem__.
@@ -34,7 +35,7 @@ class DataSetPatches(torch.utils.data.Dataset):
                  list_tile_names=None, list_tile_patches_use=None,
                  preprocessing_func=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
-                 path_mapping_dict=os.path.join(path_dict['home'], 'repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2023-04-20-1541.pkl')):
+                 path_mapping_dict=os.path.join(path_dict['repo'], 'content/label_mapping_dicts/label_mapping_dict__main_categories__2023-04-20-1541.pkl')):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
         self.mask_dir = mask_dir
@@ -521,7 +522,7 @@ class LandCoverUNet(pl.LightningModule):
          
         return 
 
-    def save_model(self, folder='/home/david/models/', verbose=1, metrics=None):
+    def save_model(self, folder=path_dict["models"], verbose=1, metrics=None):
         '''Save model'''
         ## Save v_num that is used for tensorboard
         self.v_num = self.logger.version
@@ -542,7 +543,7 @@ class LandCoverUNet(pl.LightningModule):
             print(f'LCU model saved as {self.filename} at {self.filepath}')
         return self.filepath
 
-def load_model(folder=f'{path_dict["home"]}/models', filename='', verbose=1):
+def load_model(folder=path_dict["models"], filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)

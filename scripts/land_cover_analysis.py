@@ -4,13 +4,13 @@ import time, datetime
 import numpy as np
 import json
 import shutil
-from numpy.core.multiarray import square
-from numpy.testing import print_assert_equal
+# from numpy.core.multiarray import square
+# from numpy.testing import print_assert_equal
 import rasterio
 import xarray as xr
 import rioxarray as rxr
-import rtree
-import scipy.spatial
+# import rtree
+# import scipy.spatial
 import sklearn.cluster, sklearn.model_selection
 from tqdm import tqdm
 import shapely as shp
@@ -164,6 +164,12 @@ def load_landcover(pol_path, col_class_ind='LC_N_80', col_class_names='LC_D_80')
         
     return df_lc, dict_classes  
 
+def load_dict_lc_classes():
+    path_lc_classes = os.path.join(path_dict['repo'], 'content/lc_class_names.pkl')
+    with open(path_lc_classes, 'rb') as f:
+        dict_classes = pickle.load(f)
+    return dict_classes
+
 def fix_format_class_codes(arr_codes):
     '''Get array of codes in format of A1a'''
     assert type(arr_codes) == np.ndarray
@@ -224,16 +230,9 @@ def load_landcover_detailed(pol_path, high_level_col='Class_high', low_level_col
     
     return df_lc, df_lc_manual, df_concat_manual, list_tiles_with_manual_pols
 
-def get_lc_mapping_inds_names_dicts(pol_path=None, 
-                                    col_class_ind='LC_N_80', col_class_names='LC_D_80',
-                                    add_main_classes_at_end=False):
+def get_lc_mapping_inds_names_dicts(add_main_classes_at_end=False):
     '''Get mapping between LC class inds and names'''
-    if pol_path is None:
-        assert 'lc_80s_path' in path_dict.keys(), 'Expected to find lc_80s_path in path_dict. See data_paths.json file'
-        assert os.path.exists(path_dict['lc_80s_path']), f'Path {path_dict["lc_80s_path"]} does not exist'
-        pol_path = path_dict['lc_80s_path']
-    _, dict_ind_to_name = load_landcover(pol_path=pol_path, col_class_ind=col_class_ind, 
-                                         col_class_names=col_class_names)
+    dict_ind_to_name = load_dict_lc_classes()
     dict_ind_to_name[0] = 'NO CLASS'
     dict_name_to_ind = {v: k for k, v in dict_ind_to_name.items()}
 
@@ -1207,7 +1206,7 @@ def change_lc_label_in_dict(dict_mapping, dict_new_names,
 
     return dict_mapping, dict_new_names
 
-def create_new_label_mapping_dict(mapping_type='identity', save_folder='/home/tplas/repos/cnn-land-cover/content/label_mapping_dicts/',
+def create_new_label_mapping_dict(mapping_type='identity', save_folder=os.path.join(path_dict['repo'], 'content/label_mapping_dicts/'),
                                   save_mapping=False):
     '''Using the mapping of create_df_mapping_labels_2022_to_80s()
     (i.e., the LC80 schema, plus C4a/C4b/C4c, plus F3d, plus H1c/H1d
