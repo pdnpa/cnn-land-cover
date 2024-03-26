@@ -19,6 +19,7 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'  # For TensorFlow compatibility
 def train_segmentation_network(
         batch_size=5, # /david/ cuda memory issue
         n_cpus=16, # set to 16 /david/
+        use_mac_sil=False,
         n_max_epochs=30,
         optimise_learning_rate=False,
         transform_training_data=True,
@@ -56,8 +57,18 @@ def train_segmentation_network(
         tile_patch_train = None
         tile_patch_test = None
 
-    lca.check_torch_ready(check_gpu=True, assert_versions=True)
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir=dir_tb) # set to /david/
+    if use_mac_sil:
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir=dir_tb)
+        n_cpus = 12
+        acc_use = 'gpu'
+        lca.check_torch_ready(check_mps=False, check_gpu=False, assert_versions=True)
+        folder_save = '/Users/t.vanderplas/models/'
+    else:
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir=dir_tb)
+        n_cpus = 8
+        acc_use = 'gpu'
+        lca.check_torch_ready(check_gpu=True, assert_versions=True)
+        folder_save = '/home/tplas/models/'
     # pl.seed_everything(86, workers=True)
 
     ## Define model:
@@ -80,7 +91,7 @@ def train_segmentation_network(
                                 random_transform_data=transform_training_data)
     train_ds.remove_no_class_patches()  # remove all patches that have no class                              
     assert train_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
-    train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus)
+    train_dl = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, num_workers=n_cpus, persistent_workers=True)
 
     assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
     if train_ds.class_name_list[0] in ['NO CLASS', '0']:
@@ -100,7 +111,7 @@ def train_segmentation_network(
                                     path_mapping_dict=path_mapping_dict)
         valid_ds.remove_no_class_patches()
         assert valid_ds.n_classes == n_classes, f'Train DS has {train_ds.n_classes} classes but n_classes for LCU set to {n_classes}'
-        valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus)
+        valid_dl = torch.utils.data.DataLoader(valid_ds, batch_size=batch_size, num_workers=n_cpus, persistent_workers=True)
 
     ## Create test dataloader:
     if evaluate_on_test_ds:
@@ -114,7 +125,7 @@ def train_segmentation_network(
                                     subsample_patches=False,
                                     path_mapping_dict=path_mapping_dict)
         test_ds.remove_no_class_patches()
-        test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus)
+        test_dl = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, num_workers=n_cpus, persistent_workers=True)
 
     assert LCU.n_classes == train_ds.n_classes, f'LCU has {LCU.n_classes} classes but train DS has {train_ds.n_classes} classes'  # Defined in LCU by arg, in train_ds automatically from data
     # assert LCU.n_classes == len(train_ds.list_unique_classes),  'Not all classes occur in train DS (or vice versa)'
@@ -143,7 +154,7 @@ def train_segmentation_network(
                                             filename="best_checkpoint_train-{epoch:02d}-{val_loss:.2f}-{train_loss:.2f}"),
                 #  pl.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min'),
                  cb_metrics]
-    trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator='gpu', devices=1, 
+    trainer = pl.Trainer(max_epochs=n_max_epochs, accelerator=acc_use, devices=1, 
                          logger=tb_logger, callbacks=callbacks)#, auto_lr_find='lr')  # run on GPU; and set max_epochs.
     # # no accumulation for epochs 1-4. accumulate 3 for epochs 5-10. accumulate 20 after that
     # trainer = Trainer(accumulate_grad_batches={5: 3, 10: 20})
@@ -174,10 +185,10 @@ def train_segmentation_network(
     ## Save:
     if save_full_model is False:  # to save memory, don't save weights
         LCU.base = None 
-    path_lcu = LCU.save_model(metrics=cb_metrics.metrics)  
+    path_lcu = LCU.save_model(folder=folder_save, metrics=cb_metrics.metrics)  
 
     if perform_and_save_predictions:
-        predict_segmentation_network(datapath_model=path_lcu.lstrip(dir_tb),
+        predict_segmentation_network(datapath_model=path_lcu.lstrip(folder_save),
                                      clip_to_main_class=clip_to_main_class, 
                                      main_class_clip_label=main_class_clip_label,
                                      dissolve_small_pols=dissolve_small_pols,
@@ -215,6 +226,8 @@ if __name__ == '__main__':
                     print(f'\n\n\nIteration {i + 1}/{n_repetitions} of loss function {current_loss_function}, encoder {current_encoder_name}, mapping {current_mapping_dict.split("/")[-1].split("__")[1]} \n\n\n')
                     
                     train_segmentation_network(
+                        use_mac_sil=True,
+                        batch_size=5,
                         loss_function=current_loss_function,
                         dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
                         dir_mask_patches=None,

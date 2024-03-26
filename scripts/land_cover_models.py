@@ -5,6 +5,7 @@ from tqdm import tqdm
 import datetime
 import random
 import pickle
+import loadpaths
 import pandas as pd 
 import geopandas as gpd
 import rasterio
@@ -33,7 +34,7 @@ class DataSetPatches(torch.utils.data.Dataset):
                  list_tile_names=None, list_tile_patches_use=None,
                  preprocessing_func=None, shuffle_order_patches=True,
                  subsample_patches=False, frac_subsample=1, relabel_masks=True, random_transform_data=False,
-                 path_mapping_dict='../content/label_mapping_dicts/label_mapping_dict__main_categories__2022-11-17-1512.pkl'):
+                 path_mapping_dict=os.path.join(path_dict['home'], 'repos/cnn-land-cover/content/label_mapping_dicts/label_mapping_dict__main_categories__2023-04-20-1541.pkl')):
         super(DataSetPatches, self).__init__()
         self.im_dir = im_dir
         self.mask_dir = mask_dir
@@ -456,7 +457,7 @@ class LandCoverUNet(pl.LightningModule):
             else:
                 conf_mat_use = self.test_confusion_mat
             overall_accuracy = conf_mat_use.diagonal().sum() / conf_mat_use.sum() 
-            self.log('test_overall_accuracy', overall_accuracy)
+            self.log('test_overall_accuracy', float(overall_accuracy))
 
     def validation_step(self, batch, batch_idx):
         '''Done during training (with unseen data), eg after each epoch.
@@ -541,7 +542,7 @@ class LandCoverUNet(pl.LightningModule):
             print(f'LCU model saved as {self.filename} at {self.filepath}')
         return self.filepath
 
-def load_model(folder='/home/tplas/models', filename='', verbose=1):
+def load_model(folder=f'{path_dict["home"]}/models', filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)

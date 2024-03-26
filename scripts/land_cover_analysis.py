@@ -77,12 +77,12 @@ def get_all_tifs_from_subdirs(dirpath):
     list_tiffs = sum(list_tiffs, [])
     return list_tiffs
 
-def load_coords_from_geotiff(tiff_file_path):
+def load_coords_from_geotiff(tiff_file_path, project_epsg=27700):
     '''Create rectangular polygon based on coords of geotiff file'''
     ## from https://stackoverflow.com/questions/50191648/gis-geotiff-gdal-python-how-to-get-coordinates-from-pixel and https://gis.stackexchange.com/questions/126467/determining-if-shapefile-and-raster-overlap-in-python-using-ogr-gdal
     raster = gdal.Open(tiff_file_path)
     raster_epsg = int(osr.SpatialReference(raster.GetProjection()).GetAttrValue('AUTHORITY', 1))
-    assert_epsg(raster_epsg)
+    assert_epsg(raster_epsg, project_epsg=project_epsg)
     x_left, px_width, x_rot, y_top, y_rot, px_height = raster.GetGeoTransform()
     # print(raster.GetGeoTransform())
     n_pix_x = raster.RasterXSize
@@ -1385,18 +1385,23 @@ def split_patches_in_train_test(all_patches_img, all_patches_mask,
 
     return im_train, im_test, mask_train, mask_test
     
-def check_torch_ready(verbose=1, check_gpu=True, assert_versions=False):
+def check_torch_ready(verbose=1, check_gpu=True, check_mps=False, assert_versions=False):
     '''Check if pytorch, cuda, gpu, etc are ready to be used'''
+    assert not (check_gpu and check_mps) 
     if check_gpu:
         assert torch.cuda.is_available()
+    if check_mps:
+        assert torch.backends.mps.is_available()
+        assert torch.backends.mps.is_built()
     if verbose > 0:  # possibly also insert assert versions
         print(f'Pytorch version is {torch.__version__}') 
         # print(f'Torchvision version is {torchvision.__version__}')  # not using torchvision at the moment though .. 
         print(f'Segmentation-models-pytorch version is {smp.__version__}')
     if assert_versions:
-        assert torch.__version__ == '2.2.1' # '1.12.1+cu102' /david/
-        # assert torchvision.__version__ == '0.13.1+cu102'
-        assert smp.__version__ == '0.3.3' # '0.3.0' /david/
+        if check_gpu:
+            assert torch.__version__ == '2.2.1' # '1.12.1+cu102' /david/
+            # assert torchvision.__version__ == '0.13.1+cu102'
+            assert smp.__version__ == '0.3.3' # '0.3.0' /david/
 
 def change_tensor_to_max_class_prediction(pred, expected_square_size=512, disallow_0=True):
     '''CNN typically outputs a prediction for each class. This function finds the max/most likely
