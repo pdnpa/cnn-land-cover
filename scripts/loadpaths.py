@@ -36,6 +36,7 @@ def loadpaths(username=None):
             user_paths_dict = config_info['new-username']['paths'] 
             print('WARNING: Username not found in data_paths.json. Using default paths for new-username.')
 
+    ## Add paths within repo:
     dict_add_relative = {
       "pd_outline": "content/National_Park/National_Park.shp",
       "landscape_character_grid_path": "content/landscape_character_grid/Landscape_Character_Grid.shp",
