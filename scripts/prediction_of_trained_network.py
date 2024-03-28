@@ -127,26 +127,27 @@ def predict_segmentation_network(filename_model=None,
 if __name__ == '__main__':
 
     dict_cnns_best = {  ## determined in `Evaluate trained network.ipynb`
-        'main': 'LCU_2023-04-24-1259.data',
-        'C': 'LCU_2023-04-21-1335.data',
-        'D': 'LCU_2023-04-25-2057.data',
-        'E': 'LCU_2023-04-24-1216.data'
+        'main': 'main_LCU_2023-04-24-1259.pth',
+        'C': 'C_LCU_2023-04-21-1335.pth',
+        'D': 'D_LCU_2023-04-25-2057.pth',
+        'E': 'E_LCU_2023-04-24-1216.pth'
     }
 
-    for model_use in ['C', 'D', 'E']:
+    for model_use in ['main']:
         predict_segmentation_network(filename_model=dict_cnns_best[model_use], 
                                     clip_to_main_class=False if model_use == 'main' else True, 
                                     col_name_class='lc_label',
-                                    main_class_clip_label=model_use, # dict_cnns_clip_to_main_class[model_use],
+                                    main_class_clip_label=model_use, 
                                     dissolve_small_pols=False,
                                     dissolve_threshold=10, 
                                     use_class_dependent_area_thresholds=False,
-                                    override_with_fgh_layer=True if model_use == 'main' else False,
-                                    dir_im_pred='/home/david/predictions_gis/all_pd_tiles/',
+                                    # override_with_fgh_layer=True if model_use == 'main' else False,
+                                    override_with_fgh_layer=False,
+                                    dir_im_pred='/home/david/predictions_gis/all_pd_tiles/',  # folder with image tiles to be predicted
                                     parent_dir_tile_mainpred='/home/david/predictions_gis/all_pd_tiles_notdissolved/',
                                     subsample_tiles_for_testing=False,
                                     tile_outlines_shp_path='../content/tiles_qr/tiles_qr.shp',
-                                    use_tile_outlines_shp_to_predict_those_tiles_only=True,
+                                    use_tile_outlines_shp_to_predict_those_tiles_only=False,
                                     delete_individual_tile_predictions=False,         
                                     parent_save_folder='/home/david/predictions_gis/all_tiles_pd_notdissolved/',
                                     merge_tiles_into_one_shp=False                      
