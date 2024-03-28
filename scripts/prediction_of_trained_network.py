@@ -43,7 +43,7 @@ def predict_segmentation_network(filename_model=None,
 
     '''
     lca.check_torch_ready(check_gpu=True, assert_versions=True)
-    assert (use_tile_outlines_shp_to_predict_those_tiles_only and override_with_fgh_layer) is False, 'Currently not implemented to only use selection of tiles for FGH override (as is done in tile prediction wrapper). Either implement or remove this assert and always override with FGH layer on all tiles'
+    assert (use_tile_outlines_shp_to_predict_those_tiles_only is False) or (override_with_fgh_layer is False), 'Currently not implemented to only use selection of tiles for FGH override (as is done in tile prediction wrapper). Either implement or remove this assert and always override with FGH layer on all tiles'
     datapath_model = os.path.join(folder_model, filename_model)
     assert os.path.exists(datapath_model), f'Model file not found at {datapath_model}. Have you set the correct models path in content/data_paths.json?'
     assert os.path.exists(dir_im_pred), f'Image tiles folder not found at {dir_im_pred}. (Have you set the correct image tiles path in content/data_paths.json?)'
