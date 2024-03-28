@@ -48,10 +48,7 @@ def predict_segmentation_network(filename_model=None,
     assert os.path.exists(datapath_model), f'Model file not found at {datapath_model}. Have you set the correct models path in content/data_paths.json?'
     assert os.path.exists(dir_im_pred), f'Image tiles folder not found at {dir_im_pred}. (Have you set the correct image tiles path in content/data_paths.json?)'
     ## Load model (ensure folder is correct):
-    if datapath_model.endswith('.data'):  # full model
-        LCU = lcm.load_model(filename=filename_model, folder=folder_model)
-    elif datapath_model.endswith('.pth'):  # only the weights, load as follows: 
-        LCU = lcm.load_model_from_state_dict(filename=filename_model, folder=folder_model)
+    LCU = lcm.load_model_auto(filename=filename_model, folder=folder_model)
     LCU.eval() 
 
     if use_class_dependent_area_thresholds:

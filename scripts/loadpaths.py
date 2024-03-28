@@ -37,6 +37,7 @@ def loadpaths(username=None):
             print('WARNING: Username not found in data_paths.json. Using default paths for new-username.')
 
     ## Add paths within repo:
+    user_paths_dict['repo'] = path_repo
     dict_add_relative = {
       "pd_outline": "content/National_Park/National_Park.shp",
       "landscape_character_grid_path": "content/landscape_character_grid/Landscape_Character_Grid.shp",
@@ -45,11 +46,14 @@ def loadpaths(username=None):
       "evaluation_50tiles": "content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
       "evaluation_50tiles_polygons": "content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp"
     }
-
     for k, v in dict_add_relative.items():
         if k not in user_paths_dict.keys():     
             user_paths_dict[k] = os.path.join(path_repo, v)
 
-    user_paths_dict['repo'] = path_repo
+    ## Add default (non-existing) paths to prevent key errors:
+    for k, v in config_info['new-username']['paths'].items():
+        if k not in user_paths_dict.keys():
+            user_paths_dict[k] = v
+
 
     return {k: os.path.expanduser(v) for k, v in user_paths_dict.items()}

@@ -576,6 +576,17 @@ def load_model_from_statedict(folder=path_dict["models"],
 
     return LCU
 
+def load_model_auto(folder=path_dict["models"], filename='', verbose=1, suppress_warnings=False):
+    if filename.endswith('.data'):  # full model
+        if pl.__version__.split('.')[0] != '1' and (suppress_warnings is False):  ## printing a warning (rather than raiseError) in case new models are saved as .data with new PL version
+            print(f'WARNING: Pytorch lightning version is {pl.__version__}, but should be 1.x to load the full .data models from the paper.\nInstead, load the .pth files to use this pl version.')
+        LCU = load_model(filename=filename, folder=folder)
+    elif filename.endswith('.pth'):  # only the weights, load as follows: 
+        LCU = load_model_from_statedict(filename=filename, folder=folder)
+    else:
+        assert False, f'Filename {filename} not recognised'
+    return LCU
+
 def get_batch_from_ds(ds, batch_size=5, start_ind=0):
     '''Given DS, retrieve a batch of data (for plotting etc)'''
     tmp_items = []

@@ -35,7 +35,12 @@
     {"paths":{
       "models": "",
       "save_folder": "",
-      "im_patches": "[INSERT PATH TO DATA REPOSITORY HERE]/pd_lc_annotated_patches_data/python_format/images_python_all/"
+      "im_patches": "[INSERT PATH TO DATA REPOSITORY HERE]/pd_lc_annotated_patches_data/python_format/images_python_all/",
+      "fgh_layer": "",
+      "parent_dir_tile_mainpred": "",
+      "path_habitat_prio": "",
+      "path_habitat_nonprio": "",
+      "peaty_soils_layer": ""
       }
     }
 }
