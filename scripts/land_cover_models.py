@@ -873,7 +873,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
     if tifs_in_subdirs:
         list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
     else:
-        list_tiff_files = lca.get_all_tifs_from_dir(dir_im)
+        list_tiff_tiles = lca.get_all_tifs_from_dir(dir_im)
     if list_tile_names_to_predict is not None:
         list_tiff_tiles = [tif for tif in list_tiff_tiles if tif.split('/')[-1][:6] in list_tile_names_to_predict]
     if subsample_tiles_for_testing:
