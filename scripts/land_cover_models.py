@@ -859,7 +859,7 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
                              use_class_dependent_area_thresholds=False,
                             class_dependent_area_thresholds=dict(),
                              name_combi_area_thresholds=None,
-                             skip_factor=None, 
+                             skip_factor=None, tifs_in_subdirs=True,
                              clip_to_main_class=False, main_class_clip_label='C', col_name_class=None,
                              parent_dir_tile_mainpred=path_dict['parent_dir_tile_mainpred'],
                              tile_outlines_shp_path='../content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
@@ -870,7 +870,10 @@ def tile_prediction_wrapper(model, trainer=None, dir_im='', list_tile_names_to_p
     if padding > 0:
         assert type(padding) == int and padding % 2 == 0, 'Padding should be even number'
     ## Get list of all image tiles to predict
-    list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
+    if tifs_in_subdirs:
+        list_tiff_tiles = lca.get_all_tifs_from_subdirs(dir_im)
+    else:
+        list_tiff_files = lca.get_all_tifs_from_dir(dir_im)
     if list_tile_names_to_predict is not None:
         list_tiff_tiles = [tif for tif in list_tiff_tiles if tif.split('/')[-1][:6] in list_tile_names_to_predict]
     if subsample_tiles_for_testing:
