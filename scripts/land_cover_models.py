@@ -561,18 +561,40 @@ def load_model_from_statedict(folder=path_dict["models"],
     assert model_type in ['main', 'C', 'D', 'E'], f'Unknown model type {model_type}'
     if model_type == 'main':
         n_classes = 4
+        class_name_list = ['NO CLASS',
+                            'Wood and Forest Land',
+                            'Moor and Heath Land',
+                            'Agro-Pastoral Land']
     elif model_type == 'C':
         n_classes = 5
+        class_name_list = ['NO CLASS',
+                            'Broadleaved High Forest',
+                            'Coniferous High Forest',
+                            'Scrub',
+                            'Clear Felled/New Plantings in Forest Areas']
     elif model_type == 'D':
         n_classes = 7
+        class_name_list = ['NO CLASS',
+                            'Upland Heath',
+                            'Blanket Peat Grass Moor',
+                            'Bracken',
+                            'Upland Heath/Blanket Peat Mosaic',
+                            'Wetland, Peat Bog',
+                            'Wetland, Wet Grassland and Rush Pasture']
     elif model_type == 'E':
         n_classes = 5
+        class_name_list = ['NO CLASS',
+                            'Cultivated Land',
+                            'Improved Pasture',
+                            'Rough Pasture',
+                            'Wetland, Wet Grassland and Rush Pasture']
         
     LCU = LandCoverUNet(n_classes=n_classes, encoder_name=encoder_name,
                          loss_function='cross_entropy', skip_factor_eval=1,
                           first_class_is_no_class=False)
     
     LCU.load_state_dict(torch.load(os.path.join(folder, filename)))
+    LCU.dict_training_details['class_name_list'] = class_name_list
 
     return LCU
 
@@ -1041,8 +1063,6 @@ def relabel_twostage_pred_to_testds(class_name_list_twostage, class_name_list_te
     pred_tensor = pred_tensor.clone()
     pred_tensor = pred_tensor.apply_(lambda x: dict_mapping[x])
     return pred_tensor  
-
-
 
 def save_details_trainds_to_model(model, train_ds):
     '''Save details of train data set to model'''

@@ -14,7 +14,8 @@
     },
   "thijs": 
     {"paths": {
-      "models": "/home/thijs/models/"
+      "models": "/home/thijs/models/",
+      "im_patches": "/home/thijs/data_pd/pd_lc_annotated_patches_data/python_format/images_python_all/"
               }
     },
   "t.vanderplas": 
