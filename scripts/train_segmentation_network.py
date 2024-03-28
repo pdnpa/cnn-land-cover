@@ -212,8 +212,8 @@ if __name__ == '__main__':
         # '../content/label_mapping_dicts/label_mapping_dict__main_categories_F3inDE_noFGH__2023-04-21-1315.pkl'
                          ]
     list_encoder_names = [
-        'resnet50' 
-        # 'resnet18'
+        #'resnet50' 
+         'resnet18'
         # 'efficientnet-b1'
                          ]
     n_repetitions = 1
@@ -238,7 +238,7 @@ if __name__ == '__main__':
                         clip_to_main_class=False,
                         dissolve_small_pols=False,
                         dissolve_threshold=20,
-                        n_max_epochs=2,
+                        n_max_epochs=10,
                         encoder_name=current_encoder_name,
                         path_mapping_dict=current_mapping_dict,
                         description_model=f'{current_mapping_dict.split("/")[-1].split("__")[1]} training using randomly split eval patch data. {current_loss_function} {current_encoder_name} 60 epochs'
