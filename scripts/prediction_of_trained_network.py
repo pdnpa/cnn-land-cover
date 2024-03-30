@@ -144,7 +144,7 @@ if __name__ == '__main__':
                                     use_class_dependent_area_thresholds=False,
                                     # override_with_fgh_layer=True if model_use == 'main' else False,
                                     override_with_fgh_layer=False,
-                                    dir_im_pred='/home/david/documents/ADP/test/',
+                                    dir_im_pred='/home/david/Documents/ADP/test/',
                                     parent_dir_tile_mainpred='/home/david/predictions_gis/all_pd_tiles_notdissolved/',
                                     subsample_tiles_for_testing=False,
                                     tile_outlines_shp_path='../content/tiles_qr/tiles_qr.shp',
