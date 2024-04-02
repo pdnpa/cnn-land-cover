@@ -8,7 +8,7 @@ van der Plas, T.L.; Geikie, S.T.; Alexander, D.G.; Simms, D.M. Multi-Stage Seman
 1. To ensure you've got all the necessary packages, follow the instructions in `envs/README_envs.md` to install a new conda environment with the correct set of packages.
 2. Set your user-specific file paths in `content/data_paths.json`. There is "new-username" template that you can use to enter your paths (using your computer username). An explanation of what each path is for is given in `content/README_datapaths.md`. 
 3. If you want to train new models using the same data set as [our paper](https://doi.org/10.3390/rs15225277), you can download the images from this [data repository](https://cord.cranfield.ac.uk/articles/dataset/Very_high_resolution_aerial_photography_and_annotated_land_cover_data_of_the_Peak_District_National_Park/24221314)
-4. If you want to use the CNN models from our paper, you can download these [here](https://drive.google.com/drive/folders/1nEnIWDvWcLVzSE6yViv93I4klY2WzdDo?usp=sharing). 
+4. If you want to use the CNN models from our paper for predicting new image tiles, you can download these [here](https://drive.google.com/drive/folders/1nEnIWDvWcLVzSE6yViv93I4klY2WzdDo?usp=sharing). 
 5. _**TBA** Download extra files if possible, or run without_
 
 ### Usage
