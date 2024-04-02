@@ -14,7 +14,7 @@ van der Plas, T.L.; Geikie, S.T.; Alexander, D.G.; Simms, D.M. Multi-Stage Seman
 ### Usage
 1. **Example notebook**: Please see `notebooks/Getting started.ipynb` for an example notebook of how to load the data set, models etc. 
 2. **Training a LC segmentation model**: There is a script provided in `scripts/train_segmentation_network.py`. See the function call under `if __name__ == '__main__':` for an example of how to call the function. It trains a network using a folder of RGB image patches and a folder of LC annotation mask patches. These can be downloaded from our data repository (see above). 
-3. **Predicting LC of new images using an existing model**: There is a script provided in `scripts/prediction_of_trained_network.py`.  See the function call under `if __name__ == '__main__':` for an example of how to call the function. (**TBA**: link to models used in our paper.) It can predict entire RGB image tiles, which it splits up into patches, predicts LC of the patches, reconstructs the tile and saves. 
+3. **Predicting LC of new images using an existing model**: There is a script provided in `scripts/prediction_of_trained_network.py`.  See the function call under `if __name__ == '__main__':` for an example of how to call the function. It predicts entire RGB image tiles, which it splits up into patches, predicts LC of the patches, reconstructs the tile and saves. The CNN models from the paper can be downloaded [here](https://drive.google.com/drive/folders/1nEnIWDvWcLVzSE6yViv93I4klY2WzdDo?usp=sharing).
 4. Figures for the paper are generated in Jupyter notebooks, see all notebooks in `notebooks/` with a file name starting with `Figure ...`.
 
 ### Miscellaneous:
