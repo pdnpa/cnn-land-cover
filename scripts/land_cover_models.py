@@ -544,7 +544,7 @@ class LandCoverUNet(pl.LightningModule):
             print(f'LCU model saved as {self.filename} at {self.filepath}')
         return self.filepath
 
-def load_model(folder=f'{path_dict["home"]}/models', filename='', verbose=1):
+def load_model(folder=os.path.join(path_dict["home"], 'models'), filename='', verbose=1):
     '''Load previously saved (pickled) LCU model'''
     with open(os.path.join(folder, filename), 'rb') as f:
         LCU = pickle.load(f)

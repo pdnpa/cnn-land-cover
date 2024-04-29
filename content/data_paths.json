@@ -35,7 +35,7 @@
       "evaluation_50tiles": "/Users/t.vanderplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp",
       "evaluation_50tiles_polygons": "/Users/t.vanderplas//repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_FGH-override/landscape_character_2022_FGH-override.shp",
       "pd_outline": "/Users/t.vanderplas/Library/CloudStorage/OneDrive-TheAlanTuringInstitute/data/peak_district/National_Park/National_Park.shp",
-      "home": "/Users/t.vanderplas/"
+      "home": "/Users/t.vanderplas/Library/CloudStorage/OneDrive-TheAlanTuringInstitute/cnn-land-cover models/"
               }
     }
 }
