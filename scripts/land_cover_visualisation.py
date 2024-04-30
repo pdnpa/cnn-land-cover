@@ -11,6 +11,7 @@ import seaborn as sns
 import rasterio, rasterio.plot
 # import xarray as xrp
 # import rioxarray as rxr
+import xarray as xr
 import pandas as pd
 # import geopandas as gpd
 import torch
