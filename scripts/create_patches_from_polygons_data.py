@@ -9,14 +9,20 @@ import land_cover_analysis as lca
 # path_dict = loadpaths.loadpaths()
 
 def main(
-            path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
-            path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
-            save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_detailed_annotation/',
-            path_lc = '/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_detailed_CFGH-override/landscape_character_2022_detailed_CFGH-override.shp',
+            #path_image_tile_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/12.5cm Aerial Photo/',
+            #path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/evaluation_sample_50tiles.shp',
+            #save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/117574_20221122/tile_masks_detailed_annotation/',
+            #path_lc = '/home/tplas/repos/cnn-land-cover/content/evaluation_polygons/landscape_character_2022_detailed_CFGH-override/landscape_character_2022_detailed_CFGH-override.shp',
+            path_image_tile_tifs = "/home/david/Documents/ADP/4band_12.5cm/",
+            path_tile_outline_shp = "/home/david/Documents/evaluation_sample_50tiles/eval_all_tile_outlines.shp",
+            save_dir_mask_tifs = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/",
+            path_lc = "/home/david/Documents/evaluation_polygons/landscape_character_2022_detailed_CFGH-override.shp",
             df_lc=None,
             description_df_lc_for_metadata=None,
-            dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',  # where to save patches 
-            dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
+            #dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',  # where to save patches 
+            #dir_mask_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/masks_detailed_annotation/',
+            dir_im_save_patches = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/images_python_all/",
+            dir_mask_save_patches = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/masks_python_all/",
             create_patches = True,
             create_mask_tiles = True,
             save_im_patches = True,
@@ -87,7 +93,7 @@ def main(
                                         plot_raster=False, # whether to plot
                                         save_raster=True, # whether to store on disk
                                         verbose=0)
-            assert ex_raster[col_name_class_index].shape == (8000, 8000), key_tile
+            assert ex_raster[col_name_class_index].shape == (8000, 8000), key_tile  
 
     if create_patches:
         print('\nCreating and exporting patches:')
@@ -139,6 +145,25 @@ if __name__ == '__main__':
     # df_hab = df_hab[df_hab['SEL_TRAIN'] == 1]
     
     main(
+        path_image_tile_tifs = "/home/david/Documents/ADP/4band_12.5cm/",
+        path_tile_outline_shp = "/home/david/Documents/evaluation_sample_50tiles/eval_all_tile_outlines.shp",
+        save_dir_mask_tifs = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/",
+        path_lc = "/home/david/Documents/evaluation_polygons/landscape_character_2022_detailed_CFGH-override.shp",
+        dir_im_save_patches = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/images_python_all/",
+        dir_mask_save_patches = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/masks_python_all/",
+        create_patches = True,
+        create_mask_tiles = True,
+        save_im_patches = True,
+        tif_ims_in_subdirs = True,
+        create_metadata_patches = True,
+        discard_empty_patches = True,
+        suffix_name = "_lc_2022_detailed_mask",
+        col_name_class_index = None,
+        col_name_class_name = "Class_low",
+        create_high_level_masks = False,
+        df_patches_selected=None, 
+        df_sel_tile_patch_name_col='tile_patch'
+        '''
         path_image_tile_tifs = '/media/data-hdd/gis_pd/all_pd_tiles/',
         path_tile_outline_shp = '/home/tplas/repos/cnn-land-cover/content/evaluation_sample_50tiles/eval_2_30tiles_outlines.shp',
         save_dir_mask_tifs = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/eval_2_tiles/tile_masks_detailed_annotation/',
@@ -157,6 +182,5 @@ if __name__ == '__main__':
         col_name_class_index = None,  # if None, will be created
         col_name_class_name = 'Class_low',
         create_high_level_masks = False,
-        df_patches_selected=None, 
-        df_sel_tile_patch_name_col='tile_patch'
+        '''
     )

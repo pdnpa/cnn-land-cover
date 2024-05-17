@@ -831,6 +831,8 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
     if col_name in df_shp.columns and col_name not in cube.data_vars:
         print(cube)
     shape_cube = cube[col_name].shape  # somehow sometimes an extra row or of NO CLASS is added... 
+    '''
+    Showing 4 band rastrs as not 8000 during conversion - DA 17/05/24
     if shape_cube[0]  == 8001:
         if len(np.unique(cube[col_name][0, :])) > 1:
             print(f'WARNING: {filename} has shape {shape_cube} but first y-row contains following classes: {np.unique(cube[col_name][:, 0])}. Still proceeding..')    
@@ -841,7 +843,16 @@ def convert_shp_mask_to_raster(df_shp, col_name='LC_N_80',
             print(f'WARNING: {filename} has shape {shape_cube} but first x-col contains following classes: {np.unique(cube[col_name][:, 0])}. Still proceeding..')    
         # assert np.unique(cube[col_name][:, 0]) == np.array([0])
         cube = cube.isel(x=np.arange(1, 8001))  #discard first one that is just no classes 
-
+    '''
+    # Handle dimension checks
+    target_shape = (8000, 8000)
+    current_shape = cube[col_name].shape
+    if not (current_shape[0] == target_shape[0] and current_shape[1] == target_shape[1]):
+        # Adjust for both dimensions potentially being off
+        slice_y = slice(min(current_shape[0], target_shape[0]))
+        slice_x = slice(min(current_shape[1], target_shape[1]))
+        cube = cube.isel(y=slice_y, x=slice_x)
+    
     assert cube[col_name].shape == (8000, 8000), f'Cube of {filename} is not expected shape, but {cube[col_name].shape}'
 
     ## Decrease data size:
