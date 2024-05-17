@@ -16,7 +16,7 @@ def main(
             path_image_tile_tifs = "/home/david/Documents/ADP/4band_12.5cm/",
             path_tile_outline_shp = "/home/david/Documents/evaluation_sample_50tiles/eval_all_tile_outlines.shp",
             save_dir_mask_tifs = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/",
-            path_lc = "/home/david/Documents/evaluation_polygons/landscape_character_2022_detailed_CFGH-override.shp",
+            path_lc = "../content/evaluation_polygons/landscape_character_2022_detailed_CFGH-override/landscape_character_2022_detailed_CFGH-override_clip.shp",
             df_lc=None,
             description_df_lc_for_metadata=None,
             #dir_im_save_patches = '/home/tplas/data/gis/most recent APGB 12.5cm aerial/evaluation_tiles/images_detailed_annotation/',  # where to save patches 
@@ -26,7 +26,7 @@ def main(
             create_patches = True,
             create_mask_tiles = True,
             save_im_patches = True,
-            tif_ims_in_subdirs = True,  # True if tif images are in subdirectories of path_image_tile_tifs
+            tif_ims_in_subdirs = False,  # True if tif images are in subdirectories of path_image_tile_tifs
             create_metadata_patches = True,
             discard_empty_patches = True, # whether to discard patches that do not contain any landcover class (ie only NO CLASS)
             suffix_name = '_lc_2022_detailed_mask',
@@ -111,6 +111,10 @@ def main(
                                             mask_fn_suffix=suffix_name + '.tif', discard_empty_patches=discard_empty_patches,
                                             df_patches_selected=df_patches_selected, df_sel_tile_patch_name_col=df_sel_tile_patch_name_col,
                                             save_files=True, save_im=save_im_patches) 
+        print(f"Image/Mask dimensions: {n_pix}x{n_pix}")
+        print(f"Patch size: {patch_size}, Padding: {padding}, Step size: {step_size}")
+        print(f"Calculated number of patches per side: {n_patches_per_side}, Total: {n_patches_per_side**2}")
+
         if create_metadata_patches:
             ## Create textfile with all datapaths and parameters in parent dir of dir_mask_save_patches:
             dir_text_file = os.path.dirname(dir_mask_save_patches)
@@ -148,13 +152,13 @@ if __name__ == '__main__':
         path_image_tile_tifs = "/home/david/Documents/ADP/4band_12.5cm/",
         path_tile_outline_shp = "/home/david/Documents/evaluation_sample_50tiles/eval_all_tile_outlines.shp",
         save_dir_mask_tifs = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/",
-        path_lc = "/home/david/Documents/evaluation_polygons/landscape_character_2022_detailed_CFGH-override.shp",
+        path_lc = "../content/evaluation_polygons/landscape_character_2022_detailed_CFGH-override/landscape_character_2022_detailed_CFGH-override_clip.shp",
         dir_im_save_patches = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/images_python_all/",
         dir_mask_save_patches = "/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format_4band/masks_python_all/",
         create_patches = True,
         create_mask_tiles = True,
         save_im_patches = True,
-        tif_ims_in_subdirs = True,
+        tif_ims_in_subdirs = False,
         create_metadata_patches = True,
         discard_empty_patches = True,
         suffix_name = "_lc_2022_detailed_mask",
