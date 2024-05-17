@@ -829,7 +829,7 @@ def prediction_one_tile(model, trainer=None, tilepath='', tilename='', patch_siz
             if df_schema is None:
                 df_schema = lca.create_df_mapping_labels_2022_to_80s() 
             gdf[col_name_class] = gdf['Class name'].map(df_schema.set_index('description_2022')['code_2022'])
-        else:  # main class model
+        else:  # main class model has main_class_clip == 'main'
             mapping_dict_main_class = {'C': 'Wood and Forest Land',
                                         'D': 'Moor and Heath Land',
                                         'E': 'Agro-Pastoral Land',
