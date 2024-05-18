@@ -111,9 +111,7 @@ def main(
                                             mask_fn_suffix=suffix_name + '.tif', discard_empty_patches=discard_empty_patches,
                                             df_patches_selected=df_patches_selected, df_sel_tile_patch_name_col=df_sel_tile_patch_name_col,
                                             save_files=True, save_im=save_im_patches) 
-        print(f"Image/Mask dimensions: {n_pix}x{n_pix}")
-        print(f"Patch size: {patch_size}, Padding: {padding}, Step size: {step_size}")
-        print(f"Calculated number of patches per side: {n_patches_per_side}, Total: {n_patches_per_side**2}")
+
 
         if create_metadata_patches:
             ## Create textfile with all datapaths and parameters in parent dir of dir_mask_save_patches:

@@ -1038,6 +1038,9 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
 
             im_patch_path = os.path.join(dir_im_patches, im_patch_name)
             mask_patch_path = os.path.join(dir_mask_patches, mask_patch_name)
+
+            # Print debug information
+            print(f"Processing patch {i_patch}: {patch_name}, Image path: {im_patch_path}, Mask path: {mask_patch_path}")
             
             if save_files:
                 if save_im:
