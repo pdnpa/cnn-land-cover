@@ -44,8 +44,9 @@ def assert_epsg(epsg, project_epsg=27700):
         epsg = int(epsg)
     assert epsg == project_epsg, f'EPSG {epsg} is not project EPSG ({project_epsg})'
 
+'''
 def load_tiff(tiff_file_path, datatype='np', verbose=0):
-    '''Load tiff file as np or da'''
+    #Load tiff file as np or da
     with rasterio.open(tiff_file_path) as f:
         if verbose > 0:
             print(f.profile)
@@ -59,6 +60,24 @@ def load_tiff(tiff_file_path, datatype='np', verbose=0):
             assert False, 'datatype should be np or da'
 
     return im 
+'''
+# Load tiff file with support for multiple bands
+def load_tiff(tiff_file_path, datatype='da'):
+
+    with rasterio.open(tiff_file_path) as src:
+        data = src.read()  # Reads all bands into a NumPy array
+
+        if datatype == 'np':
+            return data
+        elif datatype == 'da':
+            # Convert the NumPy array to xarray DataArray for easier handling of coordinates and metadata
+            return xr.DataArray(data,
+                                dims=["band", "y", "x"],
+                                coords={"band": np.arange(data.shape[0]) + 1,
+                                        "y": np.arange(data.shape[1]),
+                                        "x": np.arange(data.shape[2])})
+        else:
+            raise ValueError("datatype must be 'np' or 'da'")
 
 def get_all_tifs_from_dir(dirpath):
     '''Return list of tifs from dir path'''
@@ -903,13 +922,16 @@ def create_image_mask_patches(image, mask=None, patch_size=512, padding=0, verbo
 
     step_size = patch_size - padding  # effective step size
     n_exp_patches = int(np.floor((len(image.x) - padding) / step_size))  # number of expected patches in each direction
+    
     assert step_size * n_exp_patches + padding == len(image.x), f'Expected number of patches {n_exp_patches} with step size: {step_size}, padding: {padding} does not match image size {len(image.x)}'
     if verbose > 0:
         print(f'Expected number of patches: {n_exp_patches} (patch size: {patch_size}, step size: {step_size}, padding: {padding}, image size {len(image.x)}')
     
     ## Create patches of patch_size x patch_size (x n_bands)
-    patches_img = patchify.patchify(image.to_numpy(), (3, patch_size, patch_size), step=step_size)
-    assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size), f'patches_img has shape {patches_img.shape}, but expected {(1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)}'
+    #patches_img = patchify.patchify(image.to_numpy(), (3, patch_size, patch_size), step=step_size)
+    patches_img = patchify.patchify(image.to_numpy(), (image.shape[0], patch_size, patch_size), step=step_size)
+    #assert patches_img.shape == (1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size), f'patches_img has shape {patches_img.shape}, but expected {(1, n_exp_patches, n_exp_patches, 3, patch_size, patch_size)}'
+    assert patches_img.shape == (1, n_exp_patches, n_exp_patches, image.shape[0], patch_size, patch_size)
     assert type(patches_img) == np.ndarray 
     
     if mask is not None:
@@ -920,7 +942,8 @@ def create_image_mask_patches(image, mask=None, patch_size=512, padding=0, verbo
         patches_mask = None
 
     ## Reshape to get array of patches:
-    patches_img = np.reshape(np.squeeze(patches_img), (n_exp_patches ** 2, 3, patch_size, patch_size), order='C')
+    #patches_img = np.reshape(np.squeeze(patches_img), (n_exp_patches ** 2, 3, patch_size, patch_size), order='C')
+    patches_img = np.reshape(np.squeeze(patches_img), (n_exp_patches ** 2, image.shape[0], patch_size, patch_size), order='C')
     if mask is not None:
         patches_mask = np.reshape(patches_mask, (n_exp_patches ** 2, patch_size, patch_size), order='C')
 
@@ -962,7 +985,6 @@ def create_all_patches_from_dir(dir_im=None,
             all_patches_mask = np.concatenate((all_patches_mask, patches_mask), axis=0)
 
     return all_patches_img, all_patches_mask
-
 def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
                                        mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
                                        dir_im_patches='', dir_mask_patches='', save_files=False,
@@ -993,6 +1015,9 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
 
         image_tile = load_tiff(tiff_file_path=tilepath, datatype='da')
         mask_tif = load_tiff(tiff_file_path=maskpath, datatype='np')
+
+        print(f"Shape of image_tile before resizing: {image_tile.shape}")
+
         image_tile = image_tile.assign_coords({'ind_x': ('x', np.arange(len(image_tile.x))),
                                                'ind_y': ('y', np.arange(len(image_tile.y)))})
 
@@ -1005,6 +1030,8 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
         # image_tile = image_tile.where(image_tile.ind_x < n_pix_fit, drop=True)
         # image_tile = image_tile.where(image_tile.ind_y < n_pix_fit, drop=True)
         image_tile = image_tile[:, :n_pix_fit, :][:, :, :n_pix_fit]
+
+        print(f"Shape of image_tile after resizing: {image_tile.shape}")
         
         assert mask_tif.ndim == 3 and mask_tif.shape[0] == 1, f'Mask has wrong number of dimensions: {mask_tif.ndim}'
         mask_tif = mask_tif[:, :n_pix_fit, :n_pix_fit]
@@ -1031,22 +1058,22 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
                 if np.sum(patches_mask[i_patch, :, :]) == 0 and (patches_mask[i_patch, :, :] == 0).all():
                     print(f'Patch {i_patch, tp_name} is empty, not saving')
                     continue
-            patch_name = tile_name + f'_patch{str(i_patch).zfill(3)}'
             
+            patch_name = tile_name + f'_patch{str(i_patch).zfill(3)}'
             im_patch_name = patch_name + '.npy'
             mask_patch_name = patch_name + mask_fn_suffix.rstrip('.tif') + '.npy'
-
             im_patch_path = os.path.join(dir_im_patches, im_patch_name)
             mask_patch_path = os.path.join(dir_mask_patches, mask_patch_name)
 
-            # Print debug information
-            print(f"Processing patch {i_patch}: {patch_name}, Image path: {im_patch_path}, Mask path: {mask_patch_path}")
+            print(f"Patch {i_patch} shape before saving: {patches_img[i_patch].shape}")  # Check the shape here
             
             if save_files:
                 if save_im:
-                    np.save(im_patch_path, patches_img[i_patch, :, :, :])
+                    np.save(im_patch_path, patches_img[i_patch])
                 if save_mask:
-                    np.save(mask_patch_path, patches_mask[i_patch, :, :])
+                    np.save(mask_patch_path, patches_mask[i_patch])
+            
+            print(f"Processing patch {i_patch}: {patch_name}, Image path: {im_patch_path}, Mask path: {mask_patch_path}")
 
     if df_patches_selected is not None:
         # print(f'{len(list_saved_patches)} patches were saved, out of {len(df_patches_selected)} selected patches')
@@ -1056,6 +1083,7 @@ def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[],
             list_not_saved_patches = [x for x in df_patches_selected[df_sel_tile_patch_name_col].values if x not in list_saved_patches]
             print(f'WARNING: {len(list_not_saved_patches)} patches were not saved')
             print(f'WARNING: {list_not_saved_patches}')
+
 
 def augment_patches(all_patches_img, all_patches_mask):
     '''Augment patches by rotating etc.
