@@ -985,6 +985,7 @@ def create_all_patches_from_dir(dir_im=None,
             all_patches_mask = np.concatenate((all_patches_mask, patches_mask), axis=0)
 
     return all_patches_img, all_patches_mask
+
 def create_and_save_patches_from_tiffs(list_tiff_files=[], list_mask_files=[], 
                                        mask_fn_suffix='_lc_80s_mask.tif', patch_size=512, padding=0,
                                        dir_im_patches='', dir_mask_patches='', save_files=False,
