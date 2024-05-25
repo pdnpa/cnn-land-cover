@@ -10,6 +10,13 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from prediction_of_trained_network import predict_segmentation_network
+import argparse
+
+# Setup if using different training folders
+parser = argparse.ArgumentParser(description='Train segmentation network')
+parser.add_argument('--dir_im_patches', type=str, help='Directory containing image patches', required=True)
+args = parser.parse_args()  # Parse arguments
+
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # double check GPU ID
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # catch errors during memory allocation
@@ -46,8 +53,21 @@ def train_segmentation_network(
         dir_test_mask_patches=None, # if None, mask_dir_name_test is used
         mask_dir_name_train='masks_python_all',  # only relevant if no dir_mask_patches is given
         mask_dir_name_test='masks_python_all',  # only relevant if no dir_mask_patches is given
-        dir_tb=path_dict['models']
+        dir_tb=path_dict['models'],
+        n_bands=3
                                 ):
+    
+    # Adjust to accept the correct number of input bands
+    if n_bands == 3:
+        pass  
+    elif n_bands == 4:
+        original_weight = LCU.resnet.conv1.weight.clone()
+        LCU.resnet.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        with torch.no_grad():
+            LCU.resnet.conv1.weight[:, :3] = original_weight
+            LCU.resnet.conv1.weight[:, 3] = original_weight[:, 0]  # Copy weights from the first channel
+    else:
+        raise ValueError(f'Unsupported number of bands: {n_bands}')
 
     if tile_patch_train_test_split_dict_path is not None:
         with open(tile_patch_train_test_split_dict_path, 'rb') as f:
@@ -79,8 +99,16 @@ def train_segmentation_network(
     print("Path to mapping dictionary:", path_mapping_dict)
     tmp_path_dict = pickle.load(open(path_mapping_dict, 'rb'))
     n_classes = len(tmp_path_dict['dict_new_names'])
-    LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
-                            loss_function=loss_function, encoder_name=encoder_name)  # load model 
+
+    in_channels = 4 if n_bands == 4 else 3 
+
+    LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, in_channels=in_channels,
+                            loss_function=loss_function, encoder_name=encoder_name)
+    LCU.change_description(new_description=description_model, add=True)
+
+    #LCU = lcm.LandCoverUNet(n_classes=n_classes, lr=learning_rate, 
+    #                        loss_function=loss_function, encoder_name=encoder_name)  # load model 
+    
     LCU.change_description(new_description=description_model, add=True)
 
     ## Create train & validation dataloader:
@@ -200,6 +228,7 @@ def train_segmentation_network(
                                      dir_mask_eval=None)
 
 if __name__ == '__main__':
+    # Setup command-line argument parsing
     loss_functions_list = [
         'cross_entropy', 
         # 'focal_loss'
@@ -232,7 +261,8 @@ if __name__ == '__main__':
                         use_mac_sil=False,
                         batch_size=5,
                         loss_function=current_loss_function,
-                        dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
+                        #dir_im_patches='/home/david/Documents/ADP/pd_lc_annotated_patches_data/python_format/images_python_all/',
+                        dir_im_patches=args.dir_im_patches,
                         perform_and_save_predictions=False,
                         # main_class_clip_label='E',
                         clip_to_main_class=False,
