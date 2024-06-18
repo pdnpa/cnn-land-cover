@@ -26,6 +26,17 @@ import custom_losses as cl
 
 path_dict = loadpaths.loadpaths()
 
+mean_R = 0.485  # Example value, replace with your actual data mean for the Red channel
+mean_G = 0.456  # Example value, replace with your actual data mean for the Green channel
+mean_B = 0.406  # Example value, replace with your actual data mean for the Blue channel
+mean_NIR = 0.445  # Example value, replace with your actual data mean for the NIR channel
+
+std_R = 0.229  # Example value, replace with your actual data std deviation for the Red channel
+std_G = 0.224  # Example value, replace with your actual data std deviation for the Green channel
+std_B = 0.225  # Example value, replace with your actual data std deviation for the Blue channel
+std_NIR = 0.225  # Example value, replace with your actual data std deviation for the NIR channel
+
+
 class DataSetPatches(torch.utils.data.Dataset):
     '''Data set for images & masks. Saves file paths, but only loads into memory during __getitem__.
     
@@ -50,9 +61,12 @@ class DataSetPatches(torch.utils.data.Dataset):
         self.list_tile_patches_use = list_tile_patches_use
         self.random_transform_data = random_transform_data
 
+        '''
+        code for 3band
         if self.preprocessing_func is not None:  # prep preprocess transformation
             rgb_means = self.preprocessing_func.keywords['mean']
             rgb_std = self.preprocessing_func.keywords['std']
+            #rgb_means = np.array(list(rgb_means) + [rgb_means[2]])
 
             rgb_means = torch.tensor(np.array(rgb_means)[:, None, None])  # get into right dimensions
             rgb_std = torch.tensor(np.array(rgb_std)[:, None, None])  # get into right dimensions
@@ -67,6 +81,23 @@ class DataSetPatches(torch.utils.data.Dataset):
         else:
             print('WARNING: no normalisation will be applied when loading images')
             self.preprocess_image = self.pass_image
+        '''
+
+        # Set means and std for all four channels, adjust these values based on your specific dataset
+        rgb_means = [mean_R, mean_G, mean_B, mean_NIR]  # Add the mean for the NIR channel
+        rgb_std = [std_R, std_G, std_B, std_NIR]  # Add the std for the NIR channel
+
+        # Reshape and convert to tensors
+        rgb_means = torch.tensor(np.array(rgb_means)[None, :, None, None], dtype=torch.float32)
+        rgb_std = torch.tensor(np.array(rgb_std)[None, :, None, None], dtype=torch.float32)
+
+        self.rgb_means = rgb_means
+        self.rgb_std = rgb_std
+
+        if preprocessing_func is None:
+            self.preprocess_image = self.zscore_image  # Ensure this method is correctly defined to use the means/stds as above
+        else:
+            self.preprocess_image = preprocessing_func
 
         ## create data frame or something of all files 
         if type(self.im_dir) == list:
@@ -222,7 +253,17 @@ class DataSetPatches(torch.utils.data.Dataset):
         
         What would be much faster, would be to store the data already pre-processed, but
         what function to use depends on the Network.'''
+
+        '''
+        3 band code
         im = im / 255 
+        im = (im - self.rgb_means) / self.rgb_std
+        return im
+        '''
+
+        if self.rgb_means.shape[1] != im.shape[0]:
+            raise ValueError(f"Number of channels in rgb_means ({self.rgb_means.shape[1]}) does not match the image channels ({im.shape[0]})")
+        im = im / 255.0  # Normalize pixel values if not already
         im = (im - self.rgb_means) / self.rgb_std
         return im
  
@@ -304,23 +345,46 @@ class LandCoverUNet(pl.LightningModule):
     UNet for semantic segmentation. Build using API of pytorch lightning
     (see: https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html)
     '''
+
     def __init__(self, n_classes=10, encoder_name='resnet50', pretrained='imagenet',
                  lr=1e-3, loss_function='cross_entropy', skip_factor_eval=1,
-                 first_class_is_no_class=False, ignore_index=0):
+                 first_class_is_no_class=False, ignore_index=0, in_channels=4):
         super().__init__()
-
         self.save_hyperparameters()
+
         self.lr = lr
         self.skip_factor_eval = skip_factor_eval
-        # pl.seed_everything(7)
 
-        ## Use SMP Unet as base model. This PL class essentially just wraps around that:
-        ## https://readthedocs.org/projects/segmentation-modelspytorch/downloads/pdf/latest/
-        self.base = smp.Unet(encoder_name=encoder_name,        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-                            encoder_weights=pretrained,     # use `imagenet` pre-trained weights for encoder initialization or None
-                            in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-                            classes=n_classes,                      # model output channels (number of classes in your dataset)
-                            activation='softmax')  # activation function to apply after final convolution; One of [sigmoid, softmax, logsoftmax, identity, callable, None]
+        # Initialize the U-Net model with the specified encoder and the number of input channels
+        self.base = smp.Unet(
+            encoder_name=encoder_name,
+            encoder_weights=pretrained,
+            in_channels=in_channels,
+            classes=n_classes,
+            activation='softmax'
+        )
+
+        # Adjust the first convolution layer to accommodate 4 input channels if necessary
+        if in_channels == 4:
+            original_first_layer = self.base.encoder.conv1
+            new_first_layer = nn.Conv2d(
+                4,  # Adjust the number of input channels
+                original_first_layer.out_channels,
+                kernel_size=original_first_layer.kernel_size,
+                stride=original_first_layer.stride,
+                padding=original_first_layer.padding,
+                bias=original_first_layer.bias is not None
+            )
+
+            # Initialize the new layer's weights
+            with torch.no_grad():
+                # Copy the weights from the original layer for the first 3 channels
+                new_first_layer.weight[:, :, ...] = original_first_layer.weight.clone()
+                # For the fourth channel, duplicate the weights from one of the existing channels (e.g., the first channel)
+                new_first_layer.weight[:, 3, ...] = original_first_layer.weight[:, 0, ...].clone()
+
+            # Replace the original first convolution layer with the new one
+            self.base.encoder.conv1 = new_first_layer
 
         ## Define the preprocessing function that the data needs to be applied to
         self.preprocessing_func = smp.encoders.get_preprocessing_fn(encoder_name, pretrained=pretrained)
@@ -366,6 +430,19 @@ class LandCoverUNet(pl.LightningModule):
 
         ## Add info dict with some info: epochs, PL version, .. 
         self.dict_training_details = {}  # can be added post hoc once train dataset is defined
+
+    def forward(self, x):
+        return self.base(x)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        logits = self(x)
+        loss = self.loss_func(logits, y)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        return optimizer
 
     def __str__(self):
         """Define name"""
